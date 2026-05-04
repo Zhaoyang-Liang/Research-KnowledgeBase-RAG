@@ -1,0 +1,96 @@
+{
+  "card_id": "K020",
+  "version": "v2",
+  "title": "SlotToCoeff (S2C) 方向与 U_n^{-1} 逆变换推导",
+  "source_id": "src_000020",
+  "source_relative_path": "01_源文件库/04_FHE核心技术模块/重要：slotToCeff一个密文变两个.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "CoeffToSlot, U_n^{-1}, 共轭, 实部虚部"
+  },
+  "category": "FHE核心技术模块",
+  "subtopic": "CKKS/CoeffToSlot",
+  "chinese_summary": "CoeffToSlot是SlotToCoeff的逆操作：从slot值恢复多项式系数。关键步骤：(1)slot复数向量乘U_n^{-1}得复系数向量；(2)利用共轭对称性将N个复数压缩为N/2个实系数+虚部→两个实系数多项式。同态实现中CoeffToSlot比SlotToCoeff更复杂，因为它需要处理U_n^{-1}的乘法、共轭提取、实部/虚部分离等多步操作。",
+  "knowledge_points": [
+    {
+      "id": "K020-1",
+      "concept": "CoeffToSlot的目标",
+      "formula": "coeff=U_n^{-1}·slot",
+      "meaning": "从slot值恢复多项式系数。U_n^{-1}乘以slot复数向量得N个复数系数。"
+    },
+    {
+      "id": "K020-2",
+      "concept": "共轭对称约束",
+      "formula": "coeff[−j]=conj(coeff[j])→只需N/2个独立复数",
+      "meaning": "因多项式系数是实数，复系数向量满足共轭对称→可压缩为N个实数。"
+    },
+    {
+      "id": "K020-3",
+      "concept": "实部/虚部分离",
+      "formula": "c₀=Re(coeff), c₁=Im(coeff)→两个实系数密文",
+      "meaning": "N个独立实数→拆分为N/2个实部+N/2个虚部→两个不同的多项式(两个RLWE密文)。"
+    },
+    {
+      "id": "K020-4",
+      "concept": "U_n^{-1}的同态计算",
+      "formula": "U_n^{-1}≈(1/N)·U_n^H(共轭转置)",
+      "meaning": "因U_n=(ζ^{s_i s_j})的行向量近似正交，U_n^{-1}≈(1/N)U_n^H，可用类似正向的CT分解。"
+    },
+    {
+      "id": "K020-5",
+      "concept": "一个密文变两个的原因",
+      "formula": "N个实数→N/2个复数→N/2实部+N/2虚部→两个多项式",
+      "meaning": "系数表示需要N个实数(一个多项式密文)，但slot提供N/2个复数→分解为两个多项式——每个存一半实数的加密。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "coeff=U_n^{-1}·slot",
+      "meaning": "CoeffToSlot的矩阵运算"
+    },
+    {
+      "formula": "c₀=Re(U_n^{-1}·slot), c₁=Im(U_n^{-1}·slot)",
+      "meaning": "实部密文和虚部密文的提取"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "CoeffToSlot",
+      "en": "CoeffToSlot",
+      "definition": "从slot表示恢复多项式系数的操作"
+    },
+    {
+      "term": "共轭对称",
+      "en": "conjugate symmetry",
+      "definition": "实数多项式的复求值满足v[−j]=conj(v[j])"
+    },
+    {
+      "term": "U_n^{-1}",
+      "en": "U_n inverse",
+      "definition": "典范嵌入矩阵的逆矩阵"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "Vandermonde矩阵逆",
+    "RLWE_lattice": "-",
+    "FHE_technique": "Bootstrapping核心组件",
+    "current_paper": "PaCo的slot恢复到系数环节"
+  },
+  "claim_source_type": "我的笔记 + PaCo翻译精读",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "atomic_questions": [
+    "QA-K020-1",
+    "QA-K020-2",
+    "QA-K020-3",
+    "QA-K020-4",
+    "QA-K020-5"
+  ],
+  "rag_ingestion_suggestion": "极高优先级，PaCo bootstrapping核心",
+  "normalized_direction": "slot_to_coeff",
+  "normalized_name": "S2C / SlotToCoeff",
+  "original_note_convention": "CoeffToSlot反向（原笔记命名，与全库统一术语S2C方向相同，但命名相反）",
+  "batch": "Batch-01",
+  "publish_target": "03_FHE知识库",
+  "notes": "⚠️ C2S/S2C术语审计修正：原笔记标题CoeffToSlot实际讨论的是coeff=U_n^{-1}·slot方向→归入S2C。"
+}

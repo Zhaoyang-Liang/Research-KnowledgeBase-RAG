@@ -1,0 +1,28 @@
+{
+  "card_id": "K042",
+  "title": "CKKS coefficient view与slot view：Vandermonde变换与两种表示",
+  "topic": "CKKS/编码/coefficient vs slot",
+  "knowledge_points": [
+    "coefficient view：多项式m(X)=Σa_iX^i，用系数向量(a_0,...,a_{N-1})表示。系数为整数（最终可加密形式）。",
+    "slot view：m在N个单位根处的取值(m(ζ^{s_0}),...,m(ζ^{s_{N-1}}))。值为复数。这是解码方向看到的表示。",
+    "两种表示之间的变换：slot = U_n·coeff（Vandermonde矩阵乘法），coeff = U_n^{-1}·slot（逆Vandermonde）。",
+    "U_n是N×N Vandermonde矩阵：(U_n)_{i,j}=ζ^{s_i·s_j}。已知在互不相同单位根处求值→U_n可逆→变换是双射。",
+    "CKKS编码从slot view出发：用户指定想要的slot值→通过σ^{-1}(=U_n^{-1})反推coefficient→得到多项式。",
+    "CKKS解码回到slot view：m(X)→σ→(m(ζ^{s_j}))→取前N/2个独立槽→≈原始消息。"
+  ],
+  "card_type": "concept",
+  "source_id": "src_000066",
+  "claim_source_type": "用户笔记",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "document_role": "directly_related",
+  "read_depth": "deep_read",
+  "publish_target": "03_FHE知识库",
+  "notes": "K018已覆盖τ_n正向和U_n定义。K042补充coefficient/slot两种视角的对称性和变换关系。",
+  "related_cards": [
+    "K018",
+    "K036"
+  ],
+  "cross_reference": "K018(Y-X): τ_n和U_n矩阵；K036(Y-X): τ_n正向推导(翻译笔记)。K042解释coefficient/slot两种表示之间的Vandermonde变换关系。",
+  "confidence": "high"
+}

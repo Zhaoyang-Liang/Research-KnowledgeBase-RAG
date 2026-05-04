@@ -1,0 +1,10 @@
+{
+  "qa_id": "Q118",
+  "question": "BGV中fully packed和sparse packed在bootstrapping中有什么区别？",
+  "answer": "sparse packed下每个slot已经独立（一个slot=一个plaintext element），CoeffToSlot后可以直接digit extraction。fully packed下slot被分组为E-slot（grouped slots），必须先unpack将E-slot拆为标量slot，digit extraction后再repack重组。unpack/repack增加了额外成本，但fully packing提供更高的吞吐量。",
+  "card_id": "K038",
+  "source_id": "src_000059",
+  "source_type": "lecture_notes",
+  "batch": "Batch-04",
+  "created": "2026-05-04T14:30"
+}

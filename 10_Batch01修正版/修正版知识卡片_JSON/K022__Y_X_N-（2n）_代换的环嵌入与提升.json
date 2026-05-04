@@ -1,0 +1,90 @@
+{
+  "card_id": "K022",
+  "version": "v2",
+  "title": "Y=X^{N/(2n)}代换的环嵌入与提升",
+  "source_id": "src_000022",
+  "source_relative_path": "01_源文件库/04_FHE核心技术模块/多项式幂次代换与提升.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "Y=X^{N/(2n)}, 环嵌入, 提升"
+  },
+  "category": "FHE核心技术模块",
+  "subtopic": "CKKS/编码环嵌入",
+  "chinese_summary": "当需要使用不同环大小n时（n≠N/2），可通过变量代换Y=X^{N/(2n)}将小环R_n=Z[Y]/(Y^{2n}+1)嵌入到大环R=Z[X]/(X^N+1)中。这使不同参数n的编码统一到大环N上处理。嵌入是环同态：a(Y)↦a(X^{N/(2n)})，保持加法和乘法。此技术在field switching中用于统一不同子环的编码，使子环之间的切换只需调整指数映射。",
+  "knowledge_points": [
+    {
+      "id": "K022-1",
+      "concept": "环嵌入的构造",
+      "formula": "ι: Z[Y]/(Y^{2n}+1)→Z[X]/(X^N+1), Y↦X^{N/(2n)}",
+      "meaning": "将小环多项式a(Y)替换Y=X^{N/(2n)}嵌入大环。需2n|N。"
+    },
+    {
+      "id": "K022-2",
+      "concept": "嵌入是环同态",
+      "formula": "ι(a+b)=ι(a)+ι(b), ι(a·b)=ι(a)·ι(b)",
+      "meaning": "嵌入保持环运算→密文的同态运算在大环中一致。"
+    },
+    {
+      "id": "K022-3",
+      "concept": "大环到小环的投影",
+      "formula": "Tr(f(X))=Σ_{j=0}^{N/(2n)-1} f(X·ζ_{2n}^j), 迹降维",
+      "meaning": "从大环密文投影回小环用迹。这就是field switching中Tr_{n→B}的一种实现。"
+    },
+    {
+      "id": "K022-4",
+      "concept": "field switching中的应用",
+      "formula": "不同n的CKKS密文→统一N环→操作→Tr投影→返回",
+      "meaning": "统一编码后可在不同参数间切换，避免多次自举。"
+    },
+    {
+      "id": "K022-5",
+      "concept": "与多项式打包(packing)的关系",
+      "formula": "小环多项式的packing→大环槽的子集",
+      "meaning": "大环的槽可被分区分配给不同小环，实现多参数融合计算。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "Y=X^{N/(2n)}: Z[Y]/(Y^{2n}+1)↪Z[X]/(X^N+1)",
+      "meaning": "环嵌入公式"
+    },
+    {
+      "formula": "Tr_{N→n}(f)=Σ_{j=0}^{N/(2n)-1}f(X·ζ_{2n}^j)",
+      "meaning": "大环→小环的迹降维"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "环嵌入",
+      "en": "ring embedding",
+      "definition": "一个多项式环到另一个多项式环的单同态"
+    },
+    {
+      "term": "提升",
+      "en": "lifting",
+      "definition": "将小环元素嵌入到大环中"
+    },
+    {
+      "term": "多项式幂次代换",
+      "en": "polynomial power substitution",
+      "definition": "通过变量X→X^k实现的环同态"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "环同态与嵌入",
+    "RLWE_lattice": "-",
+    "FHE_technique": "field switching的多环统一",
+    "current_paper": "field switching中不同子环之间的转换"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K022-1",
+    "QA-K022-2",
+    "QA-K022-3",
+    "QA-K022-4",
+    "QA-K022-5"
+  ],
+  "rag_ingestion_suggestion": "高优先级，field switching技术基础"
+}

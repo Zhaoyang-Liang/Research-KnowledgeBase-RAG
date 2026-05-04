@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q130",
+  "card_id": "K043",
+  "source_id": "src_000067",
+  "question": "CKKS编码中LLL算法的作用是什么？",
+  "answer": "当目标复数不能精确表示为ζ^i的整数组合时，需要在近似表示中选择系数较小的解。LLL约化基向量（使基更短、更接近正交），帮助找到既逼近目标复数、系数又尽量小的整数组合。系数小→同态计算噪声小。论文明确写'用LLL求小系数a_i'。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "created": "2026-05-04T14:52"
+}

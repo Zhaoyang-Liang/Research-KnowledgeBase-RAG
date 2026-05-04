@@ -1,0 +1,614 @@
+\documentclass[12pt,a4paper]{ctexart}
+
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{mathrsfs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{tikz-cd}
+\usepackage{fancyhdr}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{LWE 与最坏情况格问题归约复习}
+\fancyhead[R]{\thepage}
+
+\setlength{\parskip}{0.4em}
+\setlength{\parindent}{2em}
+
+\newtheorem{definition}{定义}[section]
+\newtheorem{proposition}[definition]{命题}
+\newtheorem{lemma}[definition]{引理}
+\newtheorem{theorem}[definition]{定理}
+\newtheorem{remark}[definition]{注}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\T}{\mathbb{T}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\vol}{\mathrm{vol}}
+\newcommand{\dist}{\mathrm{dist}}
+\newcommand{\supp}{\mathrm{supp}}
+\newcommand{\dual}{^{*}}
+\newcommand{\ip}[2]{\left\langle #1,#2\right\rangle}
+\newcommand{\norm}[1]{\left\lVert #1\right\rVert}
+\newcommand{\qedherecustom}{\hfill$\square$}
+
+\title{LWE 与最坏情况格问题归约复习提纲\\
+\large 以 \texorpdfstring{$f_s(x)\approx \mathrm{Uniform}+\mathrm{Fourier\ bias}$}{fs(x) approx Uniform + Fourier bias} 与量化推导为主线}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{归约命题与整体框架}
+
+\subsection{归约目标（Regev 2005）}
+
+LWE（Learning With Errors）困难性的核心理论基础是如下归约命题：
+
+\begin{quote}
+若存在一个多项式时间算法能够解决平均情况的 LWE（判定版或搜索版），则存在一个量子多项式时间算法能够解决某些最坏情况格问题（例如 GapSVP、SIVP 的近似版本）。
+\end{quote}
+
+形式化写作
+\[
+\text{Worst-case lattice problem}
+\;\leq_{\text{quantum}}\;
+\text{Average-case LWE}.
+\]
+
+这说明 LWE 的安全性并非仅来自“随机实例难”，而是与最坏情况格问题的困难性相联系。
+
+\subsection{归约主线结构}
+
+本文以如下主线组织复习内容：
+\[
+\text{格 }L
+\;\longrightarrow\;
+\text{连续模格高斯 }D_{\R^n/L,s}
+\;\longrightarrow\;
+\text{Poisson/Fourier 展开}
+\]
+\[
+\longrightarrow\;
+f_s(x)=\text{Uniform}+\text{Fourier bias}
+\;\longrightarrow\;
+a=\lfloor qx\rfloor \bmod q
+\;\longrightarrow\;
+\text{离散 Fourier 结构}
+\;\longrightarrow\;
+\text{LWE}.
+\]
+
+其中最关键的两步是：
+
+\begin{enumerate}[label=\arabic*.]
+    \item 从 Poisson 求和推出
+    \[
+    f_s(x)\approx \text{Uniform}+\text{Fourier bias};
+    \]
+    \item 证明量化（rounding）之后，连续高斯模格分布不再以“高斯形状”出现，而是变成
+    \[
+    \text{Uniform}+\text{discrete Fourier bias}.
+    \]
+\end{enumerate}
+
+\section{基本对象与记号}
+
+\subsection{格与对偶格}
+
+\begin{definition}[格]
+设 \(b_1,\dots,b_n\in \R^n\) 线性无关，则由它们生成的格定义为
+\[
+L=\left\{\sum_{i=1}^n z_i b_i: z_i\in \Z\right\}.
+\]
+\end{definition}
+
+\begin{definition}[对偶格]
+格 \(L\subset \R^n\) 的对偶格定义为
+\[
+L\dual=\{w\in \R^n:\ip{w}{y}\in \Z,\ \forall y\in L\}.
+\]
+\end{definition}
+
+记格的基本域体积为 \(\det L\)。
+
+\subsection{高斯函数与分布}
+
+定义连续高斯核
+\[
+\rho_s(x)=e^{-\pi \norm{x}^2/s^2},\qquad x\in \R^n.
+\]
+当 \(A\subseteq \R^n\) 为离散集合时，记
+\[
+\rho_s(A)=\sum_{x\in A}\rho_s(x).
+\]
+
+离散高斯分布 \(D_{L,s}\) 定义为
+\[
+\Pr[Y=y]=\frac{\rho_s(y)}{\rho_s(L)},\qquad y\in L.
+\]
+
+\subsection{LWE 分布}
+
+给定模数 \(q\)、维度 \(n\)、秘密 \(s\in \Z_q^n\) 和误差分布 \(\chi\)，LWE 样本定义为
+\[
+(a,b)\in \Z_q^n\times \Z_q,\qquad
+b=\ip{a}{s}+e \pmod q,\quad e\sim \chi,
+\]
+其中 \(a\) 通常均匀分布于 \(\Z_q^n\)。
+
+\section{连续模格高斯与 Poisson 展开}
+
+\subsection{连续模格高斯密度定义}
+
+定义在商空间 \(\R^n/L\)（也可视为某个基本域上）的连续模格高斯密度为
+\[
+f_s(x)=\frac{1}{s^n}\sum_{y\in L}\rho_s(x+y),\qquad x\in \R^n/L.
+\]
+这里 \(x\) 的实际代表元并不重要，重要的是等价类 \(x\bmod L\)。
+
+\subsection{采样视角与等价表示}
+
+若先采样
+\[
+z\sim D_{\R^n,s}
+\]
+再取
+\[
+x=z\bmod L,
+\]
+则所得 \(x\) 的分布正是 \(D_{\R^n/L,s}\)，其密度即为 \(f_s(x)\)。
+
+\subsection{Poisson 求和公式}
+
+我们将使用如下形式的 Poisson 求和公式：
+\[
+\sum_{y\in L} g(x+y)=\frac{1}{\det L}\sum_{w\in L\dual}\widehat{g}(w)e^{2\pi i\ip{w}{x}},
+\]
+其中 \(\widehat{g}\) 是 \(g\) 的 Fourier 变换。
+
+对 \(g(x)=\rho_s(x)\) 而言，有
+\[
+\widehat{\rho_s}(w)=s^n \rho_{1/s}(w).
+\]
+因此得到
+\[
+\sum_{y\in L}\rho_s(x+y)
+=
+\frac{s^n}{\det L}\sum_{w\in L\dual}\rho_{1/s}(w)e^{2\pi i\ip{w}{x}}.
+\]
+两边同除以 \(s^n\)，便得
+\[
+f_s(x)
+=
+\frac{1}{\det L}\sum_{w\in L\dual}\rho_{1/s}(w)e^{2\pi i\ip{w}{x}}.
+\]
+这就是后续所有分析的起点。
+
+\subsection{Poisson 公式在本问题中的单独推导}
+
+本节单独推导上式，因为它是整个复习中的关键桥梁。
+
+\subsubsection*{第一步：从一般 Poisson 求和出发}
+
+对足够良好的函数 \(g:\R^n\to \mathbb{C}\)，Poisson 求和公式给出
+\[
+\sum_{y\in L} g(x+y)
+=
+\frac{1}{\det L}\sum_{w\in L\dual}\widehat{g}(w)e^{2\pi i\ip{w}{x}}.
+\]
+这里 Fourier 变换按如下约定：
+\[
+\widehat{g}(w)=\int_{\R^n} g(t)e^{-2\pi i\ip{w}{t}}\,dt.
+\]
+
+\subsubsection*{第二步：取 \(g=\rho_s\)}
+
+取
+\[
+g(t)=\rho_s(t)=e^{-\pi \norm{t}^2/s^2}.
+\]
+标准高斯 Fourier 变换公式告诉我们
+\[
+\widehat{\rho_s}(w)=s^n e^{-\pi s^2 \norm{w}^2}=s^n \rho_{1/s}(w).
+\]
+
+\subsubsection*{第三步：代回 Poisson 公式}
+
+于是
+\[
+\sum_{y\in L}\rho_s(x+y)
+=
+\frac{1}{\det L}
+\sum_{w\in L\dual}
+\left(s^n\rho_{1/s}(w)\right)e^{2\pi i\ip{w}{x}}.
+\]
+即
+\[
+\sum_{y\in L}\rho_s(x+y)
+=
+\frac{s^n}{\det L}\sum_{w\in L\dual}\rho_{1/s}(w)e^{2\pi i\ip{w}{x}}.
+\]
+
+\subsubsection*{第四步：恢复 \(f_s(x)\)}
+
+由于
+\[
+f_s(x)=\frac{1}{s^n}\sum_{y\in L}\rho_s(x+y),
+\]
+故
+\[
+f_s(x)
+=
+\frac{1}{\det L}\sum_{w\in L\dual}\rho_{1/s}(w)e^{2\pi i\ip{w}{x}}.
+\]
+推导完成。
+
+\paragraph{说明}
+这个公式的意义在于：连续模格高斯分布在位置空间中的周期结构，可以完全转写为对偶格上的 Fourier 模式之和。也正因此，对偶格中的短向量会在分布中留下“低频偏移”。
+
+\section{核心结论一：\texorpdfstring{$f_s(x)=\mathrm{Uniform}+\mathrm{Fourier\ bias}$}{fs(x)=Uniform+Fourier bias}}
+
+本节是全文第一条主线。
+
+\subsection{分离零频率项}
+
+由
+\[
+f_s(x)
+=
+\frac{1}{\det L}\sum_{w\in L\dual}\rho_{1/s}(w)e^{2\pi i\ip{w}{x}},
+\]
+将 \(w=0\) 项单独提出：
+\[
+f_s(x)
+=
+\frac{1}{\det L}\rho_{1/s}(0)
++
+\frac{1}{\det L}\sum_{w\in L\dual\setminus\{0\}}
+\rho_{1/s}(w)e^{2\pi i\ip{w}{x}}.
+\]
+因为 \(\rho_{1/s}(0)=1\)，故
+\[
+f_s(x)
+=
+\frac{1}{\det L}
++
+\frac{1}{\det L}\sum_{w\in L\dual\setminus\{0\}}
+\rho_{1/s}(w)e^{2\pi i\ip{w}{x}}.
+\]
+
+\subsection{均匀项的解释}
+
+常数项
+\[
+\frac{1}{\det L}
+\]
+恰是基本域上的均匀密度，因为基本域体积即为 \(\det L\)。
+
+因此：
+\[
+\text{主项}=\text{Uniform density on }\R^n/L.
+\]
+
+\subsection{Fourier 偏移项的解释}
+
+剩余项
+\[
+\Delta(x)=
+\frac{1}{\det L}\sum_{w\in L\dual\setminus\{0\}}
+\rho_{1/s}(w)e^{2\pi i\ip{w}{x}}
+\]
+即为非零频率模式的叠加。它表示分布相较于完全均匀分布的偏离，因此称之为 Fourier bias。
+
+\subsection{结论形式}
+
+所以严格地说，
+\[
+f_s(x)
+=
+\underbrace{\frac{1}{\det L}}_{\text{Uniform}}
++
+\underbrace{
+\frac{1}{\det L}\sum_{w\in L\dual\setminus\{0\}}
+\rho_{1/s}(w)e^{2\pi i\ip{w}{x}}
+}_{\text{Fourier bias}}.
+\]
+这就是
+\[
+f_s(x)=\mathrm{Uniform}+\mathrm{Fourier\ bias}
+\]
+的精确来源：它不是启发式说法，而是 Poisson 展开中将零频率项与非零频率项分离后的严格表达。
+
+\section{平滑参数（Smoothing Parameter）复习}
+
+本节单列复习，因为它是控制 Fourier bias 总量、保证近似均匀性的核心工具。
+
+\subsection{定义}
+
+\begin{definition}[平滑参数]
+给定格 \(L\subset \R^n\) 和 \(\eps>0\)，其平滑参数 \(\eta_\eps(L)\) 定义为满足
+\[
+\rho_{1/s}(L\dual\setminus\{0\})=\sum_{w\in L\dual\setminus\{0\}} \rho_{1/s}(w)\le \eps
+\]
+的最小 \(s\)（精确地说是下确界）：
+\[
+\eta_\eps(L)
+=
+\inf\left\{
+s>0:
+\sum_{w\in L\dual\setminus\{0\}}\rho_{1/s}(w)\le \eps
+\right\}.
+\]
+\end{definition}
+
+\subsection{基本解释}
+
+平滑参数衡量的是：当高斯参数 \(s\) 足够大时，对偶格上的非零频率总质量会被压得多小。
+
+换言之，当 \(s\ge \eta_\eps(L)\) 时，对偶格上的非零 Fourier 模式总贡献不超过 \(\eps\)。
+
+\subsection{基本性质}
+
+\begin{enumerate}[label=\arabic*.]
+    \item \textbf{单调性：} 若 \(s_1\le s_2\)，则
+    \[
+    \rho_{1/s_2}(L\dual\setminus\{0\})\le \rho_{1/s_1}(L\dual\setminus\{0\}).
+    \]
+    \item \textbf{尺度变换：} 对任意 \(\alpha>0\)，有
+    \[
+    \eta_\eps(\alpha L)=\alpha \eta_\eps(L).
+    \]
+    \item \textbf{与对偶格短向量的关系：} 若 \(L\dual\) 存在很短的非零向量，则需要更大的 \(s\) 才能把 Fourier 尾部压小。
+\end{enumerate}
+
+\subsection{与近似均匀性的关系}
+
+若 \(s\ge \eta_\eps(L)\)，则对任意 \(x\in \R^n/L\)，有
+\[
+\left|
+f_s(x)-\frac{1}{\det L}
+\right|
+\le
+\frac{1}{\det L}\sum_{w\in L\dual\setminus\{0\}}\rho_{1/s}(w)
+\le
+\frac{\eps}{\det L}.
+\]
+因此
+\[
+f_s(x)\approx \frac{1}{\det L},
+\]
+即连续模格高斯分布接近基本域上的均匀分布。
+
+\subsection{本归约中的作用}
+
+平滑参数的作用可以总结为：
+
+\begin{enumerate}[label=\arabic*.]
+    \item 控制非零 Fourier 项总量；
+    \item 保证 \(f_s(x)\) 接近均匀；
+    \item 为后续量化后的 \(a\) 近似均匀提供基础。
+\end{enumerate}
+
+\section{核心结论二：量化后的离散分布推导}
+
+本节是全文第二条主线。目标是解释：为什么经过 rounding/quantization 之后，原本的连续模格高斯分布不再以“高斯形状”出现，而是变成离散 Fourier 结构。
+
+\subsection{量化映射定义}
+
+设
+\[
+a=\lfloor qx\rfloor \bmod q.
+\]
+在多维情形中，这是逐坐标定义的，故 \(a\in \Z_q^n\)。
+
+\subsection{一维情况的严格推导}
+
+先考虑一维，设 \(X\) 是定义在 \([0,1)\) 上的随机变量，密度为 \(f(x)\)，定义
+\[
+A=\lfloor qX\rfloor,\qquad A\in \{0,1,\dots,q-1\}.
+\]
+则
+\[
+\Pr[A=r]
+=
+\int_{r/q}^{(r+1)/q} f(x)\,dx.
+\]
+这是因为事件 \(A=r\) 恰对应 \(X\in [r/q,(r+1)/q)\)。
+
+\subsection{代入 Fourier 展开}
+
+若
+\[
+f(x)=1+\sum_{t\neq 0}\widehat{f}(t)e^{2\pi i t x},
+\]
+则
+\[
+\Pr[A=r]
+=
+\int_{r/q}^{(r+1)/q}
+\left(
+1+\sum_{t\neq 0}\widehat{f}(t)e^{2\pi i t x}
+\right)\,dx.
+\]
+拆分后得
+\[
+\Pr[A=r]
+=
+\frac{1}{q}
++
+\sum_{t\neq 0}\widehat{f}(t)
+\int_{r/q}^{(r+1)/q}e^{2\pi i t x}\,dx.
+\]
+
+\subsection{计算指数项积分}
+
+对任意 \(t\neq 0\)：
+\[
+\int_{r/q}^{(r+1)/q}e^{2\pi i t x}\,dx
+=
+e^{2\pi i tr/q}\int_0^{1/q}e^{2\pi i t u}\,du
+=
+e^{2\pi i tr/q}\cdot \frac{e^{2\pi i t/q}-1}{2\pi i t}.
+\]
+故
+\[
+\Pr[A=r]
+=
+\frac{1}{q}
++
+\sum_{t\neq 0}
+\widehat{f}(t)\,
+e^{2\pi i tr/q}\,
+\frac{e^{2\pi i t/q}-1}{2\pi i t}.
+\]
+
+\subsection{结论：离散 Fourier 结构}
+
+上式说明，量化后的分布不是“仍然保持高斯形状”，而是
+\[
+\Pr[A=r]
+=
+\underbrace{\frac{1}{q}}_{\text{Uniform}}
++
+\underbrace{
+\sum_{t\neq 0}
+\widehat{f}(t)\,
+e^{2\pi i tr/q}\,
+\frac{e^{2\pi i t/q}-1}{2\pi i t}
+}_{\text{discrete Fourier bias}}.
+\]
+
+\subsection{多维情况}
+
+若
+\[
+a=\lfloor qx\rfloor \bmod q,\qquad a\in \Z_q^n,
+\]
+则对每个 \(a\in \Z_q^n\) 有
+\[
+\Pr[A=a]
+=
+\int_{a/q+[0,1/q)^n} f_s(x)\,dx.
+\]
+若
+\[
+f_s(x)=\frac{1}{\det L}+\sum_{w\neq 0} c_w e^{2\pi i\ip{w}{x}},
+\]
+代入可得
+\[
+\Pr[A=a]
+=
+\frac{1}{q^n}
++
+\sum_{w\neq 0}
+c_w\,
+e^{2\pi i\ip{w}{a}/q}\,
+K_q(w),
+\]
+其中
+\[
+K_q(w)=
+\int_{[0,1/q)^n}
+e^{2\pi i\ip{w}{u}}\,du.
+\]
+因此多维下同样得到
+\[
+\text{quantized distribution}
+=
+\text{Uniform}
++
+\text{discrete Fourier bias}.
+\]
+
+\subsection{为什么说 rounding “打破”了高斯结构}
+
+准确地说，rounding 并不是“把信息消掉”，而是将连续密度通过一个非线性的、分箱式（binning）的推前映射
+\[
+x\mapsto \lfloor qx\rfloor \bmod q
+\]
+压缩成有限离散分布。高斯分布对线性变换封闭，但对这种非线性的 floor/round 操作并不封闭，因此量化后保留下来的结构不再是“钟形曲线”，而是每个小箱子上的概率质量。对于 periodic Gaussian，这些概率质量自然以离散 Fourier 形式表达。
+
+\section{从 Fourier bias 到 LWE 分布}
+
+在归约中，量化后得到的离散 Fourier 偏差会进一步转写为 LWE 形式。直观上：
+
+\begin{itemize}
+    \item 连续空间中的频率项
+    \[
+    e^{2\pi i\ip{w}{x}}
+    \]
+    经过量化后，变成关于 \(a\in \Z_q^n\) 的离散相位
+    \[
+    e^{2\pi i\ip{w}{a}/q}.
+    \]
+    \item 当这种相位结构与高斯平滑结合时，可以等价地写成带噪声的线性关系
+    \[
+    b=\ip{a}{s}+e \pmod q.
+    \]
+\end{itemize}
+
+因此，LWE 的本质可以概括为：
+
+\begin{quote}
+线性相位结构在模 \(q\) 离散化和高斯模糊之后，表现为“线性函数 + 小噪声”的样本。
+\end{quote}
+
+\section{利用 LWE 判定器完成归约}
+
+若存在一个算法可以区分：
+
+\begin{enumerate}[label=\arabic*.]
+    \item 完全均匀分布；
+    \item 含有某个隐藏线性频率结构的分布；
+\end{enumerate}
+则该算法就可以检测是否存在显著的对偶格频率项，也即是否存在某些短对偶向量。进一步结合归约构造，可以把这种检测能力转化为对某些最坏情况格问题（如 GapSVP、SIVP 近似版）的求解能力。
+
+\section{关键概念总结}
+
+\begin{enumerate}[label=\arabic*.]
+    \item \textbf{LWE 的本质：} 线性相位 + 高斯模糊。
+    \item \textbf{\(a\) 的分布：} 近似均匀，而不是高斯。
+    \item \textbf{bias 来源：} 对偶格中的短向量。
+    \item \textbf{\(b\) 的本质：} 对隐藏 Fourier 结构的观测变量。
+    \item \textbf{噪声来源：} Fourier Gaussian 与离散化共同作用。
+    \item \textbf{\(x\) 的角色：} 连接“连续模格高斯”与“离散 LWE 样本”的桥梁变量；只需关心其模格等价类。
+\end{enumerate}
+
+\section{复习重点建议}
+
+本文复习的优先级建议如下：
+
+\begin{enumerate}[label=\arabic*.]
+    \item 首先掌握 Poisson 公式在本问题中的具体推导；
+    \item 其次掌握
+    \[
+    f_s(x)=\mathrm{Uniform}+\mathrm{Fourier\ bias}
+    \]
+    的严格分解；
+    \item 再掌握量化后离散分布的推前公式与 discrete Fourier bias；
+    \item 单独复习平滑参数及其性质；
+    \item 最后再回到 LWE 形式本身，理解为什么这些 Fourier 结构会转写为
+    \[
+    b=\ip{a}{s}+e \pmod q.
+    \]
+\end{enumerate}
+
+\end{document}

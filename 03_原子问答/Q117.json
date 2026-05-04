@@ -1,0 +1,10 @@
+{
+  "qa_id": "Q117",
+  "question": "BGV中digit extraction的原理是什么？",
+  "answer": "在CoeffToSlot之后，密文被转换为slot表示，每个slot中存储的是noisy plaintext（消息+噪声，以p^e为模）。digit extraction在每个slot上独立进行：逐步提升每个digit位到一个更高模数，然后逐digit相减移除噪声的高位部分。关键它利用了CRT分解后的逐槽独立性和p^e-adic数字表示。",
+  "card_id": "K038",
+  "source_id": "src_000059",
+  "source_type": "lecture_notes",
+  "batch": "Batch-04",
+  "created": "2026-05-04T14:30"
+}

@@ -1,0 +1,40 @@
+{"card_id": "K030", "title": "CKKS编码的逆变换τ_n^{-1}: 复向量到多项式的完整推导", "batch": "Batch-03", "confidence": "medium", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K031", "title": "SlotToCoeff在密文态下的语义：表示切换的完整过程", "batch": "Batch-03", "confidence": "medium", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K032", "title": "C^B到C^n的嵌入与编码保持性质", "batch": "Batch-03", "confidence": "medium", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K033", "title": "PaCo算法结构：参数依赖图与索引系统", "batch": "Batch-03", "confidence": "medium", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K034", "title": "CKKS中的Trace和Product操作及同态内积计算", "batch": "Batch-03", "confidence": "high", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K035", "title": "CKKS中5作为单位根生成元的数论性质", "batch": "Batch-03", "confidence": "high", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K036", "title": "典范嵌入正向τ_n(p(Y)): 多项式到复向量的完整推导", "batch": "Batch-03", "confidence": "high", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K037", "title": "BGV/BFV Bootstrapping讲义总览：229页系统教程", "batch": "Batch-04", "confidence": "?", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K038", "title": "BGV Bootstrapping完整流程：6阶段与关键步骤", "batch": "Batch-04", "confidence": "?", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K039", "title": "CKKS编码管线：从复数向量到多项式（σ^{-1}全流程）", "batch": "Batch-05a1", "confidence": "high", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K040", "title": "π^{-1}共轭补全与σ^{-1}插值：CKKS编码的两个核心子步骤", "batch": "Batch-05a1", "confidence": "high", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K041", "title": "CKKS complex slot与BGV/BFV CRT slot的本质区别", "batch": "Batch-05a1", "confidence": "medium", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K042", "title": "CKKS coefficient view与slot view：Vandermonde变换与两种表示", "batch": "Batch-05a1", "confidence": "high", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K043", "title": "CKKS编码toy example：用Z[X]/(X^4+1)编码复数2+i和1.60+0.90i", "batch": "Batch-05a1", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K044", "title": "SlotToCoeff与CoeffToSlot：BGV/BFV槽-系数双表示转换", "batch": "Batch-05a2", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K045", "title": "C2S/S2C作为线性变换T的数学结构与矩阵表示", "batch": "Batch-05a2", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K046", "title": "M→U_ℓ→M^{-1}三步分解管线：C2S/S2C的层次化实现", "batch": "Batch-05a2", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K047", "title": "M矩阵：槽内局部基统一化与Frobenius算子展开", "batch": "Batch-05a2", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K048", "title": "U_ℓ矩阵：块Fourier/Vandermonde结构与FFT-like分解", "batch": "Batch-05a2", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K049", "title": "C2S/S2C在CKKS bootstrapping与当前论文中的位置", "batch": "Batch-05a2", "confidence": "medium", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K050", "title": "SIMD编码：CRT分解与槽并行计算（BGV/BFV context）", "batch": "Batch-05a3", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K051", "title": "Slot编号的群论基础：Frobenius轨道、Z_m^*/⟨p⟩与Slot Permutation", "batch": "Batch-05a3", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K052", "title": "τ_j自同构：多项式变量替换a(X)↦a(X^j)的数学结构与槽视角", "batch": "Batch-05a3", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K053", "title": "DFT/FFT/NTT定义与区别：复数域vs有限域vs快速算法", "batch": "Batch-05a3", "confidence": "low", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K054", "title": "Vandermonde矩阵、DFT矩阵、典范嵌入矩阵的关系与区别", "batch": "Batch-05a3", "confidence": "low", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K055", "title": "Ψ_{n,i}:K_n→L_i嵌入与第一同构定理：为什么槽里能放小域元素", "batch": "Batch-05a3", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K056", "title": "FHE方案总览：Gentry09 / BGV / BFV / CKKS 定义、公式与对比", "batch": "Batch-05b1", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K057", "title": "BGV vs BFV本质区别：消息低位高位、模数切换重缩放", "batch": "Batch-05b1", "confidence": "medium", "needs_human_review": true, "review_policy": "-"}
+{"card_id": "K058", "title": "FHE同态计算完整流程：乘法→重线性化→模数切换/重缩放→解密", "batch": "Batch-05b1", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K059", "title": "密钥切换定义与三种典型场景", "batch": "Batch-05b1", "confidence": "medium", "needs_human_review": false, "review_policy": "-"}
+{"card_id": "K060", "title": "模数切换(ModSwitch)与密钥切换(KeySwitch)的本质区别", "batch": "Batch-05b1", "confidence": "medium", "needs_human_review": false, "review_policy": "review_when_used_for_paper"}
+{"card_id": "K061", "title": "模数切换(ModSwitch)与重缩放(Rescaling)的本质区别", "batch": "Batch-05b1", "confidence": "medium", "needs_human_review": false, "review_policy": "review_when_used_for_paper"}
+{"card_id": "K062", "title": "BGV/BFV/CKKS/FHE方案层与当前论文CKKS Bootstrapping的关系", "batch": "Batch-05b1", "confidence": "medium", "needs_human_review": false, "review_policy": "review_when_used_for_paper"}
+{"card_id": "K063", "title": "CKKS噪声来源总览：加密/乘法/重缩放/KeySwitch/Bootstrapping", "batch": "Batch-05b2-pre", "confidence": "medium", "needs_human_review": false, "review_policy": "review_when_used_for_paper"}
+{"card_id": "K064", "title": "KeySwitch噪声的来源、分解与上界", "batch": "Batch-05b2-pre", "confidence": "medium", "needs_human_review": false, "review_policy": "review_when_used_for_paper"}
+{"card_id": "K065", "title": "LWE与RLWE的基本关系与困难性概述", "batch": "Batch-05c", "confidence": "medium", "needs_human_review": false, "review_policy": "review_when_used_for_paper"}
+{"card_id": "K066", "title": "CVP、SVP与Babai最近平面算法的几何解释", "batch": "Batch-05c", "confidence": "medium", "needs_human_review": false, "review_policy": "review_when_used_for_paper"}
+{"card_id": "K067", "title": "LWE to SVP归约主线：从格高斯到Fourier bias再到LWE", "batch": "Batch-05c", "confidence": "medium", "needs_human_review": false, "review_policy": "review_when_used_for_paper"}
+{"card_id": "K068", "title": "重线性化与位分解（bit decomposition）的完整机制", "batch": "Batch-05c", "confidence": "medium", "needs_human_review": false, "review_policy": "review_when_used_for_paper"}
+{"card_id": "K069", "title": "Ideal Lattice与RLWE：理想格的定义、性质与安全性", "batch": "Batch-05c", "confidence": "medium", "needs_human_review": false, "review_policy": "review_when_used_for_paper"}

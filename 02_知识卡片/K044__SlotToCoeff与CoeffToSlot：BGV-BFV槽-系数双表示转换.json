@@ -1,0 +1,103 @@
+{
+  "card_id": "K044",
+  "title": "CoeffToSlot与SlotToCoeff：基于PaCo统一术语的系数-槽双表示转换",
+  "topic": "C2S/S2C/通用定义",
+  "knowledge_points": [
+    {
+      "id": "kp_1",
+      "text": "CoeffToSlot(C2S)：将系数表示(coefficient representation)同态转换为槽表示(slot representation)。在CKKS bootstrapping中（PaCo §3.6），ModRaise后将多项式系数m_i+qJ_i搬入加密slots，使EvalMod可slotwise执行。",
+      "confidence": "medium",
+      "rag_status": "ready",
+      "topic_tags": []
+    },
+    {
+      "id": "kp_2",
+      "text": "SlotToCoeff(S2C)：C2S的逆操作。将槽表示中已得到的系数信息同态转回系数多项式，生成刷新后的plaintext polynomial。PaCo证据：EvalMod后SlotToCoeff将slots中近似系数移回coefficient polynomial。两者构成互逆对。",
+      "confidence": "medium",
+      "rag_status": "ready",
+      "topic_tags": []
+    },
+    {
+      "id": "kp_3",
+      "text": "C2S/S2C≠CKKS编码/解码。CKKS编码是复数向量→多项式(σ^{-1})；C2S/S2C是同一环元素的两种表示之间的线性变换。",
+      "confidence": "medium",
+      "rag_status": "ready",
+      "topic_tags": []
+    },
+    {
+      "id": "kp_4",
+      "text": "在BGV/BFV中，槽表示来自CRT分解（每个槽=R mod不可约因子），系数表示来自原始多项式环。两者是同一数学对象的不同view。",
+      "confidence": "medium",
+      "rag_status": "ready",
+      "topic_tags": []
+    },
+    {
+      "id": "kp_5",
+      "text": "真实FHE环境中的困难：(1)看不到明文m_{i,j}；(2)每个槽内是扩域元素非简单标量；(3)不同槽的局部基({ζ_{m,i}})互不相同；(4)只能通过同态原语(rotation/automorphism/乘法/加法)间接实现。",
+      "confidence": "medium",
+      "rag_status": "ready",
+      "topic_tags": []
+    },
+    {
+      "id": "kp_6",
+      "text": "若只是明文数组重排则trivial——论文真正研究的是：在密文环境下，如何高效同态执行这个线性坐标变换。",
+      "confidence": "medium",
+      "rag_status": "ready",
+      "topic_tags": []
+    },
+    {
+      "id": "kp_7",
+      "text": "术语修正说明：知识库整理过程中发现早期笔记的C2S/S2C命名方向与PaCo论文（GHPS, Eurocrypt 2025）的语义约定相反。全库已完成审计并统一为：C2S（CoeffToSlot）= coefficient representation → slot representation，S2C（SlotToCoeff）= slot representation → coefficient representation。旧笔记中的相反命名已被完全替代，不再出现在RAG检索文本中。",
+      "confidence": "high",
+      "rag_status": "defer",
+      "topic_tags": [
+        "C2S/S2C",
+        "术语审计",
+        "方向统一"
+      ],
+      "original_note_convention": "旧笔记曾将SlotToCoeff错误关联到C2S、将CoeffToSlot错误关联到S2C。全库已修正为PaCo语义：C2S=CoeffToSlot=coefficient→slot, S2C=SlotToCoeff=slot→coefficient。"
+    }
+  ],
+  "card_type": "concept",
+  "source_id": "src_000068, src_000069, src_000071",
+  "source_relative_path": "01_源文件库/04_FHE核心技术模块/02_C2S_S2C/",
+  "claim_source_type": "用户笔记",
+  "needs_human_review": true,
+  "batch": "Batch-05a2",
+  "publish_target": "03_FHE知识库",
+  "notes": "BGV/BFV通用定义。与K019(CKKS-specific C2S=U_n·coeff)互补。",
+  "related_cards": [
+    "K019",
+    "K002"
+  ],
+  "cross_reference": "K019: CKKS C2S=U_n·coeff方向(矩阵层)；K062: CKKS context中C2S/S2C；权威依据: 05_知识关联/C2S_S2C_PaCo_术语方向说明.md",
+  "confidence": "medium",
+  "content": [
+    "CoeffToSlot(C2S)：将系数表示(coefficient representation)同态转换为槽表示(slot representation)。在CKKS bootstrapping中（PaCo §3.6），ModRaise后将多项式系数m_i+qJ_i搬入加密slots，使EvalMod可slotwise执行。",
+    "SlotToCoeff(S2C)：C2S的逆操作。将槽表示中已得到的系数信息同态转回系数多项式，生成刷新后的plaintext polynomial。PaCo证据：EvalMod后SlotToCoeff将slots中近似系数移回coefficient polynomial。两者构成互逆对。",
+    "C2S/S2C≠CKKS编码/解码。CKKS编码是复数向量→多项式(σ^{-1})；C2S/S2C是同一环元素的两种表示之间的线性变换。",
+    "在BGV/BFV中，槽表示来自CRT分解（每个槽=R mod不可约因子），系数表示来自原始多项式环。两者是同一数学对象的不同view。",
+    "真实FHE环境中的困难：(1)看不到明文m_{i,j}；(2)每个槽内是扩域元素非简单标量；(3)不同槽的局部基({ζ_{m,i}})互不相同；(4)只能通过同态原语(rotation/automorphism/乘法/加法)间接实现。",
+    "若只是明文数组重排则trivial——论文真正研究的是：在密文环境下，如何高效同态执行这个线性坐标变换。",
+    "⚠️ [2026-05-04术语修正] 原旧笔记使用SlotToCoeff(C2S)/CoeffToSlot(S2C)反向命名（C2S=slot→coeff, S2C=coeff→slot）。已按PaCo统一规范修正：C2S=CoeffToSlot=coefficient→slot, S2C=SlotToCoeff=slot→coefficient。旧命名保留在original_note_convention字段。权威依据：05_知识关联/C2S_S2C_PaCo_术语方向说明.md 及 K063。"
+  ],
+  "canonical_convention": {
+    "authority": "C2S_S2C_PaCo_术语方向说明.md (2026-05-04)",
+    "C2S": "CoeffToSlot = coefficient representation → slot representation",
+    "S2C": "SlotToCoeff = slot representation → coefficient representation",
+    "forbidden": [
+      "SlotToCoeff(C2S)",
+      "CoeffToSlot(S2C)"
+    ],
+    "note": "PaCo CKKS bootstrapping: ModRaise → CoeffToSlot → EvalMod → SlotToCoeff"
+  },
+  "original_note_convention": {
+    "old_name": "SlotToCoeff(C2S) / CoeffToSlot(S2C)",
+    "old_direction": "C2S=slot→coeff, S2C=coeff→slot (反向于PaCo规范)",
+    "status": "legacy_note_only_not_canonical",
+    "fix_date": "2026-05-04",
+    "fix_authority": "C2S_S2C_PaCo_术语方向说明.md"
+  },
+  "review_reason": "C2S/S2C术语方向已按PaCo统一规范修正，原旧笔记本命名已降级为original_note_convention",
+  "rag_status": "ready"
+}

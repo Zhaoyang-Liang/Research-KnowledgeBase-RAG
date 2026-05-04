@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q129",
+  "card_id": "K043",
+  "source_id": "src_000067",
+  "question": "CKKS编码中2+i如何编码为多项式2+X^2？",
+  "answer": "在R=Z[X]/(X^4+1)中，X对应8次单位原根ζ=e^{iπ/4}。观察到ζ^2=i→2+i=2+ζ^2→多项式m(X)=2+X^2。解码：代入X→ζ，m(ζ)=2+ζ^2=2+i。这是精确编码（恰好有整数组合对应目标复数）的特例。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "created": "2026-05-04T14:52"
+}

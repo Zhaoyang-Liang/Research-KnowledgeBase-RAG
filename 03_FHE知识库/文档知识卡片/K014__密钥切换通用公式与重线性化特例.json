@@ -1,0 +1,90 @@
+{
+  "card_id": "K014",
+  "version": "v2",
+  "title": "密钥切换通用公式与重线性化特例",
+  "source_id": "src_000013",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/密钥切换与其特例重线性化.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "KeySwitch, 重线性化, 数字分解, 基B"
+  },
+  "category": "FHE总论与基础方案",
+  "subtopic": "密钥切换/重线性化",
+  "chinese_summary": "密钥切换将密文从s₁转换到s₂（保持同一消息）。通过数字分解：c₁=Σc₁^{(i)}·B^i按基B展开d位，用预计算KSK_{s₁→s₂}={(b_i,a_i)}逐位处理。通用公式：c'₀=c₀+ΣⱼΣᵢcⱼ^{(i)}·b_{i,j}, c'₁=−ΣⱼΣᵢcⱼ^{(i)}·a_{i,j}。重线性化是k=3特例(s₁=s²,s₂=s)。基B选择Trade-off：B大→d小→快但噪声大；B小→d大→慢但噪声小。",
+  "knowledge_points": [
+    {
+      "id": "K014-1",
+      "concept": "数字分解",
+      "formula": "c₁=Σ_{i=0}^{d-1}c₁^{(i)}·B^i, c₁^{(i)}∈[0,B)",
+      "meaning": "按基B展开d=⌈log_B q⌉位。B大→d小→快；B小→d大→噪声小。"
+    },
+    {
+      "id": "K014-2",
+      "concept": "密钥切换通用公式",
+      "formula": "c'₀=c₀+ΣⱼΣᵢcⱼ^{(i)}·b_{i,j}; c'₁=−ΣⱼΣᵢcⱼ^{(i)}·a_{i,j}",
+      "meaning": "b_{i,j}加密B^i·s₁分量在s₂下。求和消除s₁贡献替换为s₂。"
+    },
+    {
+      "id": "K014-3",
+      "concept": "重线性化=密钥切换特例",
+      "formula": "s₁=s²,s₂=s,k=3,c=(c₀,c₁,c₂)",
+      "meaning": "三维密文(s²加密)→RLK消除s²→标准二维(s加密)。"
+    },
+    {
+      "id": "K014-4",
+      "concept": "切换噪声",
+      "formula": "noise_added≈Σ|c₁^{(i)}|·|e_i|≤d·B·η_ksk",
+      "meaning": "噪声正比于d和B。需权衡效率(d)与噪声(B)。"
+    },
+    {
+      "id": "K014-5",
+      "concept": "基B选择",
+      "formula": "B=2^16:d≈4-5; B=2:d≈60-1800",
+      "meaning": "B=2^16或2^32是常见折中，兼顾速度和噪声。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "c'₀=c₀+Σ_{j=2}^{k}Σ_{i=0}^{d-1}c_j^{(i)}·b_{i,j}",
+      "meaning": "密钥切换后c'₀"
+    },
+    {
+      "formula": "KeySwitch_{s^n→s}(c₀,…,c_n)→(c'₀,c'₁)",
+      "meaning": "n维→2维密钥切换"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "密钥切换",
+      "en": "Key Switching",
+      "definition": "密文从一个密钥同态转换到另一个密钥"
+    },
+    {
+      "term": "数字分解",
+      "en": "digit decomposition",
+      "definition": "大整数表示为基B的多位数字"
+    },
+    {
+      "term": "切换密钥",
+      "en": "switching key",
+      "definition": "预计算的密钥材料KSK={(b_i,a_i)}"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "-",
+    "RLWE_lattice": "噪声来源RLWE",
+    "FHE_technique": "FHE核心底层操作",
+    "current_paper": "Bootstrapping中大量使用密钥切换"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K014-1",
+    "QA-K014-2",
+    "QA-K014-3",
+    "QA-K014-4",
+    "QA-K014-5"
+  ],
+  "rag_ingestion_suggestion": "极高优先级，FHE核心技术"
+}

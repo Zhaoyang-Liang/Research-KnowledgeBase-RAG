@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q182",
+  "question": "GGH和NTRUSign签名方案为什么失败了？GPV框架如何解决？",
+  "answer": "GGH/NTRUSign 用 Babai 算法做签名：对消息哈希 m，用私钥优质基找接近的格点 v，签名 s = v−m。\n\n失败原因——平行六面体泄漏：s 不是均匀随机的，它恰好落在私钥基的平行六面体 P(B) = {Bx : −1/2 ≤ x_i < 1/2} 内。收集多个 (m,s) 对，攻击者通过协方差分析学习出平行六面体的形状，进而恢复私钥。这就是著名的 Nguyen-Regev 2006 攻击（learning the parallelepiped）。\n\nGPV 框架的解决方案：用高斯采样替代 Babai 舍入。在高斯采样下，签名 s 的分布是球面高斯（球形、与基的方向无关）。攻击者无论收集多少个签名，都只能看到球形噪声，无法反推基的形状。这实现了零知识性——签名不泄漏私钥信息。Falcon 签名方案就是 GPV 框架在 NTRU 格上的高效实现。",
+  "source_id": "src_000113, src_000114",
+  "batch": "Batch-05c",
+  "confidence": "medium",
+  "source_status": "source_preserved",
+  "needs_human_review": false,
+  "review_policy": "review_when_used_for_paper"
+}

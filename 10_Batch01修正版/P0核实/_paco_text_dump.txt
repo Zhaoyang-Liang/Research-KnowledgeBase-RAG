@@ -1,0 +1,1335 @@
+
+--- PAGE 1 ---
+PaCo : Bootstrapping for CKKS
+via Partial CoeffToSlot
+Jean-Sébastien Coron(B)and Tim Seuré
+University of Luxembourg, Esch-sur-Alzette, Luxembourg
+{jean-sebastien.coron, tim.seure}@uni.lu
+Abstract. We introduce PaCo, a novel and efficient bootstrapping proce-
+dure for the CKKShomomorphic encryption scheme, where PaCostands
+for(Bootstrapping via) Partial CoeffToSlot . At a high level, PaCorefor-
+mulates the CKKSdecryption equation in terms of blind rotations and
+modular additions. This reformulated decryption circuit is then evaluated
+homomorphically within the CKKSframework. Our approach makes use
+of the circle group in the complex plane to simulate modular additions
+via complex multiplication, and utilizes alternative polynomial ring struc-
+tures to support blind rotations. These ring structures are enabled by a
+variant of the CoeffToSlot operation, which we call a partialCoeffToSlot .
+This yields a new bootstrapping approach within CKKS, achieving a
+computational complexity which is logarithmic in the number of complex
+slots. We further introduce a parallelized variant that enables bootstrap-
+ping over all CKKSslots with enhanced throughput, highlighting PaCo’s
+suitability for practical and large-scale homomorphic applications. In
+addition to the bootstrapping technique itself, we develop several support-
+ing tools — particularly in the context of bit-reversing and alternative
+ring structures for CKKS— which can be of independent interest to
+the community. Finally, a proof-of-concept implementation confirms that
+PaCoachieves performance competitive with state-of-the-art methods for
+CKKSbootstrapping.
+Keywords: Homomorphic encryption ·Bootstrapping ·RLWE ·Lattices.
+1 Introduction
+1.1 General Overview
+Homomorphic Encryption. Homomorphic encryption ( HE) allows computa-
+tions to be performed directly on encrypted data without the need for decryption,
+thereby preserving privacy in scenarios such as outsourced data processing. Fully
+homomorphic encryption ( FHE) extends this capability by allowing the evaluation
+of arbitrary circuits on ciphertexts, a so-called homomorphic evaluation. Since
+Gentry’s foundational work in 2009 [ 20], numerous FHEschemes have emerged,
+including BGV[8],BFV[7,19], andGSW[21], all making use of lattice-based
+assumptions such as the Ring Learning With Errors ( RLWE) hardness assumption
+[28,32]. These schemes differ in their native data types: BGV/BFVoperate on
+--- PAGE 2 ---
+2 J.-S. Coron and T. Seuré
+vectors over finite fields, FHEW/TFHE[15,18] target binary data, and CKKS[14]
+supports approximate arithmetic over complex numbers.
+TheCKKSScheme. Among modern HEschemes, CKKSstands out for enabling
+approximate componentwise arithmetic on complex vectors, supporting addition,
+multiplication, conjugation, and slot rotations — ideal for real-world privacy-
+preserving applications.
+A key limitation in CKKSis that each rescaling step, necessary after every
+homomorphic multiplication of ciphertexts, consumes part of the available modu-
+lus. After a bounded number of rescaling operations, the ciphertext runs out of
+modulus, and further computation becomes impossible. Bootstrapping addresses
+this limitation [ 9,12,25] by refreshing a ciphertext to regain modulus, effectively
+enabling indefinite homomorphic computations.
+Although CKKSis designed to support approximate arithmetic on complex
+vectors z∈CN/2for some power of two N, the scheme is based on the RLWE
+problem[ 28],andthecomplexvectorsarethereforeencodedasintegerpolynomials
+m∈Z[X]/(XN+ 1)via a variant of the inverse discrete Fourier transform
+multiplied by a large integer ∆, thescaling factor . Going from a complex vector
+zto a polynomial mis called encoding , while the reverse process is called
+decoding. ACKKSencryption of a plaintext polynomial m∈Z[X]/(XN+ 1)
+(and hence of the complex vector that it encodes) is a tuple ct= (ct0,ct1)with
+cti∈Z[X]/(XN+1)satisfying the decryption equation ct0+s·ct1=m+emodq
+for a small error e∈Z[X]/(XN+ 1),i.e., with small coefficients, where the
+polynomial s∈Z[X]/(XN+ 1)is the secret key and qis a large modulus. This
+means that mcannot be recovered precisely from the ciphertext ct, hence the
+approximate nature of the scheme. The CKKSscheme supports homomorphic
+operations, including componentwise addition and multiplication of encrypted
+vectors, as well as conjugation and matrix multiplication.
+Original CKKSBootstrapping. The conventional CKKSbootstrapping pro-
+cedure [12] is based on approximating the reduction-modulo- qfunction using a
+polynomial approximation of a scaled sine function. The process begins with a
+ciphertext ct= (ct0,ct1)such that ct0+s·ct1=mmodq. For simplicity, we treat
+the inherent error as part of the message m=PN−1
+i=0miXi. The bootstrapping
+process proceeds through the following steps:
+•ModRaise : The ciphertext ctis reinterpreted under a significantly larger
+modulus Q≫q, resulting in the relation ct0+s·ct1=m′modQ, where
+m′=m+qJfor some integer polynomial J=PN−1
+i=0JiXi.
+•CoeffToSlot : A homomorphic version of the encoding process is applied to
+move the Ncoefficients of the polynomial m′into the slots of two encrypted
+vectors of length N/2(up to a scaling factor). Consequently, the slots of these
+vectors contain the integers mi+qJifori∈[0, N).
+•EvalMod : The terms qJiin the encrypted slots are removed by approximating
+the symmetric reduction-modulo- qfunction x7→[x]qwith a scaled sine
+--- PAGE 3 ---
+PaCo 3
+function, namely [x]q≈q/(2π)·sin(2πx/q )for|[x]q| ≪q. To compute siny
+fory= 2πx/q, one first evaluates the degree- dTaylor approximation of
+exp(yI/2r), where dandrare positive integers and I =√−1∈Cis the
+imaginary unit. This approximation is then raised to the 2r-th power via
+repeated squaring to approximate exp(yI), and the sine value is extracted as
+the imaginary part. When applied homomorphically, this process produces
+two encrypted vectors whose slots approximate the coefficients mi.
+•SlotToCoeff : Lastly, by applying a homomorphic version of the decoding
+process, one moves back the (approximated) coefficients mifrom the slots of
+the two encrypted vectors to the coefficients of the plaintext polynomial. One
+obtains a ciphertext ct′= (ct′
+0,ct′
+1)satisfying ct′
+0+s·ct′
+1=m+emodq′for
+some small error eand a modulus q′∈(q, Q). The ciphertext ct′is thus a
+refreshed version of ct.
+TheSlotToCoeff andCoeffToSlot operations account for a significant portion
+of the bootstrapping runtime, as they involve homomorphic multiplication by
+a Vandermonde matrix or its conjugate transpose. In the method described in
+[12], this requires O(N)homomorphic operations. More generally, to bootstrap
+a message mlying in a subring of the form Z[XN/(2n)]/(XN+ 1)and therefore
+encoding a complex vector z∈Cn, the method requires O(n)homomorphic
+operations. Cheon et al.[11] proposed a technique to reduce the complexity
+of theSlotToCoeff andCoeffToSlot operations from O(n)toO(logn). This is
+accomplished by decomposing the Vandermonde matrix into a product of sparse
+matrices with a special structure, so-called tridiagonal matrices .
+Later Work on CKKSBootstrapping. Additional improvements have since
+been proposed. Han and Ki [ 23] introduced optimized parameter choices and
+evaluation strategies for sine-based approximations. Bossuat et al.[5] reduced
+evaluation complexity by employing non-sparse bootstrapping keys. Jutla and
+Manohar [ 24] improved the accuracy of EvalMod using a sine series approximation.
+Leeet al.[27] minimized error variance to enable high-precision bootstrapping,
+while Bae et al.[2] proposed the META-BTS framework, which extends boot-
+strapping precision beyond prior limits. Bae et al.[3] introduced several CKKS
+bootstrapping algorithms designed specifically for ciphertexts encoding binary
+data. In a related line of work, Bae et al.introduced the SI-BTSframework [ 4], a
+CKKSbootstrapping method specialized for small-integer plaintexts, particularly
+supporting functional bootstrapping.
+Our Contribution. We introduce PaCo, a novel bootstrapping procedure for
+theCKKSscheme optimized for parallel efficiency. Given a small power-of-two
+parameter C∈[2, N/(4h)], where his the Hamming weight of the secret key,
+PaCobootstraps plaintexts in Z[XN/C]/(XN+ 1). Specifically, it transforms an
+encryption of m=PN−1
+i=0miXiinto a bootstrapped encryption of the sparser
+˜m=PC−1
+i=0mi·N/CXi·N/Cusing only O(logC)homomorphic operations. To
+--- PAGE 4 ---
+4 J.-S. Coron and T. Seuré
+handle more than Ccoefficients, PaCois applied up to N/Ctimes in parallel,
+enabling convenient and efficient scalability with negligible overhead.
+PaCostands for (Bootstrapping via) Partial CoeffToSlot , as it employs a
+subset of the matrices used in the matrix decomposition for CoeffToSlot [11].
+The method reformulates the decryption equation in terms of blind rotations
+and modular additions, then evaluates the resulting circuit homomorphically
+in theCKKSframework using polynomial ring structures and the circle group
+in the complex plane. For this, we develop auxiliary tools — especially for bit-
+reversing and alternative CKKSring structures — that may be of independent
+interest to the HEcommunity. A proof-of-concept implementation confirms that
+PaCooffers a modest improvement over state-of-the-art CKKSbootstrapping
+methods, even in the absence of parallelization. When parallelized, PaCoachieves
+further performance gains with negligible overhead, demonstrating excellent
+scalability. Unlike conventional CKKSbootstrapping methods, PaCodoes not
+rely on polynomial approximations of periodic functions, and therefore achieves
+a failure probability of zero in that regard.
+Related Work. Over the course of writing this paper, Cheon et al.[13] intro-
+ducedSHIP, aCKKSbootstrapping method closely related to ours. Although
+our work was conducted independently, it shares several conceptual similarities
+withSHIP, including the use of the circle group, blind rotations, and a high
+degree of parallelizability. The main distinction lies in the execution of blind
+rotations: PaCoperforms these via multiplications by secret monomials, enabled
+through a partial CoeffToSlot which embeds polynomial ring structures into the
+CKKSframework. In contrast, SHIPapplies blind rotations directly to vectors
+inCN/2, thereby sidestepping the partial CoeffToSlot step, but at the expense
+of potentially poorer slot-scaling and larger bootstrapping keys. Further, SHIP
+implements a SlotToCoeff operation with linear complexity in the number of slots,
+as opposed to the logarithmic-cost decomposition used in PaCo; this appears to
+stem from challenges related to coefficient ordering. Whether our bit-reversing
+techniques could help overcome this limitation in SHIPremains an open question.
+1.2 Overview of New Approach
+We now present a streamlined overview of our simplified bootstrapping approach.
+Alternative CKKSRing Structures. We first explain how we use alternative
+ring structures for CKKS. Although the scheme is fundamentally designed to
+support arithmetic on vectors of complex numbers — i.e., elements of the ring
+Cn=C× ··· × C— we observe that Cnis just one of many isomorphic
+representations that we can use to structure our computations more flexibly.
+LetRbe a ring which is also a complex vector space, and let σ:R →Cnbe a
+ring isomorphism which is also a C-linear map. Fix a basis for the vector space R,
+and denote by [r]∈Cnthe coordinate vector of r∈ Rwith respect to this basis.
+We represent σvia an invertible matrix U∈Cn×n, so that U·[r] =σ(r)for all r.
+--- PAGE 5 ---
+PaCo 5
+This relationship can be visualized via the following commutative diagrams, where
+UandU−1denote the linear maps z7→U·zandz7→U−1·z, respectively:
+R
+CnCn[·]σ
+UR
+CnCn[·]
+U−1σ−1
+To encrypt (or encode) elements r∈ R, we simply encrypt (or encode) the
+corresponding vector σ(r)∈Cn. Since σis a ring morphism, this method of
+encoding and encrypting is fully compatible with the homomorphic addition
+and multiplication of CKKS. For example, if r0, r1∈ R, then homomorphically
+multiplying encryptions of the vectors σ(r0)andσ(r1)results in an encryption
+of the vector σ(r0·r1). Given r∈ R, to recover an encryption of [r]from an
+encryption of σ(r), for example to compute products involving the coordinates
+ofr, it suffices to homomorphically left-multiply by U−1. In our setting, U−1
+can always be decomposed into tridiagonal matrices (and a permutation matrix),
+allowing for an efficient matrix-ciphertext multiplication.
+We now detail the isomorphism σthat we will use. This isomorphism enables
+homomorphic evaluation of multiple polynomial multiplications in parallel, fol-
+lowing a Single Instruction, Multiple Data ( SIMD) paradigm (see, e.g., [31] for a
+comprehensive overview of batching in homomorphic encryption).
+Take any non-zero complex number α̸= 0and any integer B⩾1. Evaluating
+at the B-th roots of αyields a ring isomorphism C[Z]/(ZB−α)∼=CB. Similarly,
+we have an isomorphism σ:Qh−1
+v=0C[Z]/(ZB−αv)→(CB)h=Cn, where hB=n
+and each αv̸= 0is a complex number. This setup lets us perform hindependent
+homomorphic multiplications of encrypted (or encoded) complex polynomials
+whose products have degree less than B, and pack the resulting coefficients into
+the slots of a single encrypted (or encoded) complex vector using the method
+described above, by homomorphically multiplying by U−1. Note that the latter
+can also be seen as a form of the CoeffToSlot operation. In the particular case we
+are interested in, the decomposition of U−1involves tridiagonal matrices that
+are those appearing in the decomposition of the usual CoeffToSlot operation.
+However, only a subset of the full CoeffToSlot decomposition will be used. Thus,
+we refer to this step as a partialCoeffToSlot operation .
+Decryption Equations. We begin with a binary secret key s∈Z[X]/(XN+ 1)
+of Hamming weight h, assumed to be of the form s=Ph−1
+v=0Xuv·h+v, where the
+integers uv, referred to as shift indices , are chosen uniformly at random from
+[0, B)forB=N/h, with u0= 0. By writing s=PN−1
+i=0siXi, when arranging
+the coefficients siintohblocks according to the reduction of imodulo has
+illustrated in Figure 1, each block contains exactly one non-zero coefficient. In
+Section 8.1, we argue that this structure should not compromise the security of
+theCKKSscheme.
+Suppose we have a ciphertext ctencrypting m=PN−1
+i=0miXi. For simplicity,
+we focus on the procedure for obtaining a bootstrapped encryption of the sparser
+--- PAGE 6 ---
+6 J.-S. Coron and T. Seuré
+s0 sh s2h··· sN−h
+s1 sh+1 s2h+1···sN−h+1
+s2 sh+2 s2h+2···sN−h+2
+...............
+sh−1 s2h−1 s3h−1··· sN−1Only one non-zero
+coefficient per row
+Fig. 1.Regular structure of our secret key.
+polynomial ˜m=PB−1
+i=0mi·N/BYi, where Y=XN/B=Xh. The regularity of the
+secret key s, together with the assumption that u0= 0, allows us to transform
+the decryption equation m=ct0+s·ct1modqintom=Ph−1
+v=0Xuv·h·avmodq,
+where a0=ct0+ct1andav=Xv·ct1forv∈[1, h). Since ˜mis a polynomial in the
+variable Y=Xh, we can replace the av=PN−1
+i=0av,iXiby˜av=PB−1
+i=0av,ihYi,
+yielding a decryption equation for ˜m:
+˜m=h−1X
+v=0Yuv·˜av=h−1X
+v=0a′
+vmod q, (1)
+where a′
+v=Yuv·˜av. (We use the tilde symbol, and later also the hat symbol, to
+indicate that a polynomial includes only a subset of its original coefficients, and
+the prime symbol to denote that a polynomial has undergone a blind rotation.)
+We emphasize that in the decryption equation for ˜m, the shift indices uv∈
+[0, B)are part of the secret key sand hence not openly known, while the
+polynomials ˜avcan be extracted from the ciphertext ct, importantly without
+secret knowledge. Therefore, the polynomials ˜avfirst undergo a blind rotation ,
+that is, a multiplication (modulo YB+ 1) by the secret monomials Yuv, before
+being summed up (modulo q). The objective now is to homomorphicallyreproduce
+the decryption circuit for ˜musing the tools offered by the CKKSscheme, thereby
+establishing a new bootstrapping equation.
+Embedding in the Circle Group. To replicate the decryption equation for ˜m
+homomorphically within CKKS, we embed the additive group Zqinto the circle
+group of complex numbers. Specifically, we use the group morphism:
+ψ:Zq∋a7→exp2πI·a
+q
+∈C×.
+Writing ˜m=PB−1
+i=0˜miYianda′
+v=PB−1
+i=0a′
+v,iYifor every v∈[0, h), we observe
+from(1)that ˜mi=Ph−1
+v=0a′
+v,imodqfor each i∈[0, B). Applying the embedding
+to the latter equation yields ψ(˜mi) =Qh−1
+v=0ψ(a′
+v,i). Assuming that |˜mi| ≪q,
+the small-angle approximation gives ˜mi≈q/(2π)·Im(ψ(˜mi)), as illustrated in
+Figure 2, where Im(·)denotes the imaginary part. Combining this with the above,
+we obtain:
+˜mi≈q
+2π·Im h−1Y
+v=0ψ(a′
+v,i)!
+. (2)
+--- PAGE 7 ---
+PaCo 7
+1I
+2π
+q·˜miψ( ˜mi) =Qh−1
+v=0ψ(a′
+v,i)
+Fig. 2.The length of the dotted line segment approximates the length of the gray arc
+in case |˜mi| ≪q. Hence, 2π/q·˜mi≈Im(ψ( ˜mi)).
+Thus, our goal is to produce encrypted vectors whose slots hold the values
+ψ(a′
+v,i). To do this, we map the coefficients of the polynomials ˜av=PB−1
+i=0˜av,iYi
+into the circle group using the isomorphism ψ. Specifically, for each v∈[0, h),
+we define the complex polynomial ˜bv=PB−1
+i=0ψ(˜av,i)Zi, which can be computed
+withoutrequiringanysecretinformation.Encryptedvectorscontainingthedesired
+values ψ(a′
+v,i)in their slots are then obtained by performing blind rotations
+followed by a partial CoeffToSlot operation, as we will detail now.
+Blind Rotations. Our goal now is to homomorphically compute the shifted
+polynomials b′
+v=Zuv·˜bv. (Note that the shift from ˜bvtob′
+vis the same as
+the shift from ˜avtoa′
+v.) Since each b′
+vhas degree strictly bounded by 2B, we
+can do the computations modulo Z2B−αvfor some complex αv̸= 0. For this,
+we use the isomorphism σ:Qh/4−1
+v=0C[Z]/(Z2B−αv)→CN/2, which allows
+packing h/4polynomials into a single complex vector of length N/2. For instance,
+using σ, we encode the polynomials (˜bv)v∈[0,h/4)into a vector σ(˜bv)v∈[0,h/4)
+which we simply refer to as a coefficient encoding (it only contains information
+about coefficients of the initial ciphertext). We similarly encode the rotation
+monomials (Zuv)v∈[0,h/4). Since these monomials depend on the secret key, these
+encodings must also be encrypted; such a ciphertext is called a bootstrapping
+key. A homomorphic multiplication of the encoded vector σ(˜bv)v∈[0,h/4)with
+the encrypted vector σ(Zuv)v∈[0,h/4)then yields an encryption of the vector
+σ(Zuv·˜bv)v∈[0,h/4)=σ(b′
+v)v∈[0,h/4). The same technique applies to the other
+three blocks of polynomials. We refer to this operation as a blind rotation :
+the coefficients of each polynomial ˜bvare rotated by a secret shift uvthrough
+multiplication by the monomial Zuv. This differs from the blind rotation method
+of [13], where secret rotations are applied directly to vectors in CN/2, requiring
+many associated bootstrapping keys. In contrast, our approach needs only four
+bootstrapping keys, one for each of the four blocks of polynomials.
+PartialCoeffToSlot Operation. For every v∈[0, h), write b′
+v=P2B−1
+i=0b′
+v,iZi.
+At this stage, we have encryptions of the vectors σ(b′
+v)v∈[0,h/4). We apply a partial
+CoeffToSlot operation to these encryptions, so that the slots of the resulting
+encrypted vectors contain the coefficients b′
+v,ifor all v∈[0, h)andi∈[0,2B).
+--- PAGE 8 ---
+8 J.-S. Coron and T. Seuré
+Obtaining a Bootstrapped Encryption of ˜m.As illustrated in Figure 3,
+it holds that ψ(a′
+v,i) =b′
+v,i+b′
+v,i+B. Combining this equation with (2)yields
+an approximation of the coefficients of ˜m, only involving the b′
+v,i. With this, we
+can homomorphically compute an encrypted vector whose slots approximate the
+coefficientsof ˜m.Tocompletethebootstrapping,itsufficestoapplyaconventional
+(full)SlotToCoeff operation.
+−˜av,B−uv··· −˜av,B−1 ˜av,0 ··· ˜av,B−uv−1
+0 ··· 0 ψ(˜av,0)···ψ(˜av,B−uv−1)
+ψ(˜av,B−uv)··· ψ(˜av,B−1) 0 ··· 0AllBcoeff. of a′
+v:
+First Bcoeff. of b′
+v:
+Last Bcoeff. of b′
+v:uvcoeff. B−uvcoeff.
+Fig. 3.This figure illustrates that ψ(a′
+v,i) =b′
+v,i+b′
+v,i+B. Ifi∈[0, uv), then b′
+v,i= 0
+andb′
+v,i+B=ψ(−a′
+v,i) =ψ(a′
+v,i); ifi∈[uv, B), then bv,i+B= 0andb′
+v,i=ψ(a′
+v,i).
+Summary. At a high level, PaCoconsists of the following steps:
+•Reformulate the decryption equation so that it can be expressed using only
+blind rotations of specific polynomials, followed by additions modulo q.
+•Map the coefficients of these polynomials onto the complex unit circle, and
+construct corresponding complex-valued polynomials.
+•Carry out blind rotations on these complex polynomials.
+•Apply a partial CoeffToSlot operation, so that the coefficients of the rotated
+polynomials are embedded in the slots of the resulting encrypted vectors.
+•Use standard homomorphic operations to compute an encrypted vector in
+which each slot encodes a coefficient of the original plaintext polynomial.
+•Finish with a conventional SlotToCoeff operation to get the bootstrapped
+ciphertext.
+Unlike traditional CKKSbootstrapping methods, our approach does not rely on
+homomorphically evaluating a polynomial approximation of a periodic function,
+resulting in zero failure probability.
+Experimental Results. Our experiments confirm that PaCoconsistently out-
+performs the original CKKSbootstrapping procedure, even without parallelization.
+In fact,PaCoachieves speedups ranging from roughly 1.5×to2.6×. The ex-
+periments also show that PaCoscales efficiently with near-ideal speedup when
+parallelized. For example, utilizing 32processors in parallel yields up to an addi-
+tional 2×improvement in performance. Our implementation is publicly available
+online via GitHub.1
+1https://github.com/se-tim/PaCo-Implementation.git
+--- PAGE 9 ---
+PaCo 9
+2 Notation
+We start with a collection of general notation. All intervals are assumed to
+contain integers only. For a real number x, we denote by ⌊x⌉the nearest integer
+tox. This notation is extended coefficientwise to polynomials. All logarithms are
+understood to be base- 2. For a mathematical statement P, we denote by 1Pthe
+indicator function of P, equalling 1ifPis true and 0otherwise.
+For an integer q⩾1and a real number x, we denote by [x]qthe reduction of
+xmodulo q. Although this notation was previously used in the introduction to
+refer to the symmetric reduction modulo q, we now adopt the convention that
+[x]qalways satisfies 0⩽[x]q< q.
+We denote the imaginary unit by I =√−1∈C. Given a complex number
+z=a+bI∈C, we define its conjugate by z=a−bIand its imaginary part by
+Im(z) =b. This notation is extended entrywise to vectors and matrices.
+For two complex vectors z= (zi)i∈[0,n)andw= (wi)i∈[0,n), their Hadamard
+(entrywise) product is denoted by z⊙w= (zi·wi)i∈[0,n), and the rotation of
+the vector zbyj∈Zslots is denoted by Rotj(z) = (z[i+j]n)i∈[0,n).
+For a set S, we write Sm×nto denote the set of (m×n)-matrices with entries
+inS. For a matrix A∈Sm×n, we denote by AT∈Sn×mits transpose. Given
+elements s0, . . . , s n−1∈S, we denote by Diag(s0, . . . , s n−1)∈Sn×nthe diagonal
+matrix with the sion the diagonal. The identity matrix of size n×nis denoted
+byIn, and the zero matrix of size n×nis denoted by 0n. When writing a product
+of matrices asQk−1
+ℓ=0Aℓ, we mean Ak−1···A0, following the convention that
+matrix multiplication, like function composition, proceeds from right to left.
+Throughout, we fix an integer N⩾1that is a power of two, referred to as
+thering dimension for theCKKSscheme. Additionally, n⩾1will denote a strict
+divisor of Nunless otherwise specified.
+3 Background on CKKS
+We now recall the key components of the CKKSscheme.
+3.1 Encoding and Decoding
+CKKSsupports the encryption of vectors z∈Cnfor strict divisors nofN. This
+is achieved by interpreting a vector z∈Cnas a polynomial m∈Z[Y]/(Y2n+ 1).
+To accomplish this, we consider the ring isomorphism:
+τn:R[Y]
+(Y2n+ 1)∋p7→(p(ζn,i))i∈[0,n)∈Cn,
+where ζn,i= exp(2 πI·5i/(4n))are half of the primitive (4n)-th roots of unity.
+For a fixed positive integer ∆, referred to as the scaling factor for theCKKS
+scheme, we encodea complex vector z∈Cnvia:
+Ecd(z) =⌊∆τ−1
+n(z)⌉ ∈Z[Y]
+(Y2n+ 1);
+--- PAGE 10 ---
+10 J.-S. Coron and T. Seuré
+by setting Y=XN/(2n), we view Ecd(z)as an element of Z[X]/(XN+ 1).
+Consequently, for two strict divisors n⩾BofNand two vectors z1∈CBand
+z0= (z1)i∈[0,n/B )∈Cn, it holds that Ecd(z0) =Ecd(z1). Therefore, it makes
+sense to regard CB(equipped with the Hadamard product) as a subring of Cn
+via the natural embedding CB∋z17→(z1)i∈[0,n/B )∈Cn.
+Wedecodea polynomial m∈Z[Y]/(Y2n+ 1)via:
+Dcdn(m) =τn(m)
+∆∈Cn.
+For two complex vectors z0,z1∈Cn, it then holds that Ecd(z0) +Ecd(z1)≈
+Ecd(z0+z1). Defining the operation m0×m1=⌊m0m1/∆⌉ ∈Z[X]/(XN+1)for
+m0, m1∈Z[X]/(XN+1), we further have that Ecd(z0)×Ecd(z1)≈Ecd(z0⊙z1).
+3.2 Ciphertexts
+ACKKSciphertext encrypting a polynomial m∈Z[X]/(XN+1)under a modulus
+qis a tuple ct= (ct0,ct1)where the cti∈Z[X]/(XN+ 1)satisfy the decryption
+equation ct0+s·ct1=m+emodqfor a small error e∈Z[X]/(XN+ 1)and
+s∈Z[X]/(XN+ 1)the secret key. We denote this encryption by ct=Enc(m),
+while keeping in mind that decryption does not recover mexactly. If m≈Ecd(z)
+for a complex vector z∈Cn, we also write ct=Enc∗(z); we say that ctis both
+anencryption of the polynomial mand of the vector z.
+Typically, the secret key s=PN−1
+i=0siXihas coefficients sichosen to be
+binary ( si∈[0,2)) or ternary ( si∈[−1,1]). Its Hamming weight h= #{i∈
+[0, N) :si̸= 0}can be chosen somewhat small, e.g.,h= 64.
+Within the CKKSscheme, ciphertexts are usually considered under a modulus
+belonging to a fixed sequence of moduli q0, . . . , q L. Each modulus in this sequence
+satisfies qℓ=q·∆ℓ, where qis referred to as the base modulus , and ∆is the
+scaling factor introduced earlier. A ciphertext under the modulus qℓis said to
+be atlevelequal to ℓ. Homomorphic operations which involve multiplications
+typically reduce ciphertext levels.
+3.3 Elementary Operations
+We briefly review the homomorphic operations supported by CKKSthat are
+relevant to our work. We do not recall how these operations are performed,
+but instead refer the reader to [ 12,14]. Consider ciphertexts ct=Enc∗(z)and
+cti=Enc∗(zi)fori∈[0,2), with z,zi∈Cn. Additionally, let w∈Cnbe a
+plaintext vector and λ∈Ca scalar. Under the assumption that all necessary keys
+are available, the operations listed in Table 1 can be performed homomorphically.
+We note that in Table 1, all homomorphic multiplications already include
+the rescaling step, ensuring that the resulting encrypted vectors do not have
+an “undesired” factor ∆. In general, the symbol ×denotes a homomorphic
+multiplication that implicitly includes a rescaling step.
+--- PAGE 11 ---
+PaCo 11
+Table 1. Elementary homomorphic operations in CKKS.
+Operation Notation Encrypted vector Consumed levels
+Rescaling RS(ct) z/∆ 1
+Addition ct0+ct1 z0+z1 0
+Subtraction ct0−ct1 z0−z1 0
+Plaintext-ciphertext mult. Ecd(w)×ct w⊙z 1
+Scalar-ciphertext mult. Ecd(λ)×ct λ·z 1
+Ciphertext-ciphertext mult. ct0×ct1 z0⊙z1 1
+Rotation by j∈Zslots Rotj(ct) Rotj(z) 0
+Conjugation Conj(ct) z 0
+3.4 Trace and Product Operations
+We consider two strict divisors n⩾BofN. For a vector z= (zi)i∈[0,n)∈Cn,
+we introduce the trace operation (referred to as the partial sum in [12]) and the
+product operation :
+Trn→B(z) =
+n/B−1X
+j=0zjB+i
+
+i∈[0,B)∈CB,
+Prn→B(z) =
+n/B−1Y
+j=0zjB+i
+
+i∈[0,B)∈CB.
+As discussed in [ 10], these operations are extended versions of the trace and norm
+operations of the number field Q[XN/(2n)]/(XN+ 1)overQ[XN/(2B)]/(XN+ 1).
+Figure4visuallydemonstrateshowtheseoperationsareperformedbyhorizontally
+summing or multiplying vector slots.
+z0
+z1
+...
+zB−1zB
+zB+1
+...
+z2B−1···
+···
+...
+···zn−B
+zn−B+1
+...
+zn−1Given z= (zi)i∈[0,n), we sum or multiply
+horizontally to get Trn→B(z)orPrn→B(z)
+Fig. 4.Illustration of how the trace and product are computed.
+We can also express them using compositions of rotations and elementwise
+operations. Let iddenote the identity map, and regard CB(equipped with the
+Hadamard product) as a subring of Cnvia the previously mentioned natural
+embedding. Then:
+Trn→B= (id+RotB)◦ ··· ◦ (id+Rotn/4)◦(id+Rotn/2),
+Prn→B= (id⊙RotB)◦ ··· ◦ (id⊙Rotn/4)◦(id⊙Rotn/2).
+--- PAGE 12 ---
+12 J.-S. Coron and T. Seuré
+This decomposition enables efficient homomorphic evaluation of the trace and
+the product operations for a ciphertext ct=Enc∗(z)withz∈Cn, see the first
+two operations in Table 2.
+3.5 Matrix Multiplication
+Consider a matrix A= (Ai,j)i,j∈[0,n)∈Cn×n. We define for j∈[0, n)thej-th
+diagonal ofAasDiagj(A) = (Ai,[i+j]n)i∈[0,n)∈Cn. Then, for every z∈Cn, the
+following holds true [22]:
+A·z=n−1X
+j=0Diagj(A)⊙Rotj(z).
+This equality allows us to homomorphically compute a matrix-vector product.
+Specifically, given an encoding Ecd(A) = (Ecd(Diagj(A)))j∈[0,n)of the matrix A,
+and a ciphertext ct=Enc∗(z)for some vector z∈Cn, we can homomorphically
+compute a ciphertext encrypting the product A·z; see the final operation in
+Table 2.
+A matrix A∈Cn×nis said to be diagonally sparse if most of its diagonals
+Diagj(A)are zero. Matrix-ciphertext multiplications become particularly efficient
+in this case, as they require only a small number of rotations and plaintext-
+ciphertext multiplications.
+Table 2. Further homomorphic operations in CKKS.
+Operation Notation Encrypted vector Consumed levels
+Trace Trn→B(ct)Trn→B(z) 0
+Product Prn→B(ct)Prn→B(z) log(n/B)
+Matrix-ciphertext mult. Ecd(A)×ct A·z 1
+Some matrices Aadmit a decomposition of the form A=Qk−1
+ℓ=0Dℓ, where
+eachDℓis diagonally sparse. This structure often leads to a more efficient
+homomorphic multiplication by evaluating Ecd(Dk−1)×···×Ecd(D0)×ct(from
+right to left), rather than directly computing Ecd(A)×ct. For instance, if each
+Dℓistridiagonal —i.e., containing at most three non-zero diagonals — then the
+homomorphic multiplication by Acan be carried out using at most 3krotations
+and3kplaintext-ciphertext multiplications. The downside, however, is that this
+approach consumes klevels instead of just one.
+To reduce the number of levels used, we introduce a grouping parameter
+denoted by g∈[1, k], which allows us to combine the matrices Dℓinto blocks of
+sizeg:
+k−1Y
+ℓ=0Dℓ= (Dk−1···Dk−1−[k−1]g)···(D2g−1···Dg)(Dg−1···D0).
+--- PAGE 13 ---
+PaCo 13
+With this grouping, the number of levels consumed is reduced to ⌈k/g⌉. This
+decreases as gincreases, while the number of rotations and multiplications per
+block increases with g. Thus, the parameter glets us balance computation time
+against level consumption. For simplicity, we will continue to denote the matrix-
+ciphertext multiplication as EcdQk−1
+ℓ=0Dℓ
+×ct, with the understanding that an
+appropriate choice of the grouping parameter gcan be used to optimize efficiency.
+The value 2gis commonly referred to as the radix[11,16] (specifically in the
+context of discrete Fourier transform matrices).
+3.6 Conventional SlotToCoeff
+We will start by revisiting the conventional SlotToCoeff operation. (We will not
+make use of the conventional CoeffToSlot operation.) Later on, we will show
+how to perform it more efficiently. Consider a complex vector z∈Cnand the
+corresponding polynomial p=P2n−1
+i=0piYi=τ−1
+n(z)∈R[Y]/(Y2n+ 1). Define
+the coefficient vectors p0= (pi)i∈[0,n)∈Rnandp1= (pi+n)i∈[0,n)∈Rn. For the
+Vandermonde matrix Un= 
+ζj
+n,i
+i,j∈[0,n)∈Cn×n, the vector zcan be recovered
+fromp0andp1, as follows [12]:
+z=Un(p0+ I·p1). (3)
+Thus, given two ciphertexts cti=Enc∗(pi)fori∈[0,2), we can first homomorphi-
+cally compute a ciphertext ct=Enc∗(p0+I·p1), and then apply the homomorphic
+counterpart of (3) to obtain a ciphertext SlotToCoeff n(ct) =Enc∗(z).
+Thisoperationisreferredtoas SlotToCoeff becauseittransformsanencryption
+of a vector whose slotscontain the coefficients of the polynomial p, into an
+encryption of a polynomial whose coefficients are given by those of p(multiplied
+by∆).
+The efficiency improvement from [ 11] arises from decomposing the Vander-
+monde matrix Uninto a product of diagonally sparse matrices. This decomposi-
+tion, along with related new results, is presented in Section 4.
+4 Decomposing the Vandermonde Matrix Un
+We now examine the decomposition of the matrix Un, which serves two purposes:
+enabling the efficient implementation of the SlotToCoeff andCoeffToSlot opera-
+tions via diagonally sparse matrices, and realizing the ring isomorphisms that
+are essential to PaCo.
+To motivate this section, we briefly explain a subtlety that arises in the
+final step of our procedure, a SlotToCoeff operation based on the decomposition
+of the matrix Un. As we will see, this operation requires the encrypted input
+vector to be in bit-reversed order . Thus, when homomorphically applying the ring
+isomorphisms for PaCo, we must ensure that the encrypted output vector has its
+slots in a specific intermediate order — one that, after several trace and product
+operations, results in an encrypted vector whose slots are in the bit-reversed
+--- PAGE 14 ---
+14 J.-S. Coron and T. Seuré
+order required for the final SlotToCoeff operation. We refer to this intermediate
+order as extended bit-reversed order .
+To achieve this, we ensure that already the encrypted vector we apply the ring
+isomorphisms to has its slots in extended bit-reversed order. Then, we modify the
+matrices corresponding to the ring isomorphisms by conjugating them with the
+appropriate permutation matrices. This ensures that the slots of the encrypted
+output vector are in the required extended bit-reversed order.
+4.1 Bit-Reversing
+Given a power of two Band an integer i∈[0, B), thebit-reversing ofiunder B
+is defined as the integer brB(i)obtained by reversing the logBbits of i. More
+precisely, if iis written as i=PlogB−1
+j=0bj2jwith bj∈[0,2), thenbrB(i) =PlogB−1
+j=0blogB−1−j2j. We will extend the bit-reversing operation to all non-
+negative integers, as follows. Given an integer i⩾0, we define the (extended)
+bit-reversing ofiunder Bas the integer brB(i)obtained by reversing the logB
+least significant bits of i. This means that brB(i) =⌊i/B⌋ ·B+brB([i]B), where
+brB([i]B)can be computed using the initial definition.
+Consider now two powers of two n⩾B. Note that the map brB: [0, n)→
+[0, n)is a permutation. Let Π(B)
+n∈[0,2)n×ndenote the permutation matrix
+corresponding to this permutation — the entry (i, j)ofΠ(B)
+nis therefore 1if
+and only if j=brB(i). Left-multiplying a vector z= (zi)i∈[0,n)∈Cnby the
+matrix Π(B)
+nproduces the vector Π(B)
+nz= (zbrB(i))i∈[0,n), whose slots are thus
+given in bit-reversed order; we say that the vector zhas been bit-reversed . For
+simplicity, we write Π(B)instead of Π(B)
+nif the size of the matrix is clear from
+the context — typically when it is right-multiplied by a length- nvector or an
+(n×n)-matrix. We note that (extended) bit-reversing commutes with both the
+trace and the product operations. In other words, for powers of two n0⩾n1⩾B,
+the following diagram commutes (in which the trace operation could also be
+replaced by the product operation):
+Cn0 Cn0
+Cn1 Cn1Π(B)
+Trn0→n1Trn0→n1
+Π(B)
+We finish with two remarks. First, observe that the matrix Π(B)is its own inverse
+because bit-reversing twice restores the original number. Second, keep in mind
+that we always avoid directly performing homomorphic multiplication by the
+matrix Π(B)because it is not diagonally sparse (despite being sparse).
+4.2 A Sequence of Ring Isomorphisms
+To analyze the decomposition of the Vandermonde matrix Unas introduced in
+[11], we first study the underlying ring isomorphism that Uncorresponds to,
+--- PAGE 15 ---
+PaCo 15
+namely:
+σn:C[Z]
+(Zn−I)∋p7→(p(ζn,i))i∈[0,n)∈Cn.
+We recall that ζn,i=exp(2πI·5i/(4n)); they are half of the primitive (4n)-th
+roots of unity, and all the n-th roots of I. By representing any p=Pn−1
+i=0piZi∈
+C[Z]/(Zn−I)via its coefficient vector [p] = ( pi)i∈[0,n)∈Cn, it follows that
+Un·[p] =σn(p)for all p∈C[Z]/(Zn−I). This relationship is captured in the
+following commutative diagram:
+C[Z]
+(Zn−I)
+CnCn[·]σn
+Un
+We now factor σninto a sequence of ring isomorphisms through an application
+of the Cooley-Tukey algorithm [ 16]. Observe that the two square roots of Iare
+ζn/2
+n,0andζn/2
+n,1, leading to the ring isomorphism:
+C[Z]
+(Zn−I)→C[Z]
+Zn/2−ζn/2
+n,0×C[Z]
+Zn/2−ζn/2
+n,1,
+given by projection onto the two components. Each ring in the Cartesian product
+can similarly be decomposed into a further product of two rings. Continuing
+recursively, this process ultimately results in ncopies of C. Formally, for each
+ℓ∈[0,logn], define the following ring:
+Rn,2ℓ=n/2ℓ−1Y
+i=0C[Z]
+Z2ℓ−ζ2ℓ
+n,brn/2ℓ(i),
+withRn,n=C[Z]/(Zn−I)andRn,1=Cn. We then obtain a sequence of ring
+isomorphisms ϕn,2ℓ:Rn,2ℓ+1→ R n,2ℓ, defined by projecting the polynomial in
+thei-th component of Rn,2ℓ+1onto the (2i)-th and (2i+1)-st components of Rn,2ℓ.
+This is the reason why bit-reversing is necessary, since the two square roots of
+ζ2ℓ+1
+n,brn/2ℓ+1(i)areζ2ℓ
+n,brn/2ℓ(2i)andζ2ℓ
+n,brn/2ℓ(2i+1). The maps ϕn,1◦···ϕn,n/4◦ϕn,n/2
+andσnproduce the same vectors modulo a reordering of the slots according to
+the (non-extended) bit-reversing under n.
+4.3 From Isomorphisms to Matrices
+For each ℓ∈[0,logn], we endow the ring Rn,2ℓwith the canonical basis:
+ 
+Z0,0, . . . , 0
+, . . . , 
+Z2ℓ−1,0, . . . , 0
+, . . . , 
+0, . . . , 0, Z0
+, . . . , 
+0, . . . , 0, Z2ℓ−1
+.
+--- PAGE 16 ---
+16 J.-S. Coron and T. Seuré
+With this basis, each isomorphism ϕn,2ℓcan be represented by a matrix Dn,2ℓ∈
+Cn×n. If we denote by [p]the coefficient vector of p∈ R n,2ℓwith respect to the
+canonical basis, then we obtain the following commutative diagram:
+Rn,2ℓ+1 Rn,2ℓ
+CnCn[·]ϕn,2ℓ
+[·]
+Dn,2ℓ
+The entire situation is summarized in the below commutative diagram:
+Rn,n Rn,n/2 ··· Rn,2 Rn,1 Rn,1
+CnCn··· CnCnCnϕn,n/ 2
+[·]σn
+ϕn,n/ 4
+[·]ϕn,2 ϕn,1
+[·]Π(n)
+Dn,n/ 2
+UnDn,n/ 4 Dn,2 Dn,1 Π(n)
+In particular, it yields the following decomposition of Un:
+Un=Π(n)· logn−1Y
+ℓ=0Dn,n/2ℓ+1!
+. (4)
+As detailed in [ 11], each matrix Dn,2ℓis block-diagonal, with the following n/2ℓ+1
+blocks of size 2ℓ+1×2ℓ+1on its diagonal:
+
+I2ℓζ2ℓ
+n,brn/2ℓ+1(i)I2ℓ
+I2ℓ−ζ2ℓ
+n,brn/2ℓ+1(i)I2ℓ
+, i∈[0, n/2ℓ+1). (5)
+Thus, the only non-zero diagonals Diagj(Dn,2ℓ)occur for j∈ {0,2ℓ, n−2ℓ}. Note
+that the inverse matrices D−1
+n,2ℓ= 1/2·Dn,2ℓTremain tridiagonal.
+4.4 Interposing Permutation Matrices
+Consider two powers of two n⩾B. Define, for each ℓ∈[0,logn), the matrix
+E(B)
+n,2ℓ=Π(B)Dn,2ℓΠ(B). It satisfies E(B)
+n,2ℓΠ(B)=Π(B)Dn,2ℓ, leading to the
+following commutative diagram:
+CnCn··· CnCn
+CnCn··· CnCnDn,n/ 2
+Π(B)Dn,n/ 4
+Π(B)Dn,2 Dn,1
+Π(B)Π(B)
+E(B)
+n,n/ 2E(B)
+n,n/ 4E(B)
+n,2E(B)
+n,1
+--- PAGE 17 ---
+PaCo 17
+Thus, applying a sequence of the Dn,2ℓmatrices followed by a bit-reversing is
+equivalent to first bit-reversing and then applying the sequence of corresponding
+matrices E(B)
+n,2ℓ. The same holds true if we replace the Dn,2ℓmatrices and the
+E(B)
+n,2ℓmatrices by their inverses. Crucially for homomorphic computations, the
+matrices E(B)
+n,2ℓand their inverses are tridiagonal, as is proven in Section A. For
+later reference, we finish by rewriting (4)in terms of the matrices En,2ℓ=E(n)
+n,2ℓ:
+Un= logn−1Y
+ℓ=0En,n/2ℓ+1!
+·Π(n). (6)
+4.5 Decomposed SlotToCoeff
+We now detail the efficient execution of the SlotToCoeff operation by making use
+of the decomposition of the Vandermonde matrix Un. As previously, we consider
+a complex vector z∈Cn, the corresponding polynomial p=P2n−1
+i=0piYi=
+τ−1
+n(z)∈R[Y]/(Y2n+ 1), and the coefficient vectors p0= (pi)i∈[0,n)∈Rnand
+p1= (pi+n)i∈[0,n)∈Rn. By applying the equations (3)and(6), we can recover
+the vector zfrom the bit-reversed coefficient vectors Π(n)p0andΠ(n)p1, as
+follows:
+z= logn−1Y
+ℓ=0En,n/2ℓ+1!
+· 
+Π(n)p0+ I·Π(n)p1
+. (7)
+Therefore, as before, given two ciphertexts cti=Enc∗(Π(n)pi)fori∈[0,2), we
+can first homomorphically compute a ciphertext ct=Enc∗(Π(n)(p0+ I·p1)),
+and then apply the homomorphic counterpart of (7)to obtain SlotToCoeff′
+n(ct) =
+Enc∗(z). Equivalently, given a polynomial m=P2n−1
+i=0miYi∈Z[Y]/(Y2n+ 1)
+with coefficient vectors m0= (mi)i∈[0,n)∈Znandm1= (mi+n)i∈[0,n)∈Zn,
+then we have:
+SlotToCoeff′
+n
+Enc∗1
+∆·Π(n)(m0+ I·m1)
+=Enc(m). (8)
+Note that the SlotToCoeff′operation can be executed more efficiently than the
+originalSlotToCoeff operation because it involves homomorphic multiplications
+by diagonally sparse matrices, see Section 3.5. However, it requires the encrypted
+coefficient vectors to be bit-reversed.
+5 Sequential Bootstrapping
+Wenowpresentthefulldetailsof PaCo.Thissectionfocusesonthesequential(non-
+parallel) version, which serves as the foundation for the parallel implementation
+discussed in the upcoming Section 6.
+--- PAGE 18 ---
+18 J.-S. Coron and T. Seuré
+5.1 Setup
+We fix the Hamming weight of the secret key as a power of two h∈[1, N]. In the
+introduction, we have assumed B=N/h, which implied that the costly partial
+CoeffToSlot operation would need to be executed four times. To optimize this,
+we instead take B=N/(4h). We will further choose a power of two C∈[2, B],
+the number of coefficients to be bootstrapped in the encrypted polynomial. We
+can then write k·C=Bfor some positive integer k.
+5.2 Decryption Equations
+Secret Key. The secret key follows the same regular structure as described
+in the introduction and depicted in Figure 1, though we express it here in
+a slightly modified form. Concretely, we choose the PaCosecret key as s=P4h−1
+v=0dv·Xuv·4h+v∈Z[X]/(XN+ 1), where the integers uv, referred to as shift
+indices, are chosen uniformly at random from [0, B), except u0= 0, and where
+the binary dv∈[0,2)act asselectors. These selectors are chosen so that for
+every v∈[0, h), precisely one among the four values dv,dh+v,d2h+vandd3h+vis
+equal to 1, while the remaining ones are 0. Equivalently, for each v∈[0, h), there
+exists a unique tv∈[0,4)for which dtvh+v= 1. To guarantee that the constant
+term of sis zero, we take d0= 1. Thanks to the selectors, we can collapse a
+sum of the formP3
+t=0dth+v·pth+vinto a single term pλvfor every v∈[0, h),
+where λv=tvh+v. Ultimately, this will reduce the number of ciphertexts we
+have to deal with initially. The secret key generation is given in Algorithm 1. In
+Section 8.1, we argue that the structure of the secret key should not compromise
+the security of the CKKSscheme.
+Algorithm 1 skGen(generation of a PaCosecret key)
+Input:A power of two h∈[1, N].
+Output: APaCosecret key s∈Z[X]/(XN+ 1)with Hamming weight h, the shift
+indices (uv)v∈[0,4h)and the selectors (dv)v∈[0,4h).
+1:B←N/(4h)
+2:u0←0andu1, . . . , u 4h−1$←[0, B) ▷Uniform random sampling
+3:d0←1andd1, . . . , d 4h−1←0
+4:forv∈[1, h)do
+5: t$←[0,4)anddth+v←1
+6:s0, . . . , s N−1←0
+7:forv∈[0,4h)do
+8: sv+uv·4h←dv
+9:s←PN−1
+i=0siXi∈Z[X]/(XN+ 1)
+10:return s,(uv)v∈[0,4h)and(dv)v∈[0,4h)
+--- PAGE 19 ---
+PaCo 19
+Decryption Equation for m.Starting with a ciphertext ct= (ct0,ct1)en-
+crypting m=PN−1
+i=0miXi∈Z[X]/(XN+ 1)with|mi| ≪q, the goal is to
+obtain a bootstrapped encryption of the sparser ˜m=PC−1
+i=0mi·N/CYi, where
+Y=XN/C=X4hk. For this, we first transform the decryption equation
+m=ct0+s·ct1modqintom=P4h−1
+v=0dv·Xuv·4h·avmodq, where a0=ct0+ct1
+andav=Xv·ct1forv∈[1,4h).
+Decryption Equation for ˆm.Take the polynomial ˆm=PB−1
+i=0mi·4hXi·4h.
+In the transformed decryption expression for m, we substitute the polynomials
+av=PN−1
+i=0av,iXiwith ˜av=PB−1
+i=0˜av,iXi·4hfor˜av,i=av,i·4h, resulting in a
+decryption expression for ˆm, namely ˆm=P4h−1
+v=0dv·Xuv·4h·˜avmodq.
+DecryptionEquationfor ˜m.Toobtainadecryptionequationfor ˜m,weextract
+from the decryption equation for ˆmonly those terms of each Xuv·4h·˜avthat are
+powers of Y=X4hk. For this, write each ˜avas˜av=Pk−1
+r=0Xr·4h·˜a(r)
+v, where
+˜a(r)
+v=PC−1
+i=0˜av,ik+rXi·4hkis a polynomial in Y=X4hk. Substituting this into
+the decryption equation for ˆmgives ˆm=P4h−1
+v=0Pk−1
+r=0dv·X4h(uv+r)·˜a(r)
+vmodq.
+Since Y=X4hk, only terms where 4h(uv+r)is divisible by 4hkcontribute to
+˜m,i.e., when uv+r= 0 mod k. Thus, the decryption equation for ˜mbecomes:
+˜m=4h−1X
+v=0k−1X
+r=0dv· 1uv+r=0 mod k·Y(uv+r)/k·˜a(r)
+vmod q (9)
+=h−1X
+v=0k−1X
+r=01uλv+r=0 mod k·Y(uλv+r)/k·˜a(r)
+λvmod q
+=h−1X
+v=0Y⌈uλv/k⌉·˜a([−uλv]k)
+λvmod q.
+If we set a′
+v=Y⌈uv/k⌉·˜a([−uv]k)
+vfor every v∈[0,4h), we conclude that
+˜m=Ph−1
+v=0a′
+λvmodq, or equivalently, if we write ˜m=PC−1
+i=0˜miYianda′
+v=PC−1
+i=0a′
+v,iYiforv∈[0, h), then ˜mi=Ph−1
+v=0a′
+λv,imodq.
+5.3 Embedding in the Circle Group
+Given the embedding ψ:Zq∋a7→exp(2πI·a/q)∈C×and applying the
+small-angle approximation, we get an approximation for the coefficients of ˜m:
+˜mi≈q
+2π·Im h−1Y
+v=0ψ(a′
+λv,i)!
+.
+Consider the complex polynomials ˜b(r)
+v=PC−1
+i=0ψ 
+˜a(r)
+v,i
+Ziandb′
+v=Z⌈uv/k⌉·
+˜b([−uv]k)
+vfor each v∈[0,4h)andr∈[0, k). Drawing on reasoning similar to
+--- PAGE 20 ---
+20 J.-S. Coron and T. Seuré
+that attached to Figure 3, and writing b′
+v=P2C−1
+i=0b′
+v,iZi, we get the identity
+ψ(a′
+v,i) =b′
+v,i+b′
+v,i+C. This leads us to the approximation:
+˜mi≈q
+2π·Im h−1Y
+v=0
+b′
+λv,i+b′
+λv,i+C!
+. (10)
+It is worth emphasizing, again, that the ˜b(r)
+vpolynomials can be computed without
+access to secret information, whereas the b′
+vpolynomials will need to be computed
+homomorphically using bootstrapping keys. More details will be provided below.
+5.4 Polynomial Packing
+We now describe how the polynomials involved in PaCowill be packed.
+Packing the Polynomials ˜b(r)
+v.Consider the 4hkcomplex polynomials ˜b(r)
+vfor
+v∈[0,4h)andr∈[0, k), each with degree strictly bounded by C. We can pack hk
+polynomials ˜b(r)
+vinto a single element of the ring Rk
+n,2C=Rn,2C× ··· × R n,2C,
+where n= 2hC=N/(2k). Because there are 4hkpolynomials in total, this
+packing results in four elements of Rk
+n,2C. Formally, for each t∈[0,4)and
+r∈[0, k), we construct the element:
+
+˜b(r)
+th+v
+v∈[0,h)∈ R n,2C.
+To these elements, we apply the ring isomorphism ϕn,1◦ ··· ◦ ϕn,C/ 2◦ϕn,Cto
+obtain 4kvectors β(r)
+t∈Cn. Equivalently:
+β(r)
+t= logCY
+ℓ=0Dn,C/ 2ℓ!
+·
+˜b(r)
+th+v
+v∈[0,h)
+∈Cn.
+For each t∈[0,4), we combine the kvectors β(r)
+tforr∈[0, k)into one vector,
+yielding βt= 
+β(r)
+t
+r∈[0,k)∈CN/2.
+Packing the Secret Key Monomials. Following (9), we will similarly pack
+the4hkmonomials dv· 1uv+r=0 mod k·Z(uv+r)/kwith v∈[0,4h)andr∈[0, k).
+Thus, during key generation, the following vector is formed for every t∈[0,4)
+and every r∈[0, k):
+σ(r)
+t= logCY
+ℓ=0Dn,C/ 2ℓ!
+·
+dth+v· 1uth+v+r=0 mod k·Z(uth+v+r)/k
+v∈[0,h)
+∈Cn.
+Then, for each t∈[0,4), the kvectors σ(r)
+tare packed into a single vector,
+yielding the vector σt= 
+σ(r)
+t
+r∈[0,k)∈CN/2.
+--- PAGE 21 ---
+PaCo 21
+Packing Relation. The vectors βtandσtsatisfy the following identity, which
+we refer to as the packing relation :
+ logCY
+ℓ=0
+E(C/2)
+n,2ℓ−1!
+·TrN/2→n 3X
+t=0
+Π(C/2)βt
+⊙
+Π(C/2)σt!
+=
+b′
+λv,brC/2(i)
+i∈[0,2C)
+v∈[0,h). (11)
+This relation is derived algebraically in Section B; however, we also provide a
+high-level explanation here for intuition. The key idea is that the permutation
+matrices Π(C/2)can be factored out and merged with the matrices 
+E(C/2)
+n,2ℓ−1.
+This composition corresponds to applying the inverse ring isomorphism (ϕn,1◦
+··· ◦ϕn,C/ 2◦ϕn,C)−1, followed by bit-reversing the slots. This accounts for the
+appearance of polynomial coefficients directly in the vector slots, but in bit-
+reversed order. Next, the trace operation can be replaced by a simple summation
+over r∈[0, k), provided that the vectors βtandσtare replaced with their
+respective components β(r)
+tandσ(r)
+t. The final result is a concatenation of h
+vectors, indexed by v∈[0, h), each constructed as a double sum over tandr.
+Notably, for every v, only a single term contributes to the double sum, namely
+the one where t=tvandr= [−uλv]k. This term is the polynomial b′
+λv.
+The packing relation allows us to derive (an encryption of) the coefficients
+ofb′
+λvfrom (encodings of) Π(C/2)βtand (encryptions of) Π(C/2)σt. These
+coefficients, in bit-reversed order, are used — via (10)— to compute encryptions
+ofthecoefficientsof ˜m,alsoinbit-reversedorder.Thisenablesthefinalapplication
+of the decomposed SlotToCoeff′operation to get a bootstrapped encryption of ˜m.
+5.5 Bootstrapping Keys and Coefficient Encodings
+The bootstrapping procedure starts by homomorphically replicating the circuit
+defined by the packing relation. This requires generating bootstrapping keys during
+key generation, defined as bskt=Enc∗(Π(C/2)σt)fort∈[0,4). The generation
+process is outlined in Algorithm 2.
+Furthermore, from the ciphertext that is to be bootstrapped, four coefficient
+encodings aregenerated,whicharedefinedas cEcd t=Ecd(Π(C/2)βt)fort∈[0,4).
+Algorithm 3 summarizes the process of generating them.
+5.6PaCoAlgorithm
+With the preparatory steps in place, we now turn to the core of PaCo: the
+bootstrapping algorithm itself. The method is formally described in Algorithm 4,
+and an explanation of the steps now follows.
+Forming the Coefficient Encodings. First, the four coefficient encodings
+cEcd twith t∈[0,4)are formed. This is described in line 2 of Algorithm 4.
+--- PAGE 22 ---
+22 J.-S. Coron and T. Seuré
+Algorithm 2 bskGen(generation of bootstrapping keys)
+Input:Powers of two h∈[1, N]andC∈[2, N/(4h)], the shift indices (uv)v∈[0,4h)and
+the selectors (dv)v∈[0,4h).
+Output: Bootstrapping keys (bskt)t∈[0,4).
+1:k←N/(4hC)andn←2hC
+2:fort∈[0,4)do
+3: forr∈[0, k)do
+4: z0, . . . , z n−1←0
+5: forv∈[0, h)do
+6: i←uth+v+r
+7: ifi= 0 mod kthen
+8: zv·2C+i/k←dth+v
+9: z←(zi)i∈[0,n)∈Cn
+10: σ(r)
+t← QlogC
+ℓ=0Dn,C/ 2ℓ
+·z∈Cn
+11: σt← 
+σ(r)
+t
+r∈[0,k)∈CN/2▷Vector concatenation
+12:bskt←Enc∗ 
+Π(C/2)σt
+13:return (bskt)t∈[0,4)
+Homomorphic Packing Relation. Next, we proceed by following the steps
+prescribed by the packing relation, as outlined in the lines 3 to 7 in Algorithm 4.
+This results in an encryption of the vector  
+b′
+λv,brC/2(i)
+i∈[0,2C)
+v∈[0,h).
+Extracting the Coefficients of ˜m.The next step involves extracting the
+coefficients of ˜m, ensuring that the resulting ciphertext is properly prepared
+for the final SlotToCoeff′operation. This is achieved using the approximation
+provided in (10). In Algorithm 4, this corresponds to the lines 8 to 15. We relegate
+the technical details to Section C. The outcome is a ciphertext encrypting the
+vector 1/∆·Π(C/2)(˜m0+I·˜m1)for the two coefficient vectors ˜m0= (˜mi)i∈[0,C/2)
+and ˜m1= (˜mi+C/2)i∈[0,C/2).Wenotethatin CKKS,thecombinationofarotation
+and a conjugation (line 8) can be executed as a single homomorphic operation.
+Applying a Conventional SlotToCoeff′.The final step is described in 16, and
+involves applying a conventional (decomposed) SlotToCoeff′to the ciphertext.
+According to (8), the resulting ciphertext is an encryption of the polynomial
+˜m=PC−1
+i=0˜miYi, as required. With this, we conclude the description of the
+sequential bootstrapping procedure.
+5.7 Multiplicative Depth
+Table 3 summarizes the number of levels consumed in Algorithm 4. We use
+g0∈[1,log(2C)]as the grouping parameter for the partial CoeffToSlot operation
+(line 7), and g1∈[1,log(C/2)]for the full SlotToCoeff′operation (line 16). These
+correspond to radices of 2g0and2g1, respectively. The multiplicative depth of
+--- PAGE 23 ---
+PaCo 23
+Algorithm 3 getCoeffEnc (generation of coefficient encodings)
+Input:A ciphertext ct= (ct0,ct1), the Hamming weight hof the secret key, and a
+power of two C∈[2, N/(4h)].
+Output: Coefficient encodings (cEcd t)t∈[0,4).
+1:k←N/(4hC)andn←2hC
+2:forv∈[0,4h)do
+3: forr∈[0, k)do
+4: fori∈[0, C)do
+5: ifv= 0then
+6: ˜b(r)
+v,i←ψ(ct0,4h(ik+r)+ct1,4h(ik+r)) ▷ctj=PN−1
+i=0ctj,iXi
+7: else if i= 0 = rthen
+8: ˜b(r)
+v,i←ψ(−ct1,N−v)
+9: else
+10: ˜b(r)
+v,i←ψ(ct1,4h(ik+r)−v)
+11: ˜b(r)
+v,i+C←0
+12:˜b(r)
+v
+← ˜b(r)
+v,i
+i∈[0,2C)∈Cn
+13:fort∈[0,4)do
+14: forr∈[0, k)do
+15: z← ˜b(r)
+th+v
+v∈[0,h)∈Cn
+16: β(r)
+t← QlogC
+ℓ=0Dn,C/ 2ℓ
+·z∈Cn
+17: βt← 
+β(r)
+t
+r∈[0,k)∈CN/2
+18:cEcd t←Ecd(Π(C/2)βt)
+19:return (cEcd t)t∈[0,4)
+the entire bootstrapping procedure is therefore given by L=⌈log(2C)/g0⌉+
+⌈log(C/2)/g1⌉+ log h+ 3.
+Table 3. Level consumption for relevant lines in Algorithm 4.
+Line Operation Consumed levels
+4Plaintext-ciphertext mult. 1
+7 PartialCoeffToSlot ⌈log(2C)/g0⌉
+10 Plaintext-ciphertext mult. 1
+11 Product operation logh
+14 Plaintext-ciphertext mult. 1
+16 Conventional SlotToCoeff′⌈log(C/2)/g1⌉
+6 Parallel Bootstrapping
+We now show how to parallelize the sequential bootstrapping procedure, allowing
+us to efficiently bootstrap an encrypted polynomial with up to Ncoefficients.
+--- PAGE 24 ---
+24 J.-S. Coron and T. Seuré
+Algorithm 4 seqPaCo (sequential bootstrapping procedure)
+Input:An encryption ctofm=PN−1
+i=0miXi, the Hamming weight hof thePaCo
+secret key, a power of two C∈[2, N/(4h)], and corresponding bootstrapping keys
+(bskt)t∈[0,4).
+Output: Bootstrapped ciphertext ˜ctencrypting ˜m=PC−1
+i=0mi·N/CXi·N/C.
+1:n←2hC
+2:(cEcd t)t∈[0,4)←getCoeffEnc (ct, h, C ) ▷Apply Algorithm 3
+3:fort∈[0,4)do
+4: ˜ctt←cEcd t×bskt
+5:˜ct←P3
+t=0˜ctt
+6:˜ct←TrN/2→n(˜ct)
+7:˜ct←Ecd QlogC
+ℓ=0 
+E(C/2)
+n,2ℓ−1
+×˜ct ▷PartialCoeffToSlot
+8:˜ct′←Conj(RotC(˜ct)) ▷Can be done in a single homomorphic operation
+9:˜ct←˜ct+˜ct′
+10:˜ct←Ecd(µ)×˜ct ▷µ←( 1[i]2C<C)i∈[0,n)∈Cn
+11:˜ct←Prn→2C(˜ct)
+12:˜ct←Tr2C→C(˜ct)
+13:˜ct←˜ct−Conj(˜ct)
+14:˜ct←Ecd(η)×˜ct ▷η← −qI/(4∆π)·( 1i<C/ 2+ I· 1i⩾C/2)i∈[0,C)∈CC
+15:˜ct←TrC→C/2(˜ct)
+16:˜ct←SlotToCoeff′
+C/2(˜ct) ▷Conventional SlotToCoeff′
+17:return ˜ct
+6.1 Setup
+As in the sequential case, we fix the Hamming weight of the secret key to
+a power of two h∈[1, N], and we take B=N/(4h). The secret key sis
+structured as described in Section 5, and generated via Algorithm 1. The goal
+is to fully bootstrap an encrypted polynomial lying in Z[T]/(TD+ 1), where
+D∈[1, N]is a power of two and T=XN/D. We assume a power-of-two number of
+processors κ∈[⌈D/B⌉, D/2]is available. Each processor will then be responsible
+for bootstrapping C=D/κcoefficients. The bootstrapping keys (bskt)t∈[0,4)are
+generated using Algorithm 2.
+6.2 Procedure Description
+Consider an encryption ct= (ct0,ct1)of the polynomial m=PD−1
+i=0miTi∈
+Z[T]/(TD+1).Wewrite m=Pκ−1
+r=0Tr·˜m(r),whereeach ˜m(r)=PC−1
+i=0miκ+rTi·κ
+is a polynomial in the variable Y=Tκ=XN/C. For each r∈[0, κ), we define the
+shifted ciphertext ct(r)=T−r·ct= (T−rct0, T−rct1), which encrypts T−r·m.
+Applying the sequential bootstrapping procedure from Algorithm 4 to each
+ct(r)yields a bootstrapped ciphertext ˜ct(r)encrypting ˜m(r). These κciphertexts
+can be recombined to recover a bootstrapped encryption of mby computing
+ct=Pκ−1
+r=0Tr·˜ct(r), since m=Pκ−1
+r=0Tr·˜m(r). Importantly, this recombination
+step involves only additions and monomial multiplications, which do not consume
+--- PAGE 25 ---
+PaCo 25
+any levels in the CKKSscheme and are computationally cheap. The entire parallel
+bootstrapping method is summarized in Algorithm 5.
+Algorithm 5 parallelPaCo (parallel bootstrapping procedure)
+Input:A power of two D∈[1, N], an encryption ctofm=PD−1
+i=0miTi, the Hamming
+weight hof the secret key, a power-of-two number of processors κ∈[⌈4hD/N ⌉, D/2],
+and bootstrapping keys (bskt)t∈[0,4)forC=D/κcoefficients.
+Output: Bootstrapped ciphertext ctbootencrypting m.
+1:C←D/κ
+2:forr∈[0, κ)in parallel do
+3: ˜ct(r)←T−r·ct
+4: ˜ct(r)←seqPaCo (˜ct(r), h, C, (bskt)t∈[0,4))
+5: ˜ct(r)←Tr·˜ct(r)
+6:ctboot←Pκ−1
+r=0˜ct(r)
+7:return ctboot
+7 Practical Results
+7.1 Implementation Details
+We implemented a proof of concept using SageMath [17] relying on the NTL
+library [30], which is based on multiple-precision arithmetic. The goal of this
+implementation is not speed optimization, but rather to validate the correctness
+and practicality of our approach. For a fair comparison, we also re-implemented
+the original CKKSbootstrapping procedure [ 12] using the same tools. While our
+running times are not optimized, this setup should still allow for a meaningful
+and fair comparison that highlights the feasibility of our method. In support of
+transparency, reproducibility and accountability, we have decided to make our
+implementation publicly available online via GitHub.2
+7.2 Parameter Selection
+We provide parameter sets for both the PaCoand original CKKSbootstrap-
+ping procedures, targeting ring dimensions N∈ {215,216}. The secret key
+s∈Z[X]/(XN+ 1)is chosen with a Hamming weight h= 64, ternary for
+the original CKKSprocedure, and structured as in Figure 1 for PaCo.
+TwoDifferentScalingFactors pand∆.Tosupportflexibleparameterization,
+we distinguish between two scaling factors: pand∆. The factor p⩽qis used for
+homomorphic operations outside bootstrapping, whereas ∆⩾qapplies during
+2https://github.com/se-tim/PaCo-Implementation.git
+--- PAGE 26 ---
+26 J.-S. Coron and T. Seuré
+bootstrapping. Starting from a ciphertext under the modulus q, we bootstrap
+over the moduli qp·∆ℓforℓ∈[0, L]to finally output a ciphertext under the
+modulus qp, supporting one additional multiplication with scaling factor p. Only
+ciphertexts that encrypt polynomials with coefficients having absolute values at
+most pare used during our testings.
+Multiplicative Depth. For allSlotToCoeff andCoeffToSlot operations, we use
+a grouping parameter equal to g= 3. TheEvalMod operation of the original
+bootstrapping algorithm depends on two parameters dandr[12]; we set d= 7,
+and choose r= 8forN= 215, and r= 9forN= 216. For both bootstrapping
+procedures, the maximum level Lis chosen to match the multiplicative depth
+required to bootstrap B=N/(4h) =N/256coefficients. It is computed as
+follows:
+•ForPaCo, it is the sum of the multiplicative depths for the partial CoeffToSlot ,
+the product operation, the plaintext–ciphertext multiplications, and the
+SlotToCoeff .
+•For the original CKKSbootstrapping, it is the sum of the multiplicative depths
+for theCoeffToSlot , theEvalMod operation without successive squaring, the
+rsuccessive squarings, and the SlotToCoeff .
+Moduli for Switching Keys. InPaCo, all switching keys (for rotations, multi-
+plications, etc.) are only used at ℓ=L−1and below, and can thus be provided
+under a modulus (pq·∆L−1)2. In contrast, the original CKKSbootstrapping
+applies switching keys at the maximum level ℓ=L, which necessitates a larger
+modulus of (pq·∆L)2. These are the moduli we use to estimate the security of our
+parameter sets, applying the security estimator from [ 1]. Following conventional
+notation, we denote these moduli as PQ.
+Parameter Sets. For each procedure, we provide two parameter sets, summa-
+rized in Table 4. Precision is quantified as the average number of most significant
+bits retained in the plaintext polynomial coefficients after bootstrapping. This
+level of precision is attained for bootstrapping B=N/(4h) =N/256coefficients,
+using κ= 1processor. All parameter sets achieve an estimated security level of
+approximately 100bits or higher [ 1], based on standard estimators for the primal
+uSVPattack, the primal hybrid attack, the dual attack, and the dual hybrid
+attack.
+Table 4. Parameter sets for the two bootstrapping procedures.
+Set logNlogqlogplog∆ L log(PQ)Precision
+PaCo I15 29 22 323 + 6 + 3 + 2 = 14 93412bitsOriginal I 2 + 4 + 8 + 2 = 16 1 126
+PaCo II16 44 32 483 + 6 + 3 + 3 = 15 1 49622bitsOriginal II 3 + 4 + 9 + 3 = 19 1 976
+--- PAGE 27 ---
+PaCo 27
+7.3 Benchmarks
+We now present the results of our experiments. Our results clearly demonstrate
+thatPaCoachieves substantial gains in efficiency, even without making use of
+parallelization. The results are shown in the form of graphs. Precise numerical
+values of the timings are omitted, as they would not offer meaningful insights
+given that our implementation only serves as a proof of concept.
+Sequential Bootstrapping. We provide in Figure 5 the bootstrapping timings
+for the two parameter sets listed in Table 4. All timings are reported in seconds,
+and are averaged over 10runs. The timings were obtained from a 2023 MacBook
+Air with an Apple M2 chip.
+Evenwithoutparallelization, PaCoconsistentlyoutperformstheoriginal CKKS
+bootstrapping method roughly by a constant term, regardless of the number
+of coefficients C. Therefore, the relative speedup of PaCois more pronounced
+for smaller values of C, but remains modest even for larger values. Overall, the
+observed speedups range from approximately 1.5×to2.6×compared to the
+originalCKKSprocedure.
+1 2 3 4 5 6 7
+logC05101520Time (s)
+Original I
+PaCo I
+1 2 3 4 5 6 7 8
+logC020406080100Time (s)
+Original II
+PaCo II
+Fig. 5.Bootstrapping timings with the parameter sets listed in Table 4 to bootstrap C
+coefficients with logC∈[1,logN−8].
+Parallel Bootstrapping. Thanks to the straightforward parallelization of PaCo,
+its runtime can be predicted when executed in parallel. Specifically, when using
+a power

@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q135",
+  "card_id": "K046",
+  "source_id": "src_000079",
+  "question": "M→U_ℓ→M^{-1}三步各自做什么？",
+  "answer": "M：槽内局部基统一化（每槽独立，slot-wise）；U_ℓ：跨槽全局混合/重排（FFT-like块矩阵）；M^{-1}：收尾还原。将大dense矩阵分解为三个结构化子步骤。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

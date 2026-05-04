@@ -1,0 +1,13 @@
+{
+  "qa_id": "Q112",
+  "question": "当前CKKS bootstrapping factorization论文的主定理框架是什么？",
+  "answer": "主定理拟写为一个split-compatible sandwich-circuit criterion：任何L^(2)∘Φ∘L^(1)结构的电路（Φ逐坐标非线性），若L^(1)和L^(2)满足split-compatible条件，则可以分解为Merge∘(⊕F_n)∘Split。CKKS bootstrapping core（C2S∘EvalMod∘S2C）是该criterion的非平凡实例。",
+  "card_id": "N/A",
+  "source_id": "src_000053",
+  "source_type": "paper_idea",
+  "confidence": "low",
+  "needs_human_review": true,
+  "batch": "Batch-03",
+  "notes": "来自作者论文规划，标记为candidate_knowledge",
+  "created": "2026-05-04T13:54:56"
+}

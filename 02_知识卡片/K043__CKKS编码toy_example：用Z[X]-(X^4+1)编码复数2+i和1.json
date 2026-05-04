@@ -1,0 +1,28 @@
+{
+  "card_id": "K043",
+  "title": "CKKS编码toy example：用Z[X]/(X^4+1)编码复数2+i和1.60+0.90i",
+  "topic": "CKKS/编码/具体计算例",
+  "knowledge_points": [
+    "设置：R=Z[X]/(X^4+1)，ζ=e^{iπ/4}=8次单位原根。关系：X^4=-1→ζ^4=-1。",
+    "例1（精确编码2+i）：注意到i=ζ^2→2+i=2+ζ^2→编码多项式m(X)=2+X^2。解码：m(ζ)=2+ζ^2=2+i。",
+    "例2（近似编码1.60+0.90i）：基向量1,ζ,ζ^2,ζ^3在复平面上。组合m(X)=X+X^2-X^3→m(ζ)≈1.414+1.000i→误差0.21。",
+    "编码本质：把复数写成单位根幂的整数线性组合α≈Σa_iζ^i，然后ζ^i→X^i得到多项式。",
+    "LLL的作用：在众多近似表示中找小系数(a_i)的解。系数越小，后续同态运算的噪声增长越小。",
+    "论文3.1节原则：单消息单明文编码，核心是控制编码后多项式的系数分布和尺寸。"
+  ],
+  "card_type": "example",
+  "source_id": "src_000067",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/01_CKKS编码与解码/复数编码方法1-toy_example.md",
+  "claim_source_type": "用户笔记",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "document_role": "directly_related",
+  "read_depth": "deep_read",
+  "publish_target": "03_FHE知识库",
+  "notes": "toy example来自用户笔记，非论文原文例。用于直观理解CKKS编码的近似本质和LLL的作用。",
+  "related_cards": [
+    "K039",
+    "K042"
+  ],
+  "confidence": "medium"
+}

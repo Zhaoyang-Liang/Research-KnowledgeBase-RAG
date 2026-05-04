@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q163",
+  "card_id": "K058",
+  "source_id": "src_000103",
+  "question": "同态加法和乘法在噪声控制上有什么不同？",
+  "answer": "加法：噪声线性增长（e_a+e_b），一般不立即需要噪声控制。乘法：噪声≈平方级别增长（≈e_a·e_b+...），增长远快于加法。因此噪声控制（ModSwitch/Rescale）主要在乘法后触发。实际实现中，加法可积累多轮再做控制，乘法必须每次立即控制。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b1",
+  "created": "2026-05-04T16:00"
+}

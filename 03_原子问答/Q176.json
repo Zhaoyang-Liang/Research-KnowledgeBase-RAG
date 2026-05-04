@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q176",
+  "question": "LWE和RLWE有什么区别？为什么FHE都用RLWE而不是LWE？",
+  "answer": "LWE（Learning With Errors）在 Z_q^n 上操作：给定随机矩阵 A 和 b=A·s+e，区分/恢复 s。RLWE（Ring-LWE）将域换成多项式环 R_q=Z_q[X]/(X^N+1)，样本为 (a, a·s+e) ∈ R_q^2。\n\nRLWE 的三大优势：(1) 效率——一个 RLWE sample 携带 N 个 LWE sample 的信息量（每个多项式有 N 个系数），通过 NTT 可在 O(N log N) 计算；(2) 密文大小——RLWE 密文 O(N)，LWE 密文 O(N²)；(3) FHE 的同态操作（乘法、旋转、自同构）天然适合 ring 结构。这就是 BGV/BFV/CKKS 全部使用 RLWE 的原因。\n\n困难性：LWE 归约到一般格 SVP（Regev 2005），RLWE 归约到理想格 Ideal-SVP（LPR 2010）。两者都是量子归约。",
+  "source_id": "src_000110, src_000119",
+  "batch": "Batch-05c",
+  "confidence": "medium",
+  "source_status": "source_preserved",
+  "needs_human_review": false,
+  "review_policy": "review_when_used_for_paper"
+}

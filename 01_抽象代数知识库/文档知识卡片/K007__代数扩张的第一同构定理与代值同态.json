@@ -1,0 +1,90 @@
+{
+  "card_id": "K007",
+  "version": "v2",
+  "title": "代数扩张的第一同构定理与代值同态",
+  "source_id": "src_000007",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/代数：扩张与代值映射为什么可以直接代入根.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "第一同构定理, F[X]/(f)≅F(u), SIMD"
+  },
+  "category": "数学基础",
+  "subtopic": "代数/域扩张与SIMD",
+  "chinese_summary": "代值同态eval_u: F[X]→F(u)的核心：第一同构定理→F[X]/(f)≅F(ψ)≅F(u)。这意味着将多项式代入f的不同根ψ₁,…,ψ_L产生L个同构。这是SIMD编码的代数基础：每个槽对应一个不同的根ψ_k，槽中的值=多项式在该根的求值eval_{ψ_k}(m)。不同槽之间通过自同构切换。",
+  "knowledge_points": [
+    {
+      "id": "K007-1",
+      "concept": "第一同构定理SIMD版",
+      "formula": "F[X]/(f)≅F(ψ₁)×…×F(ψ_L) (via CRT)",
+      "meaning": "f分解为不可约因子时CRT给出直积分解→每个因子=一个槽。"
+    },
+    {
+      "id": "K007-2",
+      "concept": "代值同态的构造",
+      "formula": "eval_ψ: F[X]→F(ψ), g(X)↦g(ψ)",
+      "meaning": "将多项式代入特定根ψ。不可约f时核=(f)，F[X]/(f)≅F(ψ)。"
+    },
+    {
+      "id": "K007-3",
+      "concept": "不同根产生同构但不同的域",
+      "formula": "F(ψ₁)≅F(ψ₂)≅…≅F(ψ_L)但作为集合不同",
+      "meaning": "每个根定义F的不同嵌入，CRT分解中对应不同槽。"
+    },
+    {
+      "id": "K007-4",
+      "concept": "多项式环层面：m(ψ_k)=第k槽值",
+      "formula": "m(ψ_k)∈F_{p^d}, ψ_k=Φ_m mod p的第k个不可约因子根",
+      "meaning": "多项式在每个槽的求值=该槽存储的消息。"
+    },
+    {
+      "id": "K007-5",
+      "concept": "槽间切换：自同构操作",
+      "formula": "eval_{ψ_j}∘eval_{ψ_k}^{-1}: F(ψ_k)→F(ψ_j)",
+      "meaning": "槽间值转换通过自同构实现→FHE中的rotation操作。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "F[X]/(f)≅F(ψ), eval_ψ(g+(f))=g(ψ)",
+      "meaning": "代值映射与第一同构定理"
+    },
+    {
+      "formula": "R_p≅∏_{k=1}^{L}F_{p^d}",
+      "meaning": "CRT分解：分圆环≅L个扩域直积"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "代值同态",
+      "en": "evaluation homomorphism",
+      "definition": "将多项式代入特定元素得到的环同态"
+    },
+    {
+      "term": "第一同构定理",
+      "en": "first isomorphism theorem",
+      "definition": "若φ:A→B环同态，则A/ker(φ)≅im(φ)"
+    },
+    {
+      "term": "SIMD",
+      "en": "Single Instruction Multiple Data",
+      "definition": "将多项式在各槽求值解释为独立数据"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "环论同构定理与CRT",
+    "RLWE_lattice": "CRT→SIMD→RLWE并行计算",
+    "FHE_technique": "SIMD编码、slot-to-coeff代数基础",
+    "current_paper": "理解PaCo多槽处理的代数原理"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K007-1",
+    "QA-K007-2",
+    "QA-K007-3",
+    "QA-K007-4",
+    "QA-K007-5"
+  ],
+  "rag_ingestion_suggestion": "高优先级，SIMD代数基础"
+}

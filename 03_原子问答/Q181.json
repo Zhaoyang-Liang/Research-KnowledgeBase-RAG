@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q181",
+  "question": "SIS（小整数解）问题是什么？它和CVP有什么关系？",
+  "answer": "SIS（Short Integer Solution）：给定随机矩阵 A ∈ Z_q^{n×m}，找非零短向量 s ∈ Z^m 使得 A·s ≡ 0 mod q 且 ‖s‖ ≤ β。\n\nSIS 与 Ajtai 函数的求逆等价：(1) Ajtai 函数 f_A(x) = A·x mod q；(2) 找到碰撞 f_A(x₁)=f_A(x₂) ⇔ A·(x₁−x₂)≡0；(3) s = x₁−x₂ 短 ⇒ SIS 解。\n\nSIS 与 CVP 的关系：给定目标 u，找短 x 使 A·x ≡ u mod q。解集 = x₀ + Λ_Q^⊥(A)（格的一个陪集）。找最短 x 等价于在陪集中找离原点最近点 → 等价于在格 Λ_Q^⊥(A) 上解 CVP（目标 t = −x₀）。\n\n一句话：SIS 求逆 = 在特定格的陪集中解 CVP。这个联系是格陷门签名的核心。",
+  "source_id": "src_000113, src_000117",
+  "batch": "Batch-05c",
+  "confidence": "medium",
+  "source_status": "source_preserved",
+  "needs_human_review": false,
+  "review_policy": "review_when_used_for_paper"
+}

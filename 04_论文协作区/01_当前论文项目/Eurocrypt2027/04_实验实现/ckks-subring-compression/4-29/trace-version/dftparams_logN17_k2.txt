@@ -1,0 +1,561 @@
+=== SIMPLE NO-B_k CKKS BOOTSTRAPPING DECOMPOSITION ===
+top LogN=17, layers=1, k=2, leaf LogN=16
+parallelLeaves=true, leafWorkers=2, leafOrder=bitrev, reps=1, warmup=0
+No B_k, no B_k^{-1}, no twiddles, no B-related level reservation.
+Top boot params: logN=17, N=131072, logSlots=16, maxLevel=25, logQP=1520.0
+
+=== Input ciphertexts ===
+top high-level input: LogN=17 Level=25 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+top low-level bootstrap input: LogN=17 Level=0 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+--- High-level input decrypt/decode vs plaintext ---
+len=65536
+want max abs = 1.04769091339001319e+00 at slot 0
+got  max abs = 1.04769091772258705e+00 at slot 55912
+max abs error = 8.78492305782047657e-09 at slot 43978
+rmse          = 1.31914725972229782e-09
+mean abs err  = 1.04160787323907706e-09
+worst slot[43978]: want=+1.00000000000000000e+00-3.12500000000000000e-01i got=+9.99999998654039324e-01-3.12499991318798298e-01i diff=8.78492305782047657e-09
+slot[0]: want=-1.000000000000e+00-3.125000000000e-01i got=-9.999999998656e-01-3.125000004121e-01i diff=4.335e-10
+slot[1]: want=-8.750000000000e-01-2.500000000000e-01i got=-8.750000007846e-01-2.499999964080e-01i diff=3.677e-09
+slot[2]: want=-7.500000000000e-01-1.875000000000e-01i got=-7.500000001924e-01-1.875000003994e-01i diff=4.433e-10
+slot[3]: want=-6.250000000000e-01-1.250000000000e-01i got=-6.249999985965e-01-1.249999986902e-01i diff=1.920e-09
+
+--- Low-level input decrypt/decode vs plaintext ---
+len=65536
+want max abs = 1.04769091339001319e+00 at slot 0
+got  max abs = 1.04769091851565421e+00 at slot 22780
+max abs error = 7.86603943206900991e-09 at slot 53974
+rmse          = 1.32081851385794512e-09
+mean abs err  = 1.04325314688976291e-09
+worst slot[53974]: want=+1.00000000000000000e+00+1.87500000000000000e-01i got=+1.00000000697425850e+00+1.87499996362102989e-01i diff=7.86603943206900991e-09
+slot[0]: want=-1.000000000000e+00-3.125000000000e-01i got=-9.999999992301e-01-3.124999994929e-01i diff=9.219e-10
+slot[1]: want=-8.750000000000e-01-2.500000000000e-01i got=-8.749999985753e-01-2.499999987965e-01i diff=1.865e-09
+slot[2]: want=-7.500000000000e-01-1.875000000000e-01i got=-7.500000001530e-01-1.875000004769e-01i diff=5.009e-10
+slot[3]: want=-6.250000000000e-01-1.250000000000e-01i got=-6.249999990002e-01-1.250000010943e-01i diff=1.482e-09
+
+Generating ring-switching keys for Split/Merge...
+RingPackingEvaluator: minLogN=16, maxLogN=17
+
+Generating direct top evaluator...
+Generating direct top bootstrapping keys for LogN=17, bootLogQP=1520.0, maxLevel=25...
+
+Generating no-B_k leaf evaluator pool...
+Generating no-B_k EXACT-BASIS leaf bootstrapping keys for LogN=16, logQP=1520.0, maxLevel=25, workers=2...
+Leaf boot params: logN=16, N=65536, logSlots=15, maxLevel=25, logQP=1520.0
+
+=== Ring-basis compatibility check ===
+top boot params vs shared-basis leaf boot params
+top LogN=17, leaf LogN=16
+Q count: top=26, leaf=26
+Q[00]: top=36028797019488257 leaf=36028797019488257 same=true
+Q[01]: top=1099512938497 leaf=1099512938497 same=true
+Q[02]: top=1099510054913 leaf=1099510054913 same=true
+Q[03]: top=1099507695617 leaf=1099507695617 same=true
+Q[04]: top=1099516870657 leaf=1099516870657 same=true
+Q[05]: top=1099504549889 leaf=1099504549889 same=true
+Q[06]: top=1099502714881 leaf=1099502714881 same=true
+Q[07]: top=1099522375681 leaf=1099522375681 same=true
+Q[18]: top=1152921504592429057 leaf=1152921504592429057 same=true
+Q[19]: top=1152921504622575617 leaf=1152921504622575617 same=true
+Q[20]: top=1152921504581419009 leaf=1152921504581419009 same=true
+Q[21]: top=1152921504580894721 leaf=1152921504580894721 same=true
+Q[22]: top=72057594036879361 leaf=72057594036879361 same=true
+Q[23]: top=72057594035306497 leaf=72057594035306497 same=true
+Q[24]: top=72057594042646529 leaf=72057594042646529 same=true
+Q[25]: top=72057594029015041 leaf=72057594029015041 same=true
+P count: top=4, leaf=4
+P[00]: top=2305843009211596801 leaf=2305843009211596801 same=true
+P[01]: top=2305843009210023937 leaf=2305843009210023937 same=true
+P[02]: top=2305843009208713217 leaf=2305843009208713217 same=true
+P[03]: top=2305843009218936833 leaf=2305843009218936833 same=true
+Ring-basis check: PASS. Top and leaf Q/P moduli match exactly.
+
+=== DFT MatrixLiteral dump: TOP vs LEAF ===
+
+--- TOP effective CoeffsToSlots ---
+Type        = 0
+LogSlots    = 16
+Slots       = 65536
+2*Slots     = 131072
+1/Slots     = 1.52587890625000000e-05
+1/(2Slots)  = 7.62939453125000000e-06
+Format      = 2
+BitReversed = false
+LevelQ      = 25
+LevelP      = 3
+Levels      = [1 1 1 1]
+Depth(false)= 4
+Depth(true) = 4
+Scaling     = 0.0624999999990905053
+Scaling f64 = 6.24999999990905053e-02
+Scaling/Slots    = 9.53674316392372212e-07
+Scaling/(2Slots) = 4.76837158196186106e-07
+
+--- TOP effective SlotsToCoeffs ---
+Type        = 1
+LogSlots    = 16
+Slots       = 65536
+2*Slots     = 131072
+1/Slots     = 1.52587890625000000e-05
+1/(2Slots)  = 7.62939453125000000e-06
+Format      = 2
+BitReversed = false
+LevelQ      = 13
+LevelP      = 3
+Levels      = [1 1 1]
+Depth(false)= 3
+Depth(true) = 3
+Scaling     = 0.000244140625
+Scaling f64 = 2.44140625000000000e-04
+Scaling/Slots    = 3.72529029846191406e-09
+Scaling/(2Slots) = 1.86264514923095703e-09
+
+--- TOP stored CoeffsToSlots in Parameters ---
+Type        = 0
+LogSlots    = 16
+Slots       = 65536
+2*Slots     = 131072
+1/Slots     = 1.52587890625000000e-05
+1/(2Slots)  = 7.62939453125000000e-06
+Format      = 2
+BitReversed = false
+LevelQ      = 25
+LevelP      = 3
+Levels      = [1 1 1 1]
+Depth(false)= 4
+Depth(true) = 4
+Scaling     = 0.0624999999990905053
+Scaling f64 = 6.24999999990905053e-02
+Scaling/Slots    = 9.53674316392372212e-07
+Scaling/(2Slots) = 4.76837158196186106e-07
+
+--- TOP stored SlotsToCoeffs in Parameters ---
+Type        = 1
+LogSlots    = 16
+Slots       = 65536
+2*Slots     = 131072
+1/Slots     = 1.52587890625000000e-05
+1/(2Slots)  = 7.62939453125000000e-06
+Format      = 2
+BitReversed = false
+LevelQ      = 13
+LevelP      = 3
+Levels      = [1 1 1]
+Depth(false)= 3
+Depth(true) = 3
+Scaling     = 0.000244140625
+Scaling f64 = 2.44140625000000000e-04
+Scaling/Slots    = 3.72529029846191406e-09
+Scaling/(2Slots) = 1.86264514923095703e-09
+
+--- LEAF[0] effective CoeffsToSlots ---
+Type        = 0
+LogSlots    = 15
+Slots       = 32768
+2*Slots     = 65536
+1/Slots     = 3.05175781250000000e-05
+1/(2Slots)  = 1.52587890625000000e-05
+Format      = 2
+BitReversed = false
+LevelQ      = 25
+LevelP      = 3
+Levels      = [1 1 1 1]
+Depth(false)= 4
+Depth(true) = 4
+Scaling     = 0.0624999999990905053
+Scaling f64 = 6.24999999990905053e-02
+Scaling/Slots    = 1.90734863278474442e-06
+Scaling/(2Slots) = 9.53674316392372212e-07
+
+--- LEAF[0] effective SlotsToCoeffs ---
+Type        = 1
+LogSlots    = 15
+Slots       = 32768
+2*Slots     = 65536
+1/Slots     = 3.05175781250000000e-05
+1/(2Slots)  = 1.52587890625000000e-05
+Format      = 2
+BitReversed = false
+LevelQ      = 13
+LevelP      = 3
+Levels      = [1 1 1]
+Depth(false)= 3
+Depth(true) = 3
+Scaling     = 0.000244140625
+Scaling f64 = 2.44140625000000000e-04
+Scaling/Slots    = 7.45058059692382812e-09
+Scaling/(2Slots) = 3.72529029846191406e-09
+
+--- LEAF[0] stored CoeffsToSlots in Parameters ---
+Type        = 0
+LogSlots    = 15
+Slots       = 32768
+2*Slots     = 65536
+1/Slots     = 3.05175781250000000e-05
+1/(2Slots)  = 1.52587890625000000e-05
+Format      = 2
+BitReversed = false
+LevelQ      = 25
+LevelP      = 3
+Levels      = [1 1 1 1]
+Depth(false)= 4
+Depth(true) = 4
+Scaling     = 0.0624999999990905053
+Scaling f64 = 6.24999999990905053e-02
+Scaling/Slots    = 1.90734863278474442e-06
+Scaling/(2Slots) = 9.53674316392372212e-07
+
+--- LEAF[0] stored SlotsToCoeffs in Parameters ---
+Type        = 1
+LogSlots    = 15
+Slots       = 32768
+2*Slots     = 65536
+1/Slots     = 3.05175781250000000e-05
+1/(2Slots)  = 1.52587890625000000e-05
+Format      = 2
+BitReversed = false
+LevelQ      = 13
+LevelP      = 3
+Levels      = [1 1 1]
+Depth(false)= 3
+Depth(true) = 3
+Scaling     = 0.000244140625
+Scaling f64 = 2.44140625000000000e-04
+Scaling/Slots    = 7.45058059692382812e-09
+Scaling/(2Slots) = 3.72529029846191406e-09
+
+=== Split/Merge roundtrip: high-level input ===
+
+=== roundtrip split ciphertext metadata ===
+roundtrip split leaf[0]: LogN=16 Level=25 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+roundtrip split leaf[1]: LogN=16 Level=25 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+roundtrip merged: LogN=17 Level=25 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+--- Split/Merge roundtrip high-level input ---
+len=65536
+want max abs = 1.04769091772258705e+00 at slot 55912
+got  max abs = 1.04769099063257110e+00 at slot 51645
+max abs error = 1.21064259686991781e-07 at slot 40875
+rmse          = 2.21341644000221595e-08
+mean abs err  = 1.82528043632941666e-08
+worst slot[40875]: want=-1.24999999792570482e-01+3.12499999959671870e-01i got=-1.24999902994075485e-01+3.12499927250619203e-01i diff=1.21064259686991781e-07
+slot[0]: want=-9.999999998656e-01-3.125000004121e-01i got=-1.000000036273e+00-3.125000115956e-01i diff=3.809e-08
+slot[1]: want=-8.750000007846e-01-2.499999964080e-01i got=-8.749999937774e-01-2.499999913923e-01i diff=8.617e-09
+slot[2]: want=-7.500000001924e-01-1.875000003994e-01i got=-7.500000152228e-01-1.874999923020e-01i diff=1.707e-08
+slot[3]: want=-6.249999985965e-01-1.249999986902e-01i got=-6.249999763407e-01-1.250000096964e-01i diff=2.483e-08
+
+=== Split/Merge roundtrip: low-level input ===
+
+=== roundtrip split ciphertext metadata ===
+roundtrip split leaf[0]: LogN=16 Level=0 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+roundtrip split leaf[1]: LogN=16 Level=0 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+roundtrip merged: LogN=17 Level=0 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+--- Split/Merge roundtrip low-level input ---
+len=65536
+want max abs = 1.04769091851565421e+00 at slot 22780
+got  max abs = 1.04769098132323757e+00 at slot 44098
+max abs error = 1.27390150012732327e-07 at slot 50526
+rmse          = 1.99013744893241614e-08
+mean abs err  = 1.56502494821211028e-08
+worst slot[50526]: want=-7.50000000268582157e-01-1.25000000169170372e-01i got=-7.49999872884528518e-01-1.24999998922896385e-01i diff=1.27390150012732327e-07
+slot[0]: want=-9.999999992301e-01-3.124999994929e-01i got=-1.000000005124e+00-3.125000040643e-01i diff=7.459e-09
+slot[1]: want=-8.749999985753e-01-2.499999987965e-01i got=-8.750000034124e-01-2.499999975332e-01i diff=4.999e-09
+slot[2]: want=-7.500000001530e-01-1.875000004769e-01i got=-7.499999908989e-01-1.875000026405e-01i diff=9.504e-09
+slot[3]: want=-6.249999990002e-01-1.250000010943e-01i got=-6.249999932393e-01-1.249999990064e-01i diff=6.128e-09
+
+=== Direct full bootstrap stages ===
+direct after ScaleDown: LogN=17 Level=0 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 48} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:48} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+direct after ModUp: LogN=17 Level=25 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 53} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:53} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+direct C2S real: LogN=17 Level=21 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 53} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:53} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+direct C2S imag: LogN=17 Level=21 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 53} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:53} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+direct EvalMod real: LogN=17 Level=13 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+direct EvalMod imag: LogN=17 Level=13 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+direct final S2C output: LogN=17 Level=10 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+=== Factored no-B_k full bootstrap stages ===
+factored after ScaleDown: LogN=17 Level=0 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 48} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:48} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+factored after ModUp: LogN=17 Level=25 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 53} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:53} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+=== factored Split output ciphertext metadata ===
+factored Split output leaf[0]: LogN=16 Level=25 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 53} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:53} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+factored Split output leaf[1]: LogN=16 Level=25 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 53} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:53} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+=== factored leaf C2S real ciphertext metadata ===
+factored leaf C2S real leaf[0]: LogN=16 Level=21 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 53} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:53} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+factored leaf C2S real leaf[1]: LogN=16 Level=21 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 53} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:53} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+=== factored leaf C2S imag ciphertext metadata ===
+factored leaf C2S imag leaf[0]: LogN=16 Level=21 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 53} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:53} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+factored leaf C2S imag leaf[1]: LogN=16 Level=21 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 53} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:53} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+=== factored leaf EvalMod real ciphertext metadata ===
+factored leaf EvalMod real leaf[0]: LogN=16 Level=13 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+factored leaf EvalMod real leaf[1]: LogN=16 Level=13 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+=== factored leaf EvalMod imag ciphertext metadata ===
+factored leaf EvalMod imag leaf[0]: LogN=16 Level=13 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+factored leaf EvalMod imag leaf[1]: LogN=16 Level=13 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+=== factored leaf S2C outputs before Merge ciphertext metadata ===
+factored leaf S2C outputs before Merge leaf[0]: LogN=16 Level=10 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+factored leaf S2C outputs before Merge leaf[1]: LogN=16 Level=10 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:15} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+factored final Merge output: LogN=17 Level=10 Degree=1 Scale={{128 0 0 1 false [0 9223372036854775808] 41} <nil>} MetaData=&{PlaintextMetaData:{Scale:{Value:{prec:128 mode:0 acc:0 form:1 neg:false mant:[0 9223372036854775808] exp:41} Mod:<nil>} LogDimensions:{Rows:0 Cols:16} IsBatched:true IsBitReversed:false} CiphertextMetaData:{IsNTT:true IsMontgomery:false}}
+
+=== C2S input to EvalMod: top vs Split+leaf layout comparison ===
+residue layout: top index = residue + s*k
+blocked layout: top index = residue*leafSlots + s
+For the no-B_k experiment, the correct implementation convention is usually blocked layout.
+C2S input to EvalMod REAL residue=0 leafIdx=0 natural-residue
+  want max abs = 9.60002387217914617e+01 at 32475
+  got  max abs = 9.60000999110335158e+01 at 20498
+  raw max err  = 1.60000243033245226e+02 at 12100, rmse=3.75179135493615163e+01, mean=2.94931836332754393e+01
+  best alpha   = 8.45921824876288714e-04+1.60113098454826814e-15i
+  alpha err    = 9.60408429305244908e+01 at 32475, rmse=2.65884334615692843e+01, mean=2.05817647513460926e+01
+  raw worst[12100]: want=-8.000015277975e+01-6.342234916513e-13i got=+8.000009025350e+01+3.072265788326e-12i
+C2S input to EvalMod IMAG residue=0 leafIdx=0 natural-residue
+  want max abs = 1.27999994748917302e+02 at 882
+  got  max abs = 1.27999994748916578e+02 at 1764
+  raw max err  = 1.59999952754035718e+02 at 1764, rmse=3.76610090235660309e+01, mean=2.96704283539004017e+01
+  best alpha   = -6.04437209727063350e-03+5.52275536789894518e-16i
+  alpha err    = 1.27903284733460765e+02 at 882, rmse=2.65344267584698024e+01, mean=2.06056592252461179e+01
+  raw worst[1764]: want=+3.199995800512e+01+1.367442238555e-12i got=-1.279999947489e+02+3.290930988390e-12i
+C2S input to EvalMod REAL residue=0 leafIdx=0 blocked
+  want max abs = 9.60000999110324074e+01 at 20498
+  got  max abs = 9.60000999110335158e+01 at 20498
+  raw max err  = 4.55720987786005021e-11 at 1743, rmse=6.57940461023429965e-12, mean=5.25162381838463919e-12
+  best alpha   = 1.00000000000000533e+00+3.40571381982210514e-16i
+  alpha err    = 4.56569655088180718e-11 at 1743, rmse=6.58117178460299190e-12, mean=5.25284218169274308e-12
+  raw worst[1743]: want=-1.600000675545e+01+1.127462260896e-12i got=-1.600000675549e+01+3.500691971379e-12i
+C2S input to EvalMod IMAG residue=0 leafIdx=0 blocked
+  want max abs = 1.27999994748917302e+02 at 1764
+  got  max abs = 1.27999994748916578e+02 at 1764
+  raw max err  = 4.22088063993683552e-11 at 12627, rmse=6.52343887668006206e-12, mean=5.23647934839047894e-12
+  best alpha   = 9.99999999999996114e-01-2.18042699475788859e-16i
+  alpha err    = 4.21447636084517756e-11 at 12627, rmse=6.52449529129742102e-12, mean=5.23760034043072515e-12
+  raw worst[12627]: want=+1.600008874793e+01-1.190445193600e-12i got=+1.600008874797e+01+1.360821821812e-12i
+C2S input to EvalMod REAL residue=1 leafIdx=1 natural-residue
+  want max abs = 9.60002589788588239e+01 at 24548
+  got  max abs = 9.60002589788633429e+01 at 16329
+  raw max err  = 1.44000163721440686e+02 at 10001, rmse=3.75705567683939918e+01, mean=2.95703349752656415e+01
+  best alpha   = -1.98916949980347145e-03-3.17600526950146621e-16i
+  alpha err    = 9.61273889611701975e+01 at 26090, rmse=2.64916912279922805e+01, mean=2.05497469926943594e+01
+  raw worst[10001]: want=-9.599998220872e+01-7.812238913834e-13i got=+4.800018151272e+01+2.605673686051e-12i
+C2S input to EvalMod IMAG residue=1 leafIdx=1 natural-residue
+  want max abs = 1.11999834468601975e+02 at 29560
+  got  max abs = 1.11999834468599900e+02 at 26353
+  raw max err  = 1.44000322093758939e+02 at 12430, rmse=3.75196827297049467e+01, mean=2.95688713355981285e+01
+  best alpha   = 7.41208371984464643e-03+2.70133870569096836e-16i
+  alpha err    = 1.11999833221948165e+02 at 29560, rmse=2.66436293238406492e+01, mean=2.07284307315816498e+01
+  raw worst[12430]: want=+6.400020001134e+01-1.538812985991e-12i got=-8.000012208242e+01+4.367958413116e-12i
+C2S input to EvalMod REAL residue=1 leafIdx=1 blocked
+  want max abs = 9.60002589788588239e+01 at 16329
+  got  max abs = 9.60002589788633429e+01 at 16329
+  raw max err  = 4.35705626221887705e-11 at 21015, rmse=6.56858248653776366e-12, mean=5.24587339894852953e-12
+  best alpha   = 9.99999999999997780e-01+7.98420664096757807e-17i
+  alpha err    = 4.35705629745295836e-11 at 21015, rmse=6.56843731312944597e-12, mean=5.24574631969803222e-12
+  raw worst[21015]: want=+1.563991693416e-04+4.908221691836e-13i got=+1.563991257711e-04+4.062570299584e-13i
+C2S input to EvalMod IMAG residue=1 leafIdx=1 blocked
+  want max abs = 1.11999834468601975e+02 at 26353
+  got  max abs = 1.11999834468599900e+02 at 26353
+  raw max err  = 4.00857898994726757e-11 at 27323, rmse=6.57160970986158984e-12, mean=5.25004944462746103e-12
+  best alpha   = 9.99999999999999334e-01-5.39530891362574346e-16i
+  alpha err    = 4.01159196565233931e-11 at 27323, rmse=6.57170933428029771e-12, mean=5.25015858175661229e-12
+  raw worst[27323]: want=-4.800007356206e+01+9.153509103206e-13i got=-4.800007356202e+01-6.507744194490e-12i
+C2S input to EvalMod best candidate: C2S input to EvalMod IMAG residue=1 blocked raw, err=4.00857898994726757e-11
+
+=== After EvalMod: top vs Split+leaf layout comparison ===
+residue layout: top index = residue + s*k
+blocked layout: top index = residue*leafSlots + s
+For the no-B_k experiment, the correct implementation convention is usually blocked layout.
+After EvalMod REAL residue=0 leafIdx=0 natural-residue
+  want max abs = 2.09672133898748498e+01 at 20029
+  got  max abs = 1.85585940680284907e+01 at 24562
+  raw max err  = 2.74330401341659247e+01 at 17965, rmse=9.15872923109433046e+00, mean=7.12589796504900530e+00
+  best alpha   = 7.63857920754280884e-03-1.68228966493535123e-10i
+  alpha err    = 2.09571466809141036e+01 at 20029, rmse=7.27848965794084446e+00, mean=5.93978859766432077e+00
+  raw worst[17965]: want=-1.643475546950e+01-1.913195548578e-08i got=+1.099828466466e+01+1.827892256091e-06i
+After EvalMod IMAG residue=0 leafIdx=0 natural-residue
+  want max abs = 2.05513039548869827e+01 at 18598
+  got  max abs = 1.87242740431602215e+01 at 17203
+  raw max err  = 3.58142009521059350e+01 at 28540, rmse=9.22389306307562684e+00, mean=7.08714217486773190e+00
+  best alpha   = -8.20557668081702690e-03-3.12008530478682790e-09i
+  alpha err    = 2.06143224350697629e+01 at 18598, rmse=7.27616244285919755e+00, mean=5.94097067821495362e+00
+  raw worst[28540]: want=+1.756948669748e+01-1.410611806833e-07i got=-1.824471425463e+01+1.038256029489e-06i
+After EvalMod REAL residue=0 leafIdx=0 blocked
+  want max abs = 1.85585936901370943e+01 at 24562
+  got  max abs = 1.85585940680284907e+01 at 24562
+  raw max err  = 2.23148848760025430e-05 at 8217, rmse=2.26616659139826265e-06, mean=1.40663815891030646e-06
+  best alpha   = 1.00000000128184552e+00-1.34867276827402374e-09i
+  alpha err    = 2.23094362012348100e-05 at 8217, rmse=2.26614261874690265e-06, mean=1.40671291862632716e-06
+  raw worst[8217]: want=-4.675515277025e+00+2.456500626333e-07i got=-4.675493038999e+00+2.096140956089e-06i
+After EvalMod IMAG residue=0 leafIdx=0 blocked
+  want max abs = 1.87242736350580579e+01 at 17203
+  got  max abs = 1.87242740431602215e+01 at 17203
+  raw max err  = 2.91487709738228857e-05 at 22586, rmse=2.27046317897587529e-06, mean=1.40416416226531301e-06
+  best alpha   = 1.00000000317237858e+00-2.34152234028387895e-09i
+  alpha err    = 2.91469901703730370e-05 at 22586, rmse=2.27035493084376985e-06, mean=1.40445095939403458e-06
+  raw worst[22586]: want=-8.254728323818e-01+2.437953892061e-07i got=-8.254744877897e-01-2.885793091467e-05i
+After EvalMod REAL residue=1 leafIdx=1 natural-residue
+  want max abs = 2.13861940899500027e+01 at 22934
+  got  max abs = 2.13861973565275036e+01 at 13101
+  raw max err  = 3.65471613464340948e+01 at 22546, rmse=1.13048557169122450e+01, mean=9.22766531367741472e+00
+  best alpha   = -1.27950084054400938e-04+4.28902031182319735e-10i
+  alpha err    = 2.13871002799591174e+01 at 22934, rmse=7.28649210740568876e+00, mean=5.94552681357116164e+00
+  raw worst[22546]: want=-1.687821768226e+01-3.081435505936e-07i got=+1.966894366418e+01+9.276512417328e-07i
+After EvalMod IMAG residue=1 leafIdx=1 natural-residue
+  want max abs = 2.10991025924433444e+01 at 16767
+  got  max abs = 2.10991022424209902e+01 at 767
+  raw max err  = 3.48345922949095055e+01 at 23787, rmse=1.13129762739869513e+01, mean=9.25057973982697668e+00
+  best alpha   = -4.56634960568906047e-03-5.55672906294264917e-10i
+  alpha err    = 2.11309780744797706e+01 at 16767, rmse=7.27920407304191652e+00, mean=5.94566934457439977e+00
+  raw worst[23787]: want=+1.672143695379e+01-1.548356513670e-07i got=-1.811315534112e+01-6.214355161183e-07i
+After EvalMod REAL residue=1 leafIdx=1 blocked
+  want max abs = 2.13861940899500027e+01 at 13101
+  got  max abs = 2.13861973565275036e+01 at 13101
+  raw max err  = 2.13788818048512394e-05 at 22697, rmse=2.27203718642654887e-06, mean=1.40253224176524713e-06
+  best alpha   = 1.00000000057409477e+00+2.10662332710528771e-09i
+  alpha err    = 2.13905107603310599e-05 at 22697, rmse=2.27195882601614694e-06, mean=1.40260921427830103e-06
+  raw worst[22697]: want=-9.403514448886e+00+1.408144151848e-07i got=-9.403534634738e+00-6.901057833447e-06i
+After EvalMod IMAG residue=1 leafIdx=1 blocked
+  want max abs = 2.10991025924433444e+01 at 767
+  got  max abs = 2.10991022424209902e+01 at 767
+  raw max err  = 2.21953254079841077e-05 at 11960, rmse=2.24653846408156481e-06, mean=1.38837014765749507e-06
+  best alpha   = 9.99999998918580157e-01+2.23483059382256143e-09i
+  alpha err    = 2.22144429355813719e-05 at 11960, rmse=2.24643650911616631e-06, mean=1.38852434669348169e-06
+  raw worst[11960]: want=-1.066918126645e+01+2.946226073823e-09i got=-1.066916045663e+01-7.716086838395e-06i
+After EvalMod best candidate: After EvalMod REAL residue=1 blocked raw, err=2.13788818048512394e-05
+
+=== NORMALIZATION TRACE: locate where the global factor appears ===
+Each line compares WANT vs GOT and reports whether RAW, DIV-k, or fitted gamma is best.
+If gamma changes from about 1 to about k at a stage, that stage introduced the global factor.
+
+01 ScaleDown: direct vs factored                       raw= 0.000e+00 rmse= 0.000e+00 | div-2= 5.238e-01 rmse= 3.217e-01 | gamma=+1.000000e+00+4.137077e-22i | fit= 2.289e-16 rmse= 1.454e-16 | best=RAW
+02 ModUp: direct vs factored                           raw= 0.000e+00 rmse= 0.000e+00 | div-2= 5.278e+05 rmse= 7.694e+04 | gamma=+1.000000e+00+1.558992e-19i | fit= 1.137e-13 rmse= 1.418e-15 | best=RAW
+03 Split+Merge on ModUp                                raw= 2.541e-10 rmse= 4.912e-11 | div-2= 5.278e+05 rmse= 7.694e+04 | gamma=+1.000000e+00+1.226096e-18i | fit= 2.541e-10 rmse= 4.912e-11 | best=RAW
+04 C2S real: top vs blocked leaves                     raw= 4.557e-11 rmse= 6.574e-12 | div-2= 4.800e+01 rmse= 1.327e+01 | gamma=+1.000000e+00-2.097361e-16i | fit= 4.550e-11 rmse= 6.574e-12 | best=FIT-GAMMA
+05 C2S imag: top vs blocked leaves                     raw= 4.221e-11 rmse= 6.548e-12 | div-2= 6.400e+01 rmse= 1.329e+01 | gamma=+1.000000e+00+3.790808e-16i | fit= 4.225e-11 rmse= 6.548e-12 | best=RAW
+
+Running extra linear-only S2C diagnostics; this avoids EvalMod and isolates S2C/Merge normalization.
+06 Top C2S->S2C vs ModUp                               raw= 1.056e+06 rmse= 1.539e+05 | div-2= 1.056e+06 rmse= 1.539e+05 | gamma=+1.525879e-05-9.907312e-17i | fit= 1.744e-03 rmse= 4.749e-04 | best=FIT-GAMMA
+07 Leaf C2S->S2C+Merge vs ModUp                        raw= 1.056e+06 rmse= 1.539e+05 | div-2= 1.056e+06 rmse= 1.539e+05 | gamma=+1.525879e-05+8.399657e-17i | fit= 1.223e-03 rmse= 3.414e-04 | best=FIT-GAMMA
+08 Leaf linear path vs top linear path                 raw= 3.787e-08 rmse= 8.766e-09 | div-2= 8.053e+00 rmse= 1.174e+00 | gamma=+1.000000e+00+1.199766e-11i | fit= 3.790e-08 rmse= 8.766e-09 | best=RAW
+09 EvalMod real: top vs blocked leaves                 raw= 2.231e-05 rmse= 2.269e-06 | div-2= 1.069e+01 rmse= 3.641e+00 | gamma=+1.000000e+00-1.084297e-09i | fit= 2.231e-05 rmse= 2.269e-06 | best=FIT-GAMMA
+10 EvalMod imag: top vs blocked leaves                 raw= 2.915e-05 rmse= 2.259e-06 | div-2= 1.055e+01 rmse= 3.639e+00 | gamma=+1.000000e+00-8.689768e-10i | fit= 2.915e-05 rmse= 2.259e-06 | best=RAW
+11 Final S2C+Merge after EvalMod                       raw= 7.680e-07 rmse= 2.001e-07 | div-2= 5.238e-01 rmse= 3.217e-01 | gamma=+1.000000e+00+9.038449e-11i | fit= 7.681e-07 rmse= 2.001e-07 | best=RAW
+
+=== Normalization diagnostic summary ===
+Interpretation: gamma means got ~= gamma * want. If RAW is best, no division is needed at that stage.
+01 ScaleDown: direct vs factored                       gamma=+1.00000000e+00+4.13707729e-22i best=RAW        bestMax=0.000000e+00 bestRMSE=0.000000e+00
+02 ModUp: direct vs factored                           gamma=+1.00000000e+00+1.55899196e-19i best=RAW        bestMax=0.000000e+00 bestRMSE=0.000000e+00
+03 Split+Merge on ModUp                                gamma=+1.00000000e+00+1.22609630e-18i best=RAW        bestMax=2.541383e-10 bestRMSE=4.911648e-11
+04 C2S real: top vs blocked leaves                     gamma=+1.00000000e+00-2.09736079e-16i best=FIT-GAMMA  bestMax=4.550451e-11 bestRMSE=6.574453e-12
+05 C2S imag: top vs blocked leaves                     gamma=+1.00000000e+00+3.79080764e-16i best=RAW        bestMax=4.220881e-11 bestRMSE=6.547569e-12
+06 Top C2S->S2C vs ModUp                               gamma=+1.52587891e-05-9.90731200e-17i best=FIT-GAMMA  bestMax=1.744146e-03 bestRMSE=4.749012e-04
+07 Leaf C2S->S2C+Merge vs ModUp                        gamma=+1.52587891e-05+8.39965740e-17i best=FIT-GAMMA  bestMax=1.222750e-03 bestRMSE=3.414460e-04
+08 Leaf linear path vs top linear path                 gamma=+1.00000000e+00+1.19976553e-11i best=RAW        bestMax=3.787142e-08 bestRMSE=8.766422e-09
+09 EvalMod real: top vs blocked leaves                 gamma=+9.99999999e-01-1.08429705e-09i best=FIT-GAMMA  bestMax=2.231081e-05 bestRMSE=2.269083e-06
+10 EvalMod imag: top vs blocked leaves                 gamma=+1.00000000e+00-8.68976774e-10i best=RAW        bestMax=2.914877e-05 bestRMSE=2.258533e-06
+11 Final S2C+Merge after EvalMod                       gamma=+1.00000000e+00+9.03844907e-11i best=RAW        bestMax=7.680361e-07 bestRMSE=2.001275e-07
+
+Likely diagnosis rule:
+- 03 changes gamma: RingPacking Split/Merge normalization.
+- 04/05 changes gamma: CoeffsToSlots normalization/layout.
+- 07 or 08 changes gamma while 04/05 are gamma~1: leaf SlotsToCoeffs + Merge normalization.
+- 09/10 changes gamma: EvalMod or scale convention.
+- Only 11 changes gamma: final S2C/Merge after EvalMod, not C2S/EvalMod.
+
+=== Final output quality ===
+
+--- Direct full bootstrap vs plaintext ---
+len=65536
+want max abs = 1.04769091339001319e+00 at slot 0
+got  max abs = 1.04769096284827268e+00 at slot 42448
+max abs error = 7.63354327352432929e-08 at slot 32297
+rmse          = 2.08899823459562223e-08
+mean abs err  = 1.84909141002002049e-08
+worst slot[32297]: want=+7.50000000000000000e-01-2.50000000000000000e-01i got=+7.49999931284516252e-01-2.49999966754239605e-01i diff=7.63354327352432929e-08
+slot[0]: want=-1.000000000000e+00-3.125000000000e-01i got=-1.000000000638e+00-3.125000260478e-01i diff=2.606e-08
+slot[1]: want=-8.750000000000e-01-2.500000000000e-01i got=-8.749999745132e-01-2.500000285185e-01i diff=3.825e-08
+slot[2]: want=-7.500000000000e-01-1.875000000000e-01i got=-7.499999933205e-01-1.875000129850e-01i diff=1.460e-08
+slot[3]: want=-6.250000000000e-01-1.250000000000e-01i got=-6.249999829877e-01-1.250000225747e-01i diff=2.827e-08
+
+--- Factored no-B_k full bootstrap RAW vs plaintext ---
+len=65536
+want max abs = 1.04769091339001319e+00 at slot 0
+got  max abs = 1.04769140576139508e+00 at slot 34748
+max abs error = 7.46105339196712002e-07 at slot 4601
+rmse          = 1.98987119327660020e-07
+mean abs err  = 1.76376925141254216e-07
+worst slot[4601]: want=+3.75000000000000000e-01-1.25000000000000000e-01i got=+3.75000605066717507e-01-1.25000436540312621e-01i diff=7.46105339196712002e-07
+slot[0]: want=-1.000000000000e+00-3.125000000000e-01i got=-9.999999421167e-01-3.124999379342e-01i diff=8.487e-08
+slot[1]: want=-8.750000000000e-01-2.500000000000e-01i got=-8.749999518326e-01-2.500001458989e-01i diff=1.536e-07
+slot[2]: want=-7.500000000000e-01-1.875000000000e-01i got=-7.499998497814e-01-1.874999592254e-01i diff=1.557e-07
+slot[3]: want=-6.250000000000e-01-1.250000000000e-01i got=-6.250000416238e-01-1.249999502059e-01i diff=6.490e-08
+
+--- Factored no-B_k full bootstrap DIV-K vs plaintext ---
+got normalization divisor = 2
+len=65536
+want max abs = 1.04769091339001319e+00 at slot 0
+got  max abs = 1.04769140576139508e+00 at slot 34748
+max abs error = 5.23845673791275557e-01 at slot 58344
+rmse          = 3.21741661087964037e-01
+mean abs err  = 2.89794504792016516e-01
+worst slot[58344]: want=-1.00000000000000000e+00-3.12500000000000000e-01i got=-4.99999765607427871e-01-1.56250022216934709e-01i diff=5.23845673791275557e-01
+slot[0]: want=-1.000000000000e+00-3.125000000000e-01i got=-4.999999710583e-01-1.562499689671e-01i diff=5.238e-01
+slot[1]: want=-8.750000000000e-01-2.500000000000e-01i got=-4.374999759163e-01-1.250000729495e-01i diff=4.550e-01
+slot[2]: want=-7.500000000000e-01-1.875000000000e-01i got=-3.749999248907e-01-9.374997961271e-02i diff=3.865e-01
+slot[3]: want=-6.250000000000e-01-1.250000000000e-01i got=-3.125000208119e-01-6.249997510293e-02i diff=3.187e-01
+
+=== Direct vs factored final comparison ===
+
+--- Direct output vs factored RAW output ---
+len=65536
+want max abs = 1.04769096284827268e+00 at slot 42448
+got  max abs = 1.04769140576139508e+00 at slot 34748
+max abs error = 7.68036090696939601e-07 at slot 4601
+rmse          = 2.00127478266351194e-07
+mean abs err  = 1.77400940108628226e-07
+worst slot[4601]: want=+3.74999981601806642e-01-1.24999988019475275e-01i got=+3.75000605066717507e-01-1.25000436540312621e-01i diff=7.68036090696939601e-07
+slot[0]: want=-1.000000000638e+00-3.125000260478e-01i got=-9.999999421167e-01-3.124999379342e-01i diff=1.058e-07
+slot[1]: want=-8.749999745132e-01-2.500000285185e-01i got=-8.749999518326e-01-2.500001458989e-01i diff=1.196e-07
+slot[2]: want=-7.499999933205e-01-1.875000129850e-01i got=-7.499998497814e-01-1.874999592254e-01i diff=1.533e-07
+slot[3]: want=-6.249999829877e-01-1.250000225747e-01i got=-6.250000416238e-01-1.249999502059e-01i diff=9.314e-08
+
+--- Direct output vs factored DIV-K output ---
+got normalization divisor = 2
+len=65536
+want max abs = 1.04769096284827268e+00 at slot 42448
+got  max abs = 1.04769140576139508e+00 at slot 34748
+max abs error = 5.23845669074905262e-01 at slot 8074
+rmse          = 3.21741660574801802e-01
+mean abs err  = 2.89794504341649828e-01
+worst slot[8074]: want=+1.00000000125512334e+00-3.12499997620600378e-01i got=+4.99999816669315145e-01-1.56249876268030330e-01i diff=5.23845669074905262e-01
+slot[0]: want=-1.000000000638e+00-3.125000260478e-01i got=-4.999999710583e-01-1.562499689671e-01i diff=5.238e-01
+slot[1]: want=-8.749999745132e-01-2.500000285185e-01i got=-4.374999759163e-01-1.250000729495e-01i diff=4.550e-01
+slot[2]: want=-7.499999933205e-01-1.875000129850e-01i got=-3.749999248907e-01-9.374997961271e-02i diff=3.865e-01
+slot[3]: want=-6.249999829877e-01-1.250000225747e-01i got=-3.125000208119e-01-6.249997510293e-02i diff=3.187e-01
+
+=== Summary ===
+top LogN=17, layers=1, k=2, leaf LogN=16, leafOrder=bitrev
+Ring basis compatibility             = true
+Split/Merge high-level roundtrip max = 1.210643e-07
+Split/Merge low-level roundtrip max  = 1.273902e-07
+Best C2S alignment error             = 4.008579e-11
+Best after-EvalMod alignment error   = 2.137888e-05
+Direct final max/RMSE vs plaintext   = 7.633543e-08 / 2.088998e-08
+Factored RAW max/RMSE vs plaintext   = 7.461053e-07 / 1.989871e-07
+Factored DIV-K max/RMSE vs plaintext = 5.238457e-01 / 3.217417e-01
+Direct vs factored RAW max/RMSE      = 7.680361e-07 / 2.001275e-07
+Direct vs factored DIV-K max/RMSE    = 5.238457e-01 / 3.217417e-01
+Observed normalization              = RAW is best; gamma≈1 for this run
+Direct output Level                  = 10
+Factored output Level                = 10
+
+Decision guide:
+1. C2S alignment should be tiny under blocked layout; this checks Split+leafC2S = blocked coefficient grouping after top C2S.
+2. After-EvalMod alignment should remain small; this checks that top and leaf EvalMod implement the same coordinate-wise scalar map.
+3. Do not assume the global factor is always k. Compare RAW, DIV-K, and fitted gamma.
+4. The NORMALIZATION TRACE above tells which stage first introduced any global factor.
+5. Use whichever final comparison is smaller, RAW or DIV-K, as the implementation-normalized equivalence check.

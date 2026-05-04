@@ -1,0 +1,90 @@
+{
+  "card_id": "K001",
+  "version": "v2",
+  "title": "分式域与分裂域的区别",
+  "source_id": "src_000001",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/分式域与分裂域.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "分式域, 分裂域, field of fractions, splitting field"
+  },
+  "category": "数学基础",
+  "subtopic": "域论",
+  "chinese_summary": "分式域(field of fractions)是将整环嵌入到域中的构造——对整环R中所有非零元取形式分数a/b并做等价类，得到包含R的最小域。分裂域(splitting field)是将多项式在基域上完全分解为一次因子所需的最小扩域。两者解决完全不同的问题：前者是从整环到域的'从小到大'，后者是从不可约多项式到全部根的'从合到分'。",
+  "knowledge_points": [
+    {
+      "id": "K001-1",
+      "concept": "分式域的构造",
+      "formula": "Frac(R) = {a/b : a,b∈R, b≠0}/~, a/b~c/d⇔ad=bc",
+      "meaning": "对整环R模仿有理数构造。Z的分式域是Q，F[X]的分式域是F(X)。分式域是包含整环的最小域。"
+    },
+    {
+      "id": "K001-2",
+      "concept": "分裂域的构造",
+      "formula": "K = F(α₁,…,αₙ), f(X)=∏(X−αᵢ) 在K上",
+      "meaning": "从F出发逐次邻接f的根，直到f完全分解。每步代数扩张次数≤deg(f)。"
+    },
+    {
+      "id": "K001-3",
+      "concept": "存在性与唯一性",
+      "formula": "∀整环R ∃!分式域; ∀f∈F[X] ∃!分裂域(同构意义)",
+      "meaning": "分式域对所有整环存在且唯一(同构)。分裂域对所有多项式存在且F-同构唯一。"
+    },
+    {
+      "id": "K001-4",
+      "concept": "FHE中的关联",
+      "formula": "R = Z[X]/(Φ_M) → Frac(R)=Q(X)/(Φ_M); 分裂域↔CRT↔SIMD槽",
+      "meaning": "FHE系数环Z是整环，其分式域Q用于分析典范嵌入/迹/范数。分裂域出现在分圆多项式分解中，与CRT和槽对应。"
+    },
+    {
+      "id": "K001-5",
+      "concept": "核心区别",
+      "formula": "分式域: 环→域(加分母); 分裂域: 域→扩域(加根)",
+      "meaning": "分式域不改变方程的根结构，分裂域改变。分式域对象是整环，分裂域对象是不可约多项式。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "Frac(R) = {a/b : a,b∈R, b≠0}/~",
+      "meaning": "分式域集合定义"
+    },
+    {
+      "formula": "K_splitting = F(α₁,…,αₙ) s.t. f=∏(X−αᵢ)∈K[X]",
+      "meaning": "分裂域是包含f全部根的最小扩域"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "分式域",
+      "en": "field of fractions",
+      "definition": "整环中形式分数的等价类构成的域"
+    },
+    {
+      "term": "分裂域",
+      "en": "splitting field",
+      "definition": "多项式完全分解为一次因子所需的最小扩域"
+    },
+    {
+      "term": "整环",
+      "en": "integral domain",
+      "definition": "无零因子的交换环"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "域论基础",
+    "RLWE_lattice": "Frac(R)提供分析自同构/迹的底层域",
+    "FHE_technique": "分裂域与CRT分解、槽结构直接相关",
+    "current_paper": "间接相关，理解field switching的域结构基础"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K001-1",
+    "QA-K001-2",
+    "QA-K001-3",
+    "QA-K001-4",
+    "QA-K001-5"
+  ],
+  "rag_ingestion_suggestion": "高优先级，代数基础入口卡片"
+}

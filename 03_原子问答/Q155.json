@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q155",
+  "card_id": "K053",
+  "source_id": "src_000093",
+  "question": "NTT的本质是什么——\"找周期\"还是\"加速卷积\"？",
+  "answer": "两个用途都是DFT/NTT的不同侧面：信号处理用频谱分析（频域分解），密码学/算法用卷积定理（时域卷积↔频域点乘）。在FHE中我们关心后者：NTT将多项式乘法(O(n²))转化为求值(O(n log n))→点乘(O(n))→插值(O(n log n))，总复杂度O(n log n)。",
+  "confidence": "low",
+  "needs_human_review": true,
+  "batch": "Batch-05a3",
+  "created": "2026-05-04T15:40"
+}

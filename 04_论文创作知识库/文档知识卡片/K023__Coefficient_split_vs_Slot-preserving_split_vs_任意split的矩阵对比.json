@@ -1,0 +1,94 @@
+{
+  "card_id": "K023",
+  "version": "v2",
+  "title": "Coefficient split vs Slot-preserving split vs 任意split的矩阵对比",
+  "source_id": "src_000023",
+  "source_relative_path": "01_源文件库/04_FHE核心技术模块/补充视角-slot情况下的拆分.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "coefficient split, slot-preserving split, 矩阵分解"
+  },
+  "category": "FHE核心技术模块",
+  "subtopic": "多项式分解",
+  "chinese_summary": "多项式拆分有三种类型：(1)Coefficient split——按系数奇偶拆分p↦(E_p,O_p)，简单直接但破坏slot结构；(2)Slot-preserving split——p↦(E_p+H·O_p, E_p−H·O_p)，保留slot信息但需额外矩阵H；(3)任意split——p↦F_n^{-1}·S·F_N·p，通用框架，S为任意对角矩阵。三种拆分对应不同的分解策略，当前论文需要明确使用的是哪种拆分方式。",
+  "knowledge_points": [
+    {
+      "id": "K023-1",
+      "concept": "Coefficient split",
+      "formula": "p↦(E_p,O_p), E_p=p(X²), O_p=p(X)·(1−(−1)ⁿ)/2 + …",
+      "meaning": "按系数奇偶拆分：偶系数多项式+奇系数多项式(×X^{-1})。简单但破坏slot含义。"
+    },
+    {
+      "id": "K023-2",
+      "concept": "Slot-preserving split",
+      "formula": "p↦(E_p+H·O_p, E_p−H·O_p), H=某个对角矩阵",
+      "meaning": "通过额外矩阵H保持slot语义→拆分后每个分量仍对应原槽的子集。"
+    },
+    {
+      "id": "K023-3",
+      "concept": "任意split框架",
+      "formula": "p↦F_n^{-1}·S·F_N·p, S任意对角矩阵",
+      "meaning": "F_n,F_N=NTT/DFT矩阵，S对角→最一般形式的拆分。coeff split和slot-preserving是S取特定值。"
+    },
+    {
+      "id": "K023-4",
+      "concept": "对Bootstrapping的影响",
+      "formula": "PaCo使用哪种split? → 盲旋转中需要多项式打包→拆分为打包做准备",
+      "meaning": "不同的split策略影响后续的操作效率和噪声。需确认PaCo具体使用的拆分类型。"
+    },
+    {
+      "id": "K023-5",
+      "concept": "⚠ 当前论文需确认",
+      "formula": "construction中使用coefficient split还是slot-preserving split?",
+      "meaning": "关键决策：coeff split简单但破坏slot→需要额外操作恢复；slot-preserving保持slot但复杂。需要人工确认。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "Coeff split: p↦(E_p,O_p)",
+      "meaning": "系数奇偶拆分"
+    },
+    {
+      "formula": "Slot-preserving: p↦(E_p+H·O_p, E_p−H·O_p)",
+      "meaning": "保持slot的拆分"
+    },
+    {
+      "formula": "General: p↦F_n^{-1}·S·F_N·p",
+      "meaning": "任意矩阵拆分框架"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "系数拆分",
+      "en": "coefficient split",
+      "definition": "按多项式系数奇偶位置拆分为两个多项式"
+    },
+    {
+      "term": "槽保持拆分",
+      "en": "slot-preserving split",
+      "definition": "拆分后每个分量仍保留原槽语义"
+    },
+    {
+      "term": "F_n",
+      "en": "F_n matrix",
+      "definition": "DFT/NTT变换矩阵，将多项式转换到频域"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "多项式分解",
+    "RLWE_lattice": "-",
+    "FHE_technique": "Bootstrapping前处理",
+    "current_paper": "当前论文construction的关键技术选择"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "atomic_questions": [
+    "QA-K023-1",
+    "QA-K023-2",
+    "QA-K023-3",
+    "QA-K023-4",
+    "QA-K023-5"
+  ],
+  "rag_ingestion_suggestion": "高优先级，当前论文关键决策点，标注需人工确认"
+}

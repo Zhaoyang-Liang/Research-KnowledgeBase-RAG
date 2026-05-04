@@ -1,0 +1,90 @@
+{
+  "card_id": "K003",
+  "version": "v2",
+  "title": "复嵌入的两步分解：σ_i = ι ∘ τ_i",
+  "source_id": "src_000003",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/复嵌入的两个步骤.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "复嵌入, 典范嵌入, σ_i=ι∘τ_i"
+  },
+  "category": "数学基础",
+  "subtopic": "域论/典范嵌入",
+  "chinese_summary": "分圆域K=Q(ζ_m)到C的复嵌入可分解为两步：(1)抽象自同构τ_i将ζ_m变为ζ_m^i（纯代数操作）；(2)基础复嵌入ι将ζ_m映射为约定本原根e^{2πi/m}（具体复数）。即σ_i=ι∘τ_i。所有φ(m)个复嵌入由τ_i与ι组合而成。CKKS的典范嵌入直接使用这些复嵌入将多项式映射为复数向量——这就是CKKS编码的数学本质。",
+  "knowledge_points": [
+    {
+      "id": "K003-1",
+      "concept": "两步分解公式",
+      "formula": "σᵢ = ι ∘ τᵢ, τᵢ(ζ_m)=ζ_m^i, ι(ζ_m)=e^{2πi/m}",
+      "meaning": "所有φ(m)个复嵌入由抽象自同构与一个标准复嵌入组合而成。"
+    },
+    {
+      "id": "K003-2",
+      "concept": "基础复嵌入ι",
+      "formula": "ι: Q(ζ_m)→C, ι(ζ_m)=e^{2πi/m}",
+      "meaning": "ι将抽象代数对象ζ_m指定为一个特定复数。选择是任意的，但一旦选定所有σᵢ就确定。"
+    },
+    {
+      "id": "K003-3",
+      "concept": "在CKKS编码中的角色",
+      "formula": "σ: R→C^{N/2}, a(X)↦(a(ζ^{s₀}),…,a(ζ^{s_{N/2-1}}))",
+      "meaning": "典范嵌入取多项式在N/2个特定本原单位根处的求值，得到复数向量。"
+    },
+    {
+      "id": "K003-4",
+      "concept": "实部约束与槽减半",
+      "formula": "σ_{-i}=conj∘σ_i, 只需N/2个独立复嵌入",
+      "meaning": "共轭对称性使独立复嵌入数减半。CKKS槽数=N/2=φ(m)/2。"
+    },
+    {
+      "id": "K003-5",
+      "concept": "典范嵌入与U_n矩阵",
+      "formula": "τ_n(a)=(a(ζ^{s₀}),…,a(ζ^{s_{N-1}}))∈C^N",
+      "meaning": "典范嵌入τ_n用全部N个根求值(U_n矩阵)，CKKS取一半。U_n在slot-to-coeff中关键。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "σᵢ = ι ∘ τᵢ",
+      "meaning": "复嵌入的抽象分解"
+    },
+    {
+      "formula": "σ: K→C^{φ(m)/2}",
+      "meaning": "CKKS编码使用的半槽复嵌入"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "复嵌入",
+      "en": "complex embedding",
+      "definition": "数域到C的域同态"
+    },
+    {
+      "term": "典范嵌入",
+      "en": "canonical embedding",
+      "definition": "使用全部复嵌入将域元素映射到C^N"
+    },
+    {
+      "term": "基础复嵌入",
+      "en": "base embedding",
+      "definition": "约定ζ_m→e^{2πi/m}的特定嵌入"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "复嵌入是数域与C之间的桥梁",
+    "RLWE_lattice": "典范嵌入将RLWE环嵌入为理想格",
+    "FHE_technique": "CKKS编码直接使用复嵌入，slot-to-coeff中典范嵌入是核心",
+    "current_paper": "field switching中典范嵌入U_n矩阵是关键"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K003-1",
+    "QA-K003-2",
+    "QA-K003-3",
+    "QA-K003-4",
+    "QA-K003-5"
+  ],
+  "rag_ingestion_suggestion": "极高优先级，CKKS编码理解的前置卡片"
+}

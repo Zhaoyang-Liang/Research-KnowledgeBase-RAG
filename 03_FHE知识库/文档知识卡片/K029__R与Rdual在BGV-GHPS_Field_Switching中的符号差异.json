@@ -1,0 +1,26 @@
+{
+  "card_id": "K029",
+  "title": "R 与 R^v 在 BGV/GHPS Field Switching 中的符号差异",
+  "category": "符号与术语",
+  "subtopic": "密文空间记号",
+  "chinese_summary": "R=Z[X]/(X^N+1) 是实现层记号（Geelen/SEAL/HElib）；R^v={a in K: Tr(aR) subset of Z}=t^{-1}R 是 GHPS 的 dual/codifferent 记号。GHPS 必须用 R^v 因为 Tr(R^v)=R0^v 而 Tr(R)!=R0。实现论文用 R 因为聚焦算法效率，不涉及 dual。建议主文 R_q^2，GHPS 引用 (R_q^v)^2，Preliminaries 说明转换。",
+  "knowledge_points": [
+    "R^v 定义: {a in K: Tr_{K/Q}(aR) subset of Z}，是 R 的 codifferent（分式理想）",
+    "R^v = t^{-1}R: 主分式理想，乘以 t 建立 R <-> R^v 同构",
+    "GHPS 用 R^v 因: Tr(R^v)=R0^v（保 duality），Tr(R)!=R0（不保）",
+    "Geelen 用 R 因: 聚焦 slot-to-coeff 算法，不涉及 RLWE dual",
+    "实现层二者通过 decoding basis 表示为相同系数向量--仅是表示巧合",
+    "混用风险: correctness proof、noise bound、trace target 都可能写错",
+    "推荐: 主文 R_q^2，GHPS 引用 (R_q^v)^2，Preliminaries 说明转换"
+  ],
+  "source_id": "src_000028; src_000030",
+  "source_relative_path": "01_源文件库/08_文献与引用管理/GHPS_2013; Geelen_SlotToCoeff_2023",
+  "confidence": "high",
+  "needs_human_review": true,
+  "knowledge_origin": "external_paper + qclaw_inference",
+  "claim_source_type": "Qclaw推断（跨源合成：GHPS + Geelen 对比）",
+  "used_in_paper_section": [
+    "Preliminaries"
+  ],
+  "can_be_promoted_to_kb": true
+}

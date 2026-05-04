@@ -1,0 +1,32 @@
+{
+  "card_id": "K062",
+  "title": "BGV/BFV/CKKS/FHE方案层与当前论文CKKS Bootstrapping的关系",
+  "topic": "FHE方案/与当前论文关系",
+  "knowledge_points": [
+    "当前论文基于CKKS方案（≈CKKS 2017 + 后续优化），非BGV/BFV。CKKS使用复数域典范嵌入编码、重缩放控制噪声和精度、bootstrapping重置噪声。",
+    "BGV/BFV的bootstrapping与CKKS bootstrapping核心区别：(1)BGV/BFV的C2S/S2C在有限域F_{p^d}上做CRT分解+FFT-like；CKKS的C2S/S2C在复数域C上做DFT/FFT。(2)BGV BFV模数切换是整数域操作，CKKS重缩放含除法（精度损失）。(3)BGV/BFV bootstrapping恢复精确整数，CKKS只恢复近似浮点。",
+    "当前论文不涉及BGV/BFV的噪声控制和明文编码策略。论文的所有同态操作（乘法、重线性化、重缩放、bootstrapping）都在CKKS context中讨论。K008/K056/K057的知识是FHE通用背景，不直接用于论文证明。",
+    "理解BGV/BFV的机制有助于理解FHE方案的共性结构：(1)所有FHE都有加密-运算-噪声控制-解密的标准管线；(2)所有方案都有乘法引起的维度爆炸问题=重线性化；(3)bootstrapping在所有方案中都是同态执行解密电路。",
+    "当前论文的C2S/S2C管线在CKKS context中：coeff表示为多项式系数，slot表示为典范嵌入坐标的槽值。C2S=coeff→slot（用U_n矩阵），S2C=slot→coeff（用U_n^{-1}）。这与BGV/BFV的CRT-based C2S/S2C在数学工具上类似（都是Vandermonde/FFT类矩阵），但语义不同（一个在C，一个在F_{p^d}）。",
+    "候选知识（candidate_knowledge）：论文中CKKS bootstrapping的「系数拆分→槽操作→系数恢复」管线与BGV/BFV bootstrapping的对应管线在结构上类似——如果作者在Related Work中需要与BGV/BFV bootstrapping做对比，K056-K061可作为参考素材。"
+  ],
+  "card_type": "concept",
+  "source_id": "src_000101, src_000102, src_000103",
+  "claim_source_type": "用户笔记+跨论文综合",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b1",
+  "publish_target": "04_论文协作区",
+  "related_cards": [
+    "K008",
+    "K056",
+    "K057",
+    "K058",
+    "K044",
+    "K049"
+  ],
+  "cross_reference": "K008(Y-X)/K056(Y-X): 方案总览；K057(Y-X): BGV/BFV区别；K058(Y-X): 计算流程；K044(Y-X): BGV/BFV C2S/S2C通用定义；K049(Y-X): CKKS C2S/S2C在bootstrapping位置。K062做方案层到论文层的关联。",
+  "notes": "⚠️ needs_human_review=true（跨论文综合+论文关系判断）。candidate_knowledge：第6条知识可作为Related Work素材。不替代论文贡献判断。全库术语：C2S=coeff→slot, S2C=slot→coeff。",
+  "source_status": "source_preserved",
+  "review_policy": "review_when_used_for_paper"
+}

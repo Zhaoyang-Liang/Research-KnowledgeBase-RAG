@@ -1,0 +1,31 @@
+{
+  "card_id": "K040",
+  "title": "π^{-1}共轭补全与σ^{-1}插值：CKKS编码的两个核心子步骤",
+  "topic": "CKKS/编码/π^{-1}与σ^{-1}",
+  "knowledge_points": [
+    "π^{-1}：共轭补全。用户只提供N/2个独立复数槽位，系统自动根据共轭对称性m(ζ̄)=m̄(ζ)补出另外N/2个值。",
+    "共轭补全的必要性：多项式系数是实数→m(ζ^{−s_j})=conj(m(ζ^{s_j}))。后半N/2个槽值由前半自动确定。",
+    "π^{-1}(z)的输出是完整N维向量(∈H)，满足共轭对称约束。这是\"合法嵌入值向量\"——确实可能来自某个实系数多项式。",
+    "σ^{-1}：逆典范嵌入=插值。给定N个目标值y_j=m(ζ^{s_j})，求解多项式系数a_i。等价于解Vandermonde线性方程组U_n·a=y。",
+    "σ^{-1}的实现：构造方程组a_0+a_1ζ^{s_j}+...+a_{N-1}ζ^{s_j(N-1)}=y_j(j=0,...,N-1)，解出a=(a_0,...,a_{N-1})。",
+    "M=8实例：z=(3+4i,2-i)→π^{-1}→(3+4i,2-i,2+i,3-4i)→σ^{-1}→m_e(X)=¼(10+4√2·X+10X²+2√2·X³)。",
+    "m_e是连续解，含√2，不在R=Z[X]/(Φ_M)中。需要后续×Δ和round完成到R的映射。"
+  ],
+  "card_type": "algorithm_detail",
+  "source_id": "src_000065",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/01_CKKS编码与解码/CKKS与逆典范嵌入-插值解法.md",
+  "claim_source_type": "用户笔记",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "document_role": "directly_related",
+  "read_depth": "deep_read",
+  "publish_target": "03_FHE知识库",
+  "notes": "σ^{-1}本质是有限维空间中的可逆线性变换（Vandermonde矩阵求逆）。插值≠玄学，就是解线性方程组。",
+  "related_cards": [
+    "K018",
+    "K030",
+    "K039"
+  ],
+  "cross_reference": "K018(Y-X): τ_n和U_n定义；K030(Y-X): τ_n^{-1}逆变换(翻译笔记,Geelen记号)；K039(Y-X): CKKS编码全管线。K040细化σ^{-1}插值计算机制，与K030的τ_n^{-1}推导互补（记号不同）。",
+  "confidence": "high"
+}

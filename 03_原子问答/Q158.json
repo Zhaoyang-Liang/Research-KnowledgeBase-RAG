@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q158",
+  "card_id": "K054",
+  "source_id": "src_000094,src_000018",
+  "question": "CKKS典范嵌入矩阵U_n和DFT矩阵有什么区别？",
+  "answer": "CKKS的U_n也是Vandermonde/DFT型矩阵：U_n[i,j]=ζ^{s_i·s_j}，但点集是特定的单位根子集(Z_m^*/⟨5⟩的half-slot代表)。U_n是N×N(含共轭补全)，不是N/2×N/2。域是复数C，目标是编码，不是卷积加速。形式上同属Vandermonde族，但参数/语义/用途不同。",
+  "confidence": "low",
+  "needs_human_review": true,
+  "batch": "Batch-05a3",
+  "created": "2026-05-04T15:40"
+}

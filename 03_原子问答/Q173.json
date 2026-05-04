@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q173",
+  "card_id": "K062",
+  "source_id": "src_000103",
+  "question": "当前论文中CKKS bootstrapping的噪声控制用的是ModSwitch还是Rescale？",
+  "answer": "CKKS用Rescale（c'=⌊c/p⌉）。论文中bootstrapping的模数链通过Rescale分步降模数，每次保持编码缩放因子一致。注意区分：论文中CT/linear transform阶段的缩放≠BGV的ModSwitch——CKKS的缩放含精度管理含义。具体参数（p值、模数链）应由论文实验部分给出。",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "batch": "Batch-05b1",
+  "created": "2026-05-04T16:00"
+}

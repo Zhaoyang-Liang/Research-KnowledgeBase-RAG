@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q180",
+  "question": "什么是理想格（Ideal Lattice）？它和普通格有什么区别？",
+  "answer": "理想格是由多项式环 R = Z[X]/(f) 中的理想 I ⊂ R 对应的格（通过系数嵌入）。\n\n与普通格的区别：(1) 普通格只需加法封闭（离散加法子群），理想格不仅有加法，还保留乘法结构（对理想中任意两个多项式相乘，乘积系数的向量仍在格中）。(2) 理想格有额外的代数对称性——分圆环的自同构群（如 Aut(Z[X]/(X^N+1)) ≅ Z_{2N}^×）作用在格上产生几何对称性。(3) 理想格有「环模」结构，可表示为 R-module。\n\n对安全性：理想格的额外结构既是有益的（方案构造利用它做 packing/bootstrapping），也可能是风险的（algebraic attacks 利用结构加速 SVP/CVP 求解）。但经过二十年研究，合理参数下的 RLWE 仍被认为是安全的。",
+  "source_id": "src_000119, src_000115",
+  "batch": "Batch-05c",
+  "confidence": "medium",
+  "source_status": "source_preserved",
+  "needs_human_review": false,
+  "review_policy": "review_when_used_for_paper"
+}

@@ -1,0 +1,32 @@
+{
+  "card_id": "K038",
+  "title": "BGV Bootstrapping完整流程：6阶段与关键步骤",
+  "topic": "BGV/Bootstrapping/算法流程",
+  "knowledge_points": [
+    "阶段1：模数提升(Modulus Raising/Lifting) — 将旧密文从低模数q提升到大模数Q，使得同态解密有足够的噪声空间。这是bootstrapping的起点。",
+    "阶段2：同态线性解密(Homomorphic Linear Decryption) — 利用加密的sk在同态下计算解密内积⟨ct,sk⟩mod Q。这是最昂贵的同态计算步骤，通常使用BSGS优化。",
+    "阶段3：CoeffToSlot — 将解密结果（coefficient表示→noisy plaintext）转换为slot表示。本质是线性变换，用Vandermonde矩阵实现。",
+    "阶段4：unpack（fully packed时必需）— 如果原始密文是fully packed，需要将E-slot拆分为标量slot才能进行逐slot的digit extraction。本质是递归的even/odd splitting。",
+    "阶段5：digit extraction/modular reduction — 在每个slot上独立执行digit extraction，将noisy plaintext的每个slot中的消息加噪声的高位digit移除。BGV使用digit extraction（逐位提升+减法），BFV使用rounding。这是bootstrapping的正确性核心。",
+    "阶段6：repack+SlotToCoeff+输出 — 如果做了unpack则先repack逆向重组；然后SlotToCoeff将slot表示转回coefficient表示；最后输出为新密文（模数已恢复为q）。"
+  ],
+  "card_type": "algorithm",
+  "source_id": "src_000059",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/02_核心技术模块/BGV-BFV Bootstrapping.pdf",
+  "claim_source_type": "lecture_notes",
+  "needs_human_review": false,
+  "needs_verification": false,
+  "batch": "Batch-04",
+  "document_role": "directly_related",
+  "read_depth": "deep_read",
+  "publish_target": "03_FHE知识库",
+  "notes": "BGV/BFV bootstrapping与CKKS bootstrapping在结构上有相似性（C2S→中间处理→S2C），但中间处理不同（digit extraction vs EvalMod），环参数也不同（p^e vs plain modulus for CKKS）。",
+  "related_cards": [
+    "K013",
+    "K028",
+    "K037"
+  ],
+  "cross_reference": "K037 (讲义总览)",
+  "created": "2026-05-04T14:30",
+  "source_notes": "canonical_source(src_000059)。src_000060~src_000062为同内容的不同格式(support_source)。"
+}

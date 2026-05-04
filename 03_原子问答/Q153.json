@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q153",
+  "card_id": "K052",
+  "source_id": "src_000083,src_000084",
+  "question": "Rotation操作和C2S/S2C有什么关系？",
+  "answer": "不同概念。Rotation是使用自同构密钥在密文上执行槽之间的循环位移（置换操作），使用τ_j原语。C2S/S2C是将同一密文在slot表示和coefficient表示之间转换（线性变换），使用矩阵分解/CT算法。两者使用不同同态原语、不同目标、不同复杂度模型。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05a3",
+  "created": "2026-05-04T15:40"
+}

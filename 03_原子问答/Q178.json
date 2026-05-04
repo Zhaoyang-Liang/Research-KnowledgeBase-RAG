@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q178",
+  "question": "Gentry09 中 a 和 a' 是什么关系？为什么 a'≡a(mod L) 还不够？",
+  "answer": "a = m+2e（加密前构造的短偏移，承载消息 m 的比特信息）。a' = c−ℓ'（解密输出，ℓ' 是解密算法恢复的格点）。\n\n总是有 a' = a + (ℓ−ℓ')，因此 a'−a ∈ L（模格同余）。但是：\n- 模格同余不保证模 2 同余（反例：a=0, λ=1∈L → a'=1, a'≢a mod 2）。\n- 消息恢复需要 a'≡a mod 2（因为 a=m+2e, a≡m mod 2）。\n\n两种充分条件：(1) 强路线——ℓ'=ℓ（Babai 恢复加密时的格点）→ a'=a。(2) 弱路线——a'−a ∈ 2Z^m（偏移落在偶子格中）→ a'≡a mod 2。弱路线对 bit 解密已足够，且条件更宽松。",
+  "source_id": "src_000111",
+  "batch": "Batch-05c",
+  "confidence": "medium",
+  "source_status": "source_preserved",
+  "needs_human_review": false,
+  "review_policy": "review_when_used_for_paper"
+}

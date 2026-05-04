@@ -1,0 +1,785 @@
+\documentclass[UTF8,a4paper,11pt]{ctexart}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{float}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue
+}
+
+\definecolor{codegray}{RGB}{245,245,245}
+\definecolor{codegreen}{RGB}{0,120,70}
+\definecolor{codeblue}{RGB}{30,70,160}
+\definecolor{codered}{RGB}{160,40,40}
+
+\lstdefinestyle{gostyle}{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codeblue}\bfseries,
+  commentstyle=\color{codegreen},
+  stringstyle=\color{codered},
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  tabsize=2,
+  language=Go
+}
+
+\lstdefinestyle{textstyle}{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  tabsize=2
+}
+
+\newcommand{\CtwoS}{\mathsf{C2S}}
+\newcommand{\StwoC}{\mathsf{S2C}}
+\newcommand{\EvalMod}{\mathsf{EvalMod}}
+\newcommand{\Split}{\mathsf{Split}}
+\newcommand{\Merge}{\mathsf{Merge}}
+\newcommand{\BTS}{\mathsf{BTS}}
+\newcommand{\ScaleDown}{\mathsf{ScaleDown}}
+\newcommand{\ModUp}{\mathsf{ModUp}}
+\newcommand{\Slots}{\mathsf{slots}}
+\newcommand{\LogSlots}{\mathsf{LogSlots}}
+\newcommand{\LogMessageRatio}{\mathsf{LogMessageRatio}}
+\newcommand{\MessageRatio}{\mathsf{MessageRatio}}
+\newcommand{\StCScaling}{\mathsf{StCScaling}}
+\newcommand{\CtwoSScaling}{\mathsf{CtwoSScaling}}
+\newcommand{\StwoCScaling}{\mathsf{S2CScaling}}
+
+\title{No-$B_k$ CKKS Bootstrapping 分解中的实现归一化因子定位报告}
+\author{实验整理与分析}
+\date{2026-04-29}
+
+
+
+
+
+
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本文整理了对 no-$B_k$ CKKS bootstrapping 分解中全局归一化因子 $\gamma_{\mathrm{impl}}$ 的定位过程。实验表明，理想代数层面的分解并不要求固定除以 $k$；实际是否需要除以 $k$ 取决于 Lattigo bootstrapping 参数中的 effective C2S/S2C scaling convention。对安全版本参数 $(\log N,k,\log n)=(17,2,16)$，top 和 leaf 的 effective C2S/S2C scaling product 相同，因此 $\gamma_{\mathrm{impl}}=1$，factored RAW 输出直接与 direct 输出对齐。对较小参数 $(\log N,k,\log n)=(16,2,15)$，leaf 的 effective SlotsToCoeffs scaling 比 top 大 $2$ 倍，因此 $\gamma_{\mathrm{impl}}=2$，需要 DIV-2 才能与 direct 对齐。根因链条为
+\[
+\LogMessageRatio
+\longrightarrow
+\MessageRatio
+\longrightarrow
+\StCScaling
+\longrightarrow
+\mathrm{SlotsToCoeffsParameters.Scaling}
+\longrightarrow
+\gamma_{\mathrm{impl}}.
+\]
+这说明 RAW/DIV-$k$ 差异不是 no-$B_k$ 交换图的数学错误，而是实现层面的 normalization convention。
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{背景与目标}
+
+本实验研究的是 CKKS full bootstrapping 的一种 no-$B_k$ coefficient-split 分解。直接路径在大环 $R_N$ 上执行完整 bootstrapping；分解路径先将密文拆成 $k$ 个小环 $R_n$ 密文，其中 $n=N/k$，然后对每个 leaf 执行小环 bootstrapping，最后 Merge 回大环。
+
+直接 bootstrapping core 可抽象为
+\begin{equation}
+\BTS_N
+=
+\StwoC_N\circ\EvalMod_N\circ\CtwoS_N.
+\end{equation}
+
+factored no-$B_k$ core 可抽象为
+\begin{equation}
+\BTS_{N,k}^{\mathrm{fac}}
+=
+\Merge_k\circ
+\left(\bigoplus_{r=0}^{k-1}
+\left(\StwoC_n\circ\EvalMod_n\circ\CtwoS_n\right)
+\right)
+\circ\Split_k.
+\end{equation}
+
+完整 bootstrapping 则额外包括前处理：
+\begin{equation}
+\BTS_N^{\mathrm{full}}
+=
+\StwoC_N\circ\EvalMod_N\circ\CtwoS_N\circ\ModUp_N\circ\ScaleDown_N.
+\end{equation}
+
+实验的最初目标是验证：
+\begin{equation}
+\BTS_{N,k}^{\mathrm{fac}}
+\approx
+\BTS_N.
+\end{equation}
+
+但是在不同参数下观察到两种现象：有些日志中 factored RAW 输出约为 direct 的 $k$ 倍，需要 DIV-$k$；另一些日志中 factored RAW 已经直接对齐 direct，不应除以 $k$。本文目标就是定位这个差异来自哪里。
+
+\section{理想数学交换图}
+
+\subsection{Split 与 CoeffsToSlots 的交换}
+
+令 $S$ 表示 top C2S 输出上的 blocked coefficient grouping，即将大环坐标按 leaf block 重排。理想情况下应有
+\begin{equation}
+\boxed{
+\left(\bigoplus_{r=0}^{k-1}\CtwoS_n\right)\circ\Split_k
+=
+S\circ\CtwoS_N.
+}
+\end{equation}
+
+实验中通过 ``C2S input to EvalMod: top vs Split+leaf layout comparison'' 检查该关系。正确 layout 是 blocked layout，而不是 residue layout。所有成功实验中 blocked layout 的误差均在 $10^{-11}$ 到 $10^{-12}$ 量级。
+
+\subsection{EvalMod 与 coordinate grouping 的交换}
+
+EvalMod 是非线性的，但它是逐坐标作用的非线性。令
+\begin{equation}
+\EvalMod_N=f^{\oplus N},
+\qquad
+\EvalMod_n=f^{\oplus n}.
+\end{equation}
+只要 $S$ 是坐标重排或分组，便有
+\begin{equation}
+\boxed{
+\left(\bigoplus_{r=0}^{k-1}f^{\oplus n}\right)\circ S
+=
+S\circ f^{\oplus N}.
+}
+\end{equation}
+因此这里不要求 $f$ 线性；只要求 $f$ 逐坐标作用。这解释了为什么虽然 ``非线性变换不能一般地穿过线性变换''，但 EvalMod 仍可穿过这种纯坐标分组结构。
+
+\subsection{Merge 与 SlotsToCoeffs 的交换}
+
+理想情况下也应有
+\begin{equation}
+\boxed{
+\Merge_k\circ
+\left(\bigoplus_{r=0}^{k-1}\StwoC_n\right)
+\circ S
+=
+\StwoC_N.
+}
+\end{equation}
+
+三步合成得到理想 no-$B_k$ core 等式：
+\begin{equation}
+\boxed{
+\Merge_k\circ
+\left(\bigoplus_{r=0}^{k-1}
+\left(\StwoC_n\circ\EvalMod_n\circ\CtwoS_n\right)
+\right)
+\circ\Split_k
+=
+\StwoC_N\circ\EvalMod_N\circ\CtwoS_N.
+}
+\end{equation}
+
+\section{实现中的归一化因子}
+
+实际实现中需要写成
+\begin{equation}
+\boxed{
+\BTS_{N,k}^{\mathrm{fac,impl}}
+\approx
+\gamma_{\mathrm{impl}}\cdot\BTS_N^{\mathrm{impl}}.
+}
+\end{equation}
+其中 $\gamma_{\mathrm{impl}}$ 不是数学定理中的固定常数，而是由 Lattigo 内部 DFT/C2S/S2C scaling convention、bootstrapping parameter construction、以及 Split/Merge convention 决定。
+
+根据 trace 实验，Split/Merge 本身、C2S、EvalMod 均没有引入全局倍数。真正差异第一次出现在 leaf S2C+Merge 相对 top S2C 的组合中。因此在当前程序中可用如下经验公式描述：
+\begin{equation}
+\boxed{
+\gamma_{\mathrm{impl}}
+=
+\frac{
+\CtwoSScaling_{\mathrm{leaf}}\cdot\StwoCScaling_{\mathrm{leaf}}
+}{
+\CtwoSScaling_{\mathrm{top}}\cdot\StwoCScaling_{\mathrm{top}}
+}.
+}
+\end{equation}
+更一般地，如果 Split/Merge API 也引入 normalization，则还应额外乘以 Split/Merge 的 normalization ratio。但本实验的 Split/Merge roundtrip trace 显示该因子为 $1$。
+
+\section{诊断程序设计}
+
+\subsection{核心思想}
+
+诊断程序不只比较最终输出，而是逐阶段比较 ``want'' 与 ``got''，并拟合一个复比例 $\widehat{\gamma}$：
+\begin{equation}
+\widehat{\gamma}
+=
+\frac{\langle y_{\mathrm{got}},y_{\mathrm{want}}\rangle}{\langle y_{\mathrm{want}},y_{\mathrm{want}}\rangle}.
+\end{equation}
+这里内积按复向量定义为
+\begin{equation}
+\langle a,b\rangle=\sum_i a_i\overline{b_i}.
+\end{equation}
+如果
+\begin{equation}
+ y_{\mathrm{got}}\approx \gamma y_{\mathrm{want}},
+\end{equation}
+则拟合得到的 $\widehat{\gamma}$ 应接近真实全局因子。
+
+每一阶段同时输出三类误差：
+\begin{itemize}[leftmargin=2em]
+\item RAW：直接比较 $y_{\mathrm{got}}$ 与 $y_{\mathrm{want}}$；
+\item DIV-$k$：比较 $y_{\mathrm{got}}/k$ 与 $y_{\mathrm{want}}$；
+\item FIT-GAMMA：比较 $y_{\mathrm{got}}/\widehat{\gamma}$ 与 $y_{\mathrm{want}}$。
+\end{itemize}
+
+\subsection{诊断阶段}
+
+诊断程序记录以下阶段：
+\begin{enumerate}[leftmargin=2em]
+\item ScaleDown: direct vs factored;
+\item ModUp: direct vs factored;
+\item Split+Merge on ModUp;
+\item C2S real: top vs blocked leaves;
+\item C2S imag: top vs blocked leaves;
+\item Top C2S$\to$S2C vs ModUp;
+\item Leaf C2S$\to$S2C+Merge vs ModUp;
+\item Leaf linear path vs top linear path;
+\item EvalMod real: top vs blocked leaves;
+\item EvalMod imag: top vs blocked leaves;
+\item Final S2C+Merge after EvalMod.
+\end{enumerate}
+
+其中第 6--8 项是额外的 linear-only S2C diagnostics，不经过 EvalMod，用于隔离 S2C/Merge normalization。
+
+\subsection{关键 Go 诊断代码片段}
+
+下面是 DFT 参数 dump 函数，用于打印 top/leaf C2S/S2C 的 effective MatrixLiteral 参数。
+
+\begin{lstlisting}[style=gostyle,caption={DFT MatrixLiteral dump 函数}]
+func dumpDFTParams(name string, p dft.MatrixLiteral) {
+    fmt.Printf("\n--- %s ---\n", name)
+    fmt.Printf("Type        = %v\n", p.Type)
+    fmt.Printf("LogSlots    = %d\n", p.LogSlots)
+    fmt.Printf("Slots       = %d\n", 1<<p.LogSlots)
+    fmt.Printf("2*Slots     = %d\n", 2*(1<<p.LogSlots))
+    fmt.Printf("1/Slots     = %.17e\n", 1.0/float64(1<<p.LogSlots))
+    fmt.Printf("1/(2Slots)  = %.17e\n", 1.0/float64(2*(1<<p.LogSlots)))
+    fmt.Printf("Format      = %v\n", p.Format)
+    fmt.Printf("BitReversed = %v\n", p.BitReversed)
+    fmt.Printf("LevelQ      = %d\n", p.LevelQ)
+    fmt.Printf("LevelP      = %d\n", p.LevelP)
+    fmt.Printf("Levels      = %v\n", p.Levels)
+    fmt.Printf("Depth(false)= %d\n", p.Depth(false))
+    fmt.Printf("Depth(true) = %d\n", p.Depth(true))
+
+    if p.Scaling == nil {
+        fmt.Printf("Scaling     = nil (default 1.0 before Lattigo internal scaling)\n")
+    } else {
+        sf, _ := p.Scaling.Float64()
+        fmt.Printf("Scaling     = %s\n", p.Scaling.Text('g', 18))
+        fmt.Printf("Scaling f64 = %.17e\n", sf)
+        fmt.Printf("Scaling/Slots    = %.17e\n", sf/float64(1<<p.LogSlots))
+        fmt.Printf("Scaling/(2Slots) = %.17e\n", sf/float64(2*(1<<p.LogSlots)))
+    }
+}
+\end{lstlisting}
+
+插入位置为 top evaluator 与 leaf evaluator pool 创建完成后：
+
+\begin{lstlisting}[style=gostyle,caption={在 main 中打印 top/leaf DFT 参数}]
+fmt.Println()
+fmt.Println("=== DFT MatrixLiteral dump: TOP vs LEAF ===")
+
+dumpDFTParams("TOP effective CoeffsToSlots", topEval.CoeffsToSlotsParameters)
+dumpDFTParams("TOP effective SlotsToCoeffs", topEval.SlotsToCoeffsParameters)
+
+dumpDFTParams("LEAF[0] effective CoeffsToSlots", leafEvals[0].CoeffsToSlotsParameters)
+dumpDFTParams("LEAF[0] effective SlotsToCoeffs", leafEvals[0].SlotsToCoeffsParameters)
+\end{lstlisting}
+
+\section{关键实验数据}
+
+\subsection{实验总表}
+
+\begin{longtable}{cccccccc}
+\toprule
+Case & top $\log N$ & $k$ & leaf $\log n$ & normalization & final check & levels & speedup \\
+\midrule
+$N13$-$k2$ & 13 & 2 & 12 & DIV-2 & $7.91\times10^{-8}$ & 10/10 & $1.83\times$ \\
+$N16$-$k4$ & 16 & 4 & 14 & DIV-4 & $1.09\times10^{-7}$ & 10/10 & $2.49\times$ \\
+$N16$-$k2$ & 16 & 2 & 15 & DIV-2 & $2.41\times10^{-7}$ & 10/10 & $3.64\times$ \\
+$N17$-$k2$ & 17 & 2 & 16 & RAW & $6.5\sim7.7\times10^{-7}$ & 10/10 & $5.03\times$ \\
+\bottomrule
+\end{longtable}
+
+这里 final check 表示 implementation-normalized direct-vs-factored 最大误差。对 DIV-$k$ case，使用 factored/$k$；对 RAW case，直接使用 factored RAW。
+
+\subsection{$\log N=17,k=2$ 安全版参数}
+
+该组是本文最重要的安全-aware 实验：
+\begin{equation}
+\log N_{\mathrm{top}}=17,
+\qquad
+k=2,
+\qquad
+\log n_{\mathrm{leaf}}=16.
+\end{equation}
+
+基本参数：
+\begin{itemize}[leftmargin=2em]
+\item top LogN = 17, $N=131072$;
+\item top logSlots = 16, slots = 65536;
+\item leaf LogN = 16, $n=65536$;
+\item leaf logSlots = 15, slots = 32768;
+\item $\log(QP)=1520.0$;
+\item top/leaf Q/P basis 完全一致；
+\item output level: direct = 10, factored = 10.
+\end{itemize}
+
+该组 DFT dump 给出：
+
+\begin{table}[H]
+\centering
+\caption{$\log N=17,k=2$ 的 effective DFT scaling}
+\begin{tabular}{lccc}
+\toprule
+Component & LogSlots & C2S Scaling & S2C Scaling \\
+\midrule
+Top & 16 & $0.0625\approx2^{-4}$ & $0.000244140625=2^{-12}$ \\
+Leaf & 15 & $0.0625\approx2^{-4}$ & $0.000244140625=2^{-12}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+因此：
+\begin{equation}
+\CtwoSScaling_{\mathrm{top}}\S2CScaling_{\mathrm{top}}
+=2^{-4}\cdot2^{-12}=2^{-16},
+\end{equation}
+\begin{equation}
+\CtwoSScaling_{\mathrm{leaf}}\S2CScaling_{\mathrm{leaf}}
+=2^{-4}\cdot2^{-12}=2^{-16}.
+\end{equation}
+所以
+\begin{equation}
+\boxed{\gamma_{\mathrm{impl}}=1.}
+\end{equation}
+
+Normalization trace 也直接验证：
+\begin{lstlisting}[style=textstyle,caption={$\log N=17,k=2$ normalization trace 摘要}]
+06 Top C2S->S2C vs ModUp         gamma=+1.52587891e-05
+07 Leaf C2S->S2C+Merge vs ModUp  gamma=+1.52587891e-05
+08 Leaf linear path vs top path   gamma=+1.00000000e+00
+11 Final S2C+Merge after EvalMod  gamma=+1.00000000e+00
+\end{lstlisting}
+
+最终质量：
+\begin{itemize}[leftmargin=2em]
+\item Direct vs plaintext max/RMSE: $6.94\times10^{-8}/2.09\times10^{-8}$ 或同量级；
+\item Factored RAW vs plaintext max/RMSE: $6.55\times10^{-7}/1.98\times10^{-7}$ 或同量级；
+\item Direct vs factored RAW max/RMSE: $6.5\sim7.7\times10^{-7}/2.0\times10^{-7}$;
+\item Direct vs factored DIV-2 max/RMSE: $5.238\times10^{-1}/3.217\times10^{-1}$，明显错误。
+\end{itemize}
+
+因此该组结论为：
+\begin{equation}
+\boxed{
+\Merge_2\circ(\BTS_{16}\oplus\BTS_{16})\circ\Split_2
+\approx
+\BTS_{17}
+\quad\text{in RAW convention.}
+}
+\end{equation}
+
+\subsection{$\log N=16,k=2$ 对比参数}
+
+该组为：
+\begin{equation}
+\log N_{\mathrm{top}}=16,
+\qquad
+k=2,
+\qquad
+\log n_{\mathrm{leaf}}=15.
+\end{equation}
+
+DFT dump 给出：
+
+\begin{table}[H]
+\centering
+\caption{$\log N=16,k=2$ 的 effective DFT scaling}
+\begin{tabular}{lccc}
+\toprule
+Component & LogSlots & C2S Scaling & S2C Scaling \\
+\midrule
+Top & 15 & $0.0625\approx2^{-4}$ & $0.000244140625=2^{-12}$ \\
+Leaf & 14 & $0.0625\approx2^{-4}$ & $0.00048828125=2^{-11}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+因此：
+\begin{equation}
+\CtwoSScaling_{\mathrm{top}}\S2CScaling_{\mathrm{top}}
+=2^{-4}\cdot2^{-12}=2^{-16},
+\end{equation}
+\begin{equation}
+\CtwoSScaling_{\mathrm{leaf}}\S2CScaling_{\mathrm{leaf}}
+=2^{-4}\cdot2^{-11}=2^{-15}.
+\end{equation}
+于是
+\begin{equation}
+\boxed{
+\gamma_{\mathrm{impl}}
+=
+\frac{2^{-15}}{2^{-16}}=2.
+}
+\end{equation}
+
+Normalization trace 验证：
+\begin{lstlisting}[style=textstyle,caption={$\log N=16,k=2$ normalization trace 摘要}]
+06 Top C2S->S2C vs ModUp         gamma=+1.52587891e-05
+07 Leaf C2S->S2C+Merge vs ModUp  gamma=+3.05175781e-05
+08 Leaf linear path vs top path   gamma=+2.00000000e+00
+11 Final S2C+Merge after EvalMod  gamma=+2.00000000e+00
+\end{lstlisting}
+
+最终质量：
+\begin{itemize}[leftmargin=2em]
+\item Direct vs plaintext max/RMSE: $3.18\times10^{-8}/1.04\times10^{-8}$;
+\item Factored RAW vs plaintext max/RMSE: $1.047691/0.643471$，显示整体约 $2$ 倍错误；
+\item Factored DIV-2 vs plaintext max/RMSE: $2.43\times10^{-7}/6.98\times10^{-8}$;
+\item Direct vs factored DIV-2 max/RMSE: $2.41\times10^{-7}/7.05\times10^{-8}$.
+\end{itemize}
+
+因此该组结论为：
+\begin{equation}
+\boxed{
+\frac{1}{2}\Merge_2\circ(\BTS_{15}\oplus\BTS_{15})\circ\Split_2
+\approx
+\BTS_{16}.
+}
+\end{equation}
+
+\section{根因定位：LogMessageRatio 到 S2C Scaling}
+
+\subsection{Lattigo 参数中的可疑代码}
+
+grep 发现 Lattigo 测试与示例中存在针对小 LogSlots 或小 LogN 的 LogMessageRatio 补偿，例如：
+
+\begin{lstlisting}[style=gostyle,caption={LogMessageRatio 小参数补偿示例}]
+btpParams.Mod1ParametersLiteral.LogMessageRatio +=
+    utils.Min(utils.Max(15-LogSlots, 0), 8)
+\end{lstlisting}
+
+以及：
+\begin{lstlisting}[style=gostyle,caption={按 LogN 的 MessageRatio 补偿示例}]
+btpParams.Mod1ParametersLiteral.LogMessageRatio += 16 - params.LogN()
+\end{lstlisting}
+
+这些代码未必直接在 library runtime 中自动执行，但实验程序构造参数时采用了类似 convention；最终 DFT dump 证明实际 evaluator 已经接收到了补偿后的 effective scaling。
+
+\subsection{Evaluator 中的 StCScaling 公式}
+
+bootstrapping evaluator 中构造 S2C scaling 的关键公式为：
+
+\begin{lstlisting}[style=gostyle,caption={StCScaling 构造逻辑}]
+scale := eval.BootstrappingParameters.DefaultScale().Float64()
+offset := eval.Mod1Parameters.ScalingFactor().Float64() /
+          eval.Mod1Parameters.MessageRatio()
+
+StCScaling := new(big.Float).SetFloat64(scale / offset)
+
+if btpParams.SlotsToCoeffsParameters.Scaling == nil {
+    eval.SlotsToCoeffsParameters.Scaling = StCScaling
+} else {
+    eval.SlotsToCoeffsParameters.Scaling =
+        new(big.Float).Mul(btpParams.SlotsToCoeffsParameters.Scaling, StCScaling)
+}
+\end{lstlisting}
+
+数学上：
+\begin{equation}
+\mathrm{offset}
+=
+\frac{\mathrm{ScalingFactor}}{\MessageRatio},
+\end{equation}
+所以
+\begin{equation}
+\StCScaling
+=
+\frac{\mathrm{scale}}{\mathrm{offset}}
+=
+\frac{\mathrm{scale}\cdot\MessageRatio}{\mathrm{ScalingFactor}}.
+\end{equation}
+又因为
+\begin{equation}
+\MessageRatio=2^{\LogMessageRatio},
+\end{equation}
+所以如果
+\begin{equation}
+\LogMessageRatio\leftarrow\LogMessageRatio+1,
+\end{equation}
+则
+\begin{equation}
+\MessageRatio\leftarrow2\MessageRatio,
+\qquad
+\StCScaling\leftarrow2\StCScaling.
+\end{equation}
+这正好解释了 leaf S2C scaling 从 $2^{-12}$ 变为 $2^{-11}$ 的现象。
+
+\subsection{两组参数的触发条件}
+
+若使用
+\begin{equation}
+\Delta_{\mathrm{LMR}}
+=\max(15-\LogSlots,0)
+\end{equation}
+这类补偿，则：
+
+\begin{table}[H]
+\centering
+\caption{LogMessageRatio 补偿触发情况}
+\begin{tabular}{lccc}
+\toprule
+Case & leaf LogN & leaf LogSlots & $\max(15-\LogSlots,0)$ \\
+\midrule
+$\log N=17,k=2$ & 16 & 15 & 0 \\
+$\log N=16,k=2$ & 15 & 14 & 1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+所以：
+\begin{itemize}[leftmargin=2em]
+\item $\log N=17,k=2$：leaf LogSlots=15，不触发补偿，$\gamma_{\mathrm{impl}}=1$;
+\item $\log N=16,k=2$：leaf LogSlots=14，触发 $+1$ 补偿，leaf S2C scaling $\times2$，所以 $\gamma_{\mathrm{impl}}=2$.
+\end{itemize}
+
+\section{为什么这不是数学错误}
+
+\subsection{Split/Merge 单独没有引入因子}
+
+在两组 normtrace 中，Split+Merge on ModUp 均显示
+\begin{equation}
+\gamma\approx1.
+\end{equation}
+因此 Merge API 单独不是全局因子的来源。
+
+\subsection{C2S 没有引入因子}
+
+C2S real/imag 的 blocked layout 比较均显示
+\begin{equation}
+\gamma\approx1,
+\qquad
+\text{error}\approx10^{-11}.
+\end{equation}
+这说明
+\begin{equation}
+(\oplus\CtwoS_n)\circ\Split_k
+\end{equation}
+与
+\begin{equation}
+S\circ\CtwoS_N
+\end{equation}
+在 blocked layout 下正确对齐。
+
+\subsection{EvalMod 没有引入因子}
+
+EvalMod real/imag 比较均显示
+\begin{equation}
+\gamma\approx1,
+\end{equation}
+误差在 $10^{-5}$ 到 $10^{-6}$ 量级，符合 EvalMod 近似误差特征。因此全局因子不是 EvalMod 的非线性导致的。
+
+\subsection{因子第一次出现在 S2C+Merge}
+
+对 $\log N=16,k=2$，第 7--8 阶段显示 leaf linear path 相对 top linear path 的 fitted gamma 为 $2$；第 11 阶段 final S2C+Merge after EvalMod 也为 $2$。这说明因子首次出现在 leaf S2C+Merge 相对 top S2C 的归一化差异中。
+
+对 $\log N=17,k=2$，第 7--8 阶段与第 11 阶段均显示 gamma 为 $1$，因此 RAW 对齐。
+
+\section{性能与复杂度解释}
+
+\subsection{直接路径与分解路径复杂度模型}
+
+直接路径：
+\begin{equation}
+T_{\mathrm{dir}}(N)
+=
+T_{\ScaleDown}(N)+T_{\ModUp}(N)
++T_{\CtwoS}(N)+T_{\EvalMod}(N)+T_{\StwoC}(N).
+\end{equation}
+
+分解路径：
+\begin{equation}
+T_{\mathrm{fac}}(N,k)
+=
+T_{\ScaleDown}(N)+T_{\ModUp}(N)+T_{\Split}(N,k)
++T_{\mathrm{leaf-par}}(N/k)
++T_{\Merge}(N,k),
+\end{equation}
+其中并行 leaf 部分近似为
+\begin{equation}
+T_{\mathrm{leaf-par}}(n)
+\approx
+\max_{0\le r<k}
+\left(
+T_{\CtwoS}^{(r)}(n)+T_{\EvalMod}^{(r)}(n)+T_{\StwoC}^{(r)}(n)
+\right)+T_{\mathrm{sync}}.
+\end{equation}
+
+若 bootstrapping core 的实际增长近似
+\begin{equation}
+T_{\mathrm{core}}(N)\approx cN^p,
+\end{equation}
+且 $p>1$，则理论 speedup 可以超过 $k$：
+\begin{equation}
+\mathrm{Speedup}
+\approx
+\frac{cN^p}{c(N/k)^p+T_{\mathrm{overhead}}}.
+\end{equation}
+
+\subsection{实验时间}
+
+\begin{table}[H]
+\centering
+\caption{Full bootstrapping timing}
+\begin{tabular}{lccc}
+\toprule
+Case & Direct full & Factored full & Speedup \\
+\midrule
+$\log N=13,k=2$ & $0.723888$s & $0.395569$s & $1.8300\times$ \\
+$\log N=16,k=4$ & $14.362138$s & $5.761283$s & $2.4929\times$ \\
+$\log N=16,k=2$ & $26.282260$s & $7.220363$s & $3.6400\times$ \\
+$\log N=17,k=2$ & $117.207541$s & $23.303824$s & $5.0295\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+$\log N=17,k=2$ 的 speedup 超过 $2\times$，说明收益不只是两个 leaf 并行，而是大环 direct bootstrapping 的 C2S/S2C/key switching/NTT/memory movement 成本具有明显超线性增长。分解路径把一个超线性大任务替换为两个较小、cache 更友好的 leaf bootstrapping，并行执行后得到显著加速。
+
+\section{安全性备注}
+
+本报告主要聚焦 normalization 定位。但从参数安全角度，$\log N=17,k=2$ 有额外意义：它的 leaf 维度为 $\log n=16$，可承载 bootstrapping 级别的 $\log(QP)\approx1520$，比 earlier prototype 中 leaf $\log n=14$ 或 $15$ 更接近常见 CKKS bootstrapping 安全参数范围。
+
+正式安全结论仍应以 lattice/RLWE estimator 为准，并对以下 component 分别估计：
+\begin{equation}
+\lambda_{\mathrm{scheme}}
+=
+\min\{\lambda_{\mathrm{top}},\lambda_{\mathrm{leaf}},
+\lambda_{\mathrm{SplitKey}},\lambda_{\mathrm{MergeKey}},\lambda_{\mathrm{BTSKey}}\}.
+\end{equation}
+本文不声称已经完成 estimator 级别的最终安全证明。
+
+\section{最终结论}
+
+本次定位已经较完整地解释了 RAW/DIV-$k$ 差异：
+
+\begin{enumerate}[leftmargin=2em]
+\item 理想 no-$B_k$ 代数交换图成立，EvalMod 虽然非线性，但因其逐坐标作用，所以可以与 blocked coordinate grouping 交换。
+\item 实现中存在全局 normalization factor $\gamma_{\mathrm{impl}}$。
+\item $\gamma_{\mathrm{impl}}$ 不是固定等于 $k$，也不是固定等于 $1$；它由 effective C2S/S2C scaling product 决定。
+\item 对 $\log N=17,k=2,\log n=16$，top 与 leaf scaling product 相同，故 $\gamma_{\mathrm{impl}}=1$，RAW 正确。
+\item 对 $\log N=16,k=2,\log n=15$，leaf S2C scaling 比 top 大 $2$ 倍，故 $\gamma_{\mathrm{impl}}=2$，DIV-2 正确。
+\item 该 S2C scaling 差异可由 $\LogMessageRatio\to\MessageRatio\to\StCScaling\to\mathrm{SlotsToCoeffsParameters.Scaling}$ 链条解释。当 leaf LogSlots 降到 $14$ 时，LogMessageRatio 补偿增加 $1$，使 S2C scaling 乘以 $2$。
+\item 因此，RAW/DIV-$k$ 差异不是 Split、Merge、C2S 或 EvalMod 的数学错误，而是 Lattigo bootstrapping 参数 scaling convention 的实现现象。
+\end{enumerate}
+
+最简洁的结论公式为：
+\begin{equation}
+\boxed{
+\BTS_{N,k}^{\mathrm{fac,impl}}
+\approx
+\gamma_{\mathrm{impl}}\BTS_N^{\mathrm{impl}},
+\qquad
+\gamma_{\mathrm{impl}}
+=
+\frac{
+\CtwoSScaling_{\mathrm{leaf}}\S2CScaling_{\mathrm{leaf}}
+}{
+\CtwoSScaling_{\mathrm{top}}\S2CScaling_{\mathrm{top}}
+}.
+}
+\end{equation}
+
+对后续论文或汇报，建议写：
+\begin{quote}
+In the ideal algebraic model, the no-$B_k$ decomposition does not require a fixed division by $k$. In the implementation, a global normalization factor $\gamma_{\mathrm{impl}}$ may appear due to Lattigo's bootstrapping scaling convention. We locate this factor to the effective SlotsToCoeffs scaling, which depends on MessageRatio/LogMessageRatio and hence on the chosen bootstrapping parameters. For the security-aware run $(\log N,k,\log n)=(17,2,16)$, we empirically observe $\gamma_{\mathrm{impl}}=1$, so the raw factored output directly matches the direct bootstrapping output.
+\end{quote}
+
+\appendix
+\section{附录：建议报告用命令}
+
+\begin{lstlisting}[style=textstyle,caption={安全版 $\log N=17,k=2$ 诊断命令}]
+go run . \
+  -logN=17 \
+  -layers=1 \
+  -leafOrder=bitrev \
+  -parallelLeaves=true \
+  -leafWorkers=2 \
+  -reps=1 \
+  -warmup=0 \
+  -timing=false | tee dftparams_logN17_k2.txt
+\end{lstlisting}
+
+\begin{lstlisting}[style=textstyle,caption={$\log N=16,k=2$ 对照诊断命令}]
+go run . \
+  -logN=16 \
+  -layers=1 \
+  -leafOrder=bitrev \
+  -parallelLeaves=true \
+  -leafWorkers=2 \
+  -reps=1 \
+  -warmup=0 \
+  -timing=false | tee dftparams_logN16_k2.txt
+\end{lstlisting}
+
+\begin{lstlisting}[style=textstyle,caption={$\log N=17,k=2$ timing 命令}]
+go run . \
+  -logN=17 \
+  -layers=1 \
+  -leafOrder=bitrev \
+  -parallelLeaves=true \
+  -leafWorkers=2 \
+  -reps=1 \
+  -warmup=0 \
+  -timing=true | tee timing_logN17_k2.txt
+\end{lstlisting}
+
+\section{附录：关键源码逻辑摘要}
+
+\begin{lstlisting}[style=gostyle,caption={LogMessageRatio 补偿逻辑}]
+// In tests/examples or parameter construction conventions:
+btpParams.Mod1ParametersLiteral.LogMessageRatio +=
+    utils.Min(utils.Max(15-LogSlots, 0), 8)
+\end{lstlisting}
+
+\begin{lstlisting}[style=gostyle,caption={MessageRatio 进入 StCScaling}]
+offset := eval.Mod1Parameters.ScalingFactor().Float64() /
+          eval.Mod1Parameters.MessageRatio()
+
+StCScaling := new(big.Float).SetFloat64(scale / offset)
+\end{lstlisting}
+
+由此可得：
+\begin{equation}
+\StCScaling
+=
+\frac{\mathrm{scale}\cdot\MessageRatio}{\mathrm{ScalingFactor}}.
+\end{equation}
+因此 $\LogMessageRatio$ 增加 $1$ 会导致 $\StCScaling$ 乘以 $2$。
+
+\end{document}

@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q139",
+  "card_id": "K047",
+  "source_id": "src_000075,src_000076",
+  "question": "κ(v)权重怎么求？",
+  "answer": "在单槽内，将目标矩阵M和Frobenius幂矩阵S_v各拉直为向量，解线性方程组M=Σκ(v)S_v得到局部κ_i(v)。再用CRT将各槽的局部κ_i拼成全局κ(v)。本质是线性方程求解。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

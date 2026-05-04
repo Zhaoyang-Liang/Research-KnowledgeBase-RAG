@@ -1,0 +1,97 @@
+{
+  "card_id": "K019",
+  "version": "v2",
+  "title": "CoeffToSlot (C2S) 方向与 U_n 矩阵推导",
+  "source_id": "src_000019",
+  "source_relative_path": "01_源文件库/04_FHE核心技术模块/重要：slotToCoeff正向.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "SlotToCoeff, U_n, 两个密文, Cooley-Tukey"
+  },
+  "category": "FHE核心技术模块",
+  "subtopic": "CKKS/SlotToCoeff",
+  "chinese_summary": "SlotToCoeff是Bootstrapping的核心步骤之一：将密文从slot表示（每个槽存一个值）转换为系数表示（多项式系数）。关键挑战：slot有N/2个复数值但多项式需N个实系数→需要两个系数密文（实部和虚部）。流程：从两个系数密文(c_0和c_1)出发→合成为复向量→乘U_n矩阵→得到slot值的复编码。PaCo的创新：将U_n矩阵Cooley-Tukey分解为logN层sparse矩阵乘积，每层仅需O(N)次同态操作而非O(N²)。",
+  "knowledge_points": [
+    {
+      "id": "K019-1",
+      "concept": "SlotToCoeff的目标",
+      "formula": "slot_values = U_n·coeff",
+      "meaning": "给定系数→求slot值。标准线性代数：槽值=U_n乘系数向量。同态实现需避免明文的矩阵乘法。"
+    },
+    {
+      "id": "K019-2",
+      "concept": "两个系数密文的必要性",
+      "formula": "coeff=Re(c_0)+i·Im(c_1), 复向量经U_n→复数slot值",
+      "meaning": "系数多项式是实数→需要第二个密文提供虚部→合成复数向量→乘U_n得slot复数值。"
+    },
+    {
+      "id": "K019-3",
+      "concept": "U_n的Cooley-Tukey分解",
+      "formula": "U_n=W_{logN}·…·W_1, 每层W_k稀疏",
+      "meaning": "每层W_k仅O(N)非零元→logN层→总复杂度O(N log N)。这是PaCo加速的关键。"
+    },
+    {
+      "id": "K019-4",
+      "concept": "位反转在分解中的角色",
+      "formula": "Cooley-Tukey的奇偶分离→位反转置换",
+      "meaning": "因子分解中自然出现位反转，PaCo通过预排列索引映射吸收位反转。"
+    },
+    {
+      "id": "K019-5",
+      "concept": "SlotToCoeff vs CoeffToSlot",
+      "formula": "SlotToCoeff: coeff→slot(U_n); CoeffToSlot: slot→coeff(U_n^{-1})",
+      "meaning": "互逆操作但对FHE复杂度不同。正向(U_n)和反向(U_n^{-1})的CT分解结构不同。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "slot=U_n·coeff, coeff=U_n^{-1}·slot",
+      "meaning": "正反向变换"
+    },
+    {
+      "formula": "U_n=∏_{k=1}^{logN}W_k, 每层W_k稀疏",
+      "meaning": "CT分解使复杂度O(N log N)"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "SlotToCoeff",
+      "en": "SlotToCoeff",
+      "definition": "将系数表示转换为slot表示的操作"
+    },
+    {
+      "term": "CoeffToSlot",
+      "en": "CoeffToSlot",
+      "definition": "SlotToCoeff的逆操作"
+    },
+    {
+      "term": "Cooley-Tukey分解",
+      "en": "Cooley-Tukey factorization",
+      "definition": "将DFT/NTT矩阵分解为logN个稀疏矩阵乘积"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "Vandermonde矩阵",
+    "RLWE_lattice": "-",
+    "FHE_technique": "Bootstrapping核心组件",
+    "current_paper": "PaCo论文第4-5节的核心内容"
+  },
+  "claim_source_type": "我的笔记 + PaCo翻译精读",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "atomic_questions": [
+    "QA-K019-1",
+    "QA-K019-2",
+    "QA-K019-3",
+    "QA-K019-4",
+    "QA-K019-5"
+  ],
+  "rag_ingestion_suggestion": "极高优先级，PaCo bootstrapping核心",
+  "normalized_direction": "coeff_to_slot",
+  "normalized_name": "C2S / CoeffToSlot",
+  "original_note_convention": "SlotToCoeff正向（原笔记命名，与全库统一术语C2S方向相同，但命名相反）",
+  "batch": "Batch-01",
+  "topic": "CKKS/C2S/U_n",
+  "publish_target": "03_FHE知识库",
+  "notes": "⚠️ C2S/S2C术语审计修正：原笔记标题SlotToCoeff实际讨论的是slot=U_n·coeff方向→归入C2S。"
+}

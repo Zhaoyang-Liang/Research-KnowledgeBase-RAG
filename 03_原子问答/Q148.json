@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q148",
+  "card_id": "K051",
+  "source_id": "src_000081,src_000086",
+  "question": "d=ord_m(p)到底是什么？为什么它决定了所有不可约因子次数相同？",
+  "answer": "d=ord_m(p)是p在乘法群Z_m^*中的阶：最小正整数使p^d≡1(mod m)。Frobenius自同构x↦x^p作用在Φ_m的根上产生轨道。轨道长度整除d，且对代表元h正好=d。每条轨道对应一个不可约因子→所有因子次数=d。这是分圆多项式在有限域上分解的群论本质。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05a3",
+  "created": "2026-05-04T15:40"
+}

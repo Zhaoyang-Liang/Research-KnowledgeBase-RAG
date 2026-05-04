@@ -1,0 +1,31 @@
+{
+  "card_id": "K041",
+  "title": "CKKS complex slot与BGV/BFV CRT slot的本质区别",
+  "topic": "CKKS/BGV/BFV/slot类型对比",
+  "knowledge_points": [
+    "CKKS slot：复数槽。值空间=C，每个槽存储一个复数。槽个数=N/2（因共轭对称）。基础结构：典范嵌入σ:R→C^{N/2}。",
+    "BGV/BFV slot：CRT槽。值空间=F_{p^d}（有限域），每个槽存储一个mod p^e的元素。槽个数=N/d(d=ord_m(p))。基础结构：CRT分解R_{p^e}≅ΠF_{p^d}。",
+    "代数基础不同：CKKS基于典范嵌入（分析/几何结构），BGV/BFV基于中国剩余定理（代数结构）。",
+    "精确性不同：CKKS为近似编码（rounding引入误差，Δ控制精度）；BGV/BFV为精确编码（CRT分解无信息损失）。",
+    "CKKS slot值≡'多项式在单位根处的取值'；BGV/BFV slot值≡'多项式模各不可约因子的余数'。",
+    "两者都是将大环分解为较小分量，但分解机制和分量含义完全不同。CRT slot≠complex slot，术语不可互换。"
+  ],
+  "card_type": "concept_comparison",
+  "source_id": "src_000066, src_000059",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/01_CKKS编码与解码/CKKS编码总结-完整管线.md (CKKS侧) + BGV-BFV Bootstrapping.pdf (BGV/BFV侧)",
+  "claim_source_type": "用户笔记+讲义综合",
+  "needs_human_review": true,
+  "needs_verification": false,
+  "batch": "Batch-05a1",
+  "document_role": "directly_related",
+  "read_depth": "deep_read",
+  "publish_target": "03_FHE知识库",
+  "notes": "⚠️ needs_human_review：slot术语在CKKS和BGV/BFV中含义不同。当前论文使用CKKS context，但若涉及BGV/BFV对比或复用术语，需明确声明上下文。",
+  "related_cards": [
+    "K002",
+    "K037",
+    "K039"
+  ],
+  "cross_reference": "K002(Y-X): 分圆多项式CRT分解；K037(Y-X): BGV/BFV bootstrapping讲义（BGV/BFV侧slot结构）。",
+  "confidence": "medium"
+}

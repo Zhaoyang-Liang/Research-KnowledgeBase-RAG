@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q161",
+  "card_id": "K056",
+  "source_id": "src_000101",
+  "question": "BGV/BFV/CKKS三种方案各自最适合什么应用场景？",
+  "answer": "BGV：精确整数算术（金融、统计），支持大量SIMD槽（CRT分解），参数灵活但复杂。BFV：精确整数算术，实现比BGV简单（尺度不变），适合硬件实现。CKKS：近似复数/实数计算（机器学习、科学计算），效率最高，允许可控误差。当前论文在CKKS context下。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b1",
+  "created": "2026-05-04T16:00"
+}

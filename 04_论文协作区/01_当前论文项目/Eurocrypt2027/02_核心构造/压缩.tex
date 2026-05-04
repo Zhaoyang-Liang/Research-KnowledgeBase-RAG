@@ -1,0 +1,303 @@
+\documentclass{article}
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+\newtheorem{definition}{定义}
+\newtheorem{lemma}{引理}
+\newtheorem{theorem}{定理}
+\title{模块压缩：从大环密文到小环密文的同态转换}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+本文给出一个严格、自包含的数学推导，将一个大环 $R_N=\mathbb{Z}_q[X]/(X^N+1)$ 上的 CKKS 密文（其明文为 $m(X^2)$，$m\in R_n=\mathbb{Z}_q[Y]/(Y^n+1)$ 且 $N=4n$）同态地转换为一个小环 $R_n$ 上的密文（其明文为 $m(Y)$）。整个过程仅使用公开的线性映射 $\tau$（取偶次项系数）和模块到环的密钥切换技术。所有符号均先定义后使用，每一步推导清晰可算。
+\end{abstract}
+
+\section{符号与参数}
+
+\begin{definition}[环与参数]
+设 $n$ 是 $2$ 的幂，令 $N = 4n$。定义两个多项式环（系数在模数 $q$ 的整数环 $\mathbb{Z}_q$ 中）：
+\begin{align}
+R_N &= \mathbb{Z}_q[X] / (X^N + 1), \\
+R_n &= \mathbb{Z}_q[Y] / (Y^n + 1).
+\end{align}
+变量关系：形式上记 $Y = X^2$，但此关系仅用于定义线性映射，不要求环嵌入。模数 $q$ 是一个大整数（例如 CKKS 中的密文模数），$\mathbb{Z}_q$ 表示整数模 $q$ 的剩余类环。
+\end{definition}
+
+\begin{definition}[线性映射 $\tau$]
+定义 $\tau: R_N \to R_n$ 为：对任意多项式
+\[
+F(X) = \sum_{j=0}^{N-1} f_j X^j \in R_N,
+\]
+令
+\[
+\tau(F)(Y) = \sum_{i=0}^{n-1} f_{2i} \, Y^i \in R_n.
+\]
+即取 $F$ 中所有偶次项系数，并将 $X^{2i}$ 替换为 $Y^i$。该映射是 $\mathbb{Z}_q$-线性的，但不是环同态。
+\end{definition}
+
+\begin{definition}[私钥及其分解]
+设大环私钥为 $s(X) \in R_N$。由于 $N$ 是偶数，可以唯一分解为
+\[
+s(X) = s_0(X^2) + X s_1(X^2),
+\]
+其中 $s_0(Y), s_1(Y) \in R_n$。称 $s_0, s_1$ 为小环上的密钥分量。
+\end{definition}
+
+\begin{definition}[输入密文]
+给定一个大环密文 $\mathbf{ct} = (c_0(X), c_1(X)) \in R_N^2$，满足解密方程
+\[
+c_0(X) + s(X) \cdot c_1(X) = \Delta \cdot m(X^2) + e(X) \pmod{q},
+\]
+其中：
+\begin{itemize}
+\item $m(Y) \in R_n$ 是未知的小环明文多项式；
+\item $\Delta$ 是一个正实数（CKKS 缩放因子）；
+\item $e(X) \in R_N$ 是系数绝对值很小的噪声多项式。
+\end{itemize}
+\end{definition}
+
+\begin{definition}[输出目标]
+我们希望得到一个小环密文 $\mathbf{ct}' = (d_0(Y), d_1(Y)) \in R_n^2$，满足
+\[
+d_0(Y) + s'(Y) \cdot d_1(Y) = \Delta' \cdot m(Y) + e'(Y) \pmod{q'},
+\]
+其中 $s'(Y) \in R_n$ 是独立的小环私钥（可新生成），$\Delta'$ 是新的缩放因子，$e'(Y) \in R_n$ 是小噪声，$q'$ 是输出密文的模数（通常与 $q$ 接近或通过模约化得到）。
+\end{definition}
+
+\begin{definition}[预备运算：$X^{-1}$]
+在环 $R_N$ 中，$X$ 的乘法逆元为 $X^{-1} = -X^{N-1}$，因为
+\[
+X \cdot (-X^{N-1}) = -X^N = -(-1) = 1 \pmod{X^N+1}.
+\]
+此逆元是公开已知的单项式。
+\end{definition}
+
+\section{公开可计算的多项式}
+
+由于密文分量 $c_0, c_1$ 是公开的（密文本身可见），我们可以直接计算以下四个多项式：
+
+\begin{align}
+A(Y) &= \tau(c_0) \in R_n, \\
+B(Y) &= \tau(c_1) \in R_n, \\
+C(Y) &= \tau(X^{-1} c_0) \in R_n, \\
+D(Y) &= \tau(X^{-1} c_1) \in R_n.
+\end{align}
+
+上述计算仅涉及系数提取和有限次多项式乘法（$X^{-1}c_i$ 是一次旋转加符号变化），均为公开明文操作，不依赖任何秘密。
+
+\section{代数值推导}
+
+\subsection{将密文分量表示为偶部与奇部}
+由 $\tau$ 的定义易知，对任意 $F \in R_N$ 有
+\[
+F(X) = \tau(F)(X^2) + X \cdot \tau(X^{-1}F)(X^2).
+\]
+应用此式于 $c_0, c_1$：
+\[
+c_0(X) = \tilde{A}(X^2) + X \tilde{C}(X^2), \qquad
+c_1(X) = \tilde{B}(X^2) + X \tilde{D}(X^2),
+\]
+其中我们记
+\[
+\tilde{A}(X^2)=A(X^2),\;\tilde{B}(X^2)=B(X^2),\;
+\tilde{C}(X^2)=C(X^2),\;\tilde{D}(X^2)=D(X^2).
+\]
+
+\subsection{计算 $s c_1$}
+利用私钥分解 $s = s_0(X^2) + X s_1(X^2)$，得
+\begin{align}
+s c_1 &= (s_0 + X s_1)(\tilde{B} + X \tilde{D}) \\
+&= s_0\tilde{B} + X s_0\tilde{D} + X s_1\tilde{B} + X^2 s_1\tilde{D}.
+\end{align}
+注意 $X^2$ 在形式上是变量，为与后续映射一致，我们保留 $X^2$ 并记 $Y = X^2$ 仅在线性映射 $\tau$ 中替换。于是
+\[
+s c_1 = s_0\tilde{B} \;+\; X(s_0\tilde{D} + s_1\tilde{B}) \;+\; X^2 (s_1\tilde{D}).
+\]
+
+\subsection{代入解密方程}
+将 $c_0$ 和 $s c_1$ 代入 $c_0 + s c_1 = \Delta m(X^2) + e$：
+\[
+\tilde{A} + X\tilde{C} + s_0\tilde{B} + X(s_0\tilde{D} + s_1\tilde{B}) + X^2 s_1\tilde{D}
+= \Delta m(X^2) + e.
+\]
+
+\subsection{分离偶次与奇次部分}
+观察各项关于 $X$ 的奇偶性：
+\begin{itemize}
+\item $\tilde{A}, s_0\tilde{B}, X^2 s_1\tilde{D}$ 只含 $X$ 的偶次幂（因为 $X^2$ 是偶）；
+\item $X\tilde{C}, X(s_0\tilde{D} + s_1\tilde{B})$ 含 $X$ 的奇次幂。
+\end{itemize}
+右边 $\Delta m(X^2)$ 只有偶次项，噪声 $e$ 可分解为偶部 $e_{\text{even}}(X^2)$ 和奇部 $X e_{\text{odd}}(X^2)$。因此分别得到两个方程：
+
+\begin{align}
+\tilde{A} + s_0\tilde{B} + X^2 s_1\tilde{D} &= \Delta m(X^2) + e_{\text{even}}(X^2), \label{eq:even} \\
+\tilde{C} + s_0\tilde{D} + s_1\tilde{B} &= e_{\text{odd}}(X^2). \label{eq:odd}
+\end{align}
+
+\subsection{应用线性映射 $\tau$}
+对 \eqref{eq:even} 两边应用 $\tau$，注意：
+\begin{itemize}
+\item $\tau(\tilde{A}) = A$；
+\item $\tau(s_0\tilde{B}) = s_0 \cdot B$（因为 $s_0$ 是 $Y$ 的多项式，$\tilde{B}=B(X^2)$，取偶部后 $X^2 \mapsto Y$，且 $s_0$ 与 $\tau$ 可交换）；
+\item $\tau(X^2 s_1\tilde{D}) = Y \cdot (s_1 D)$，因为 $\tau(\tilde{D})=D$ 且 $X^2$ 映射为 $Y$；
+\item $\tau(\Delta m(X^2)) = \Delta m(Y)$；
+\item $\tau(e_{\text{even}}) =: \nu_0(Y)$ 是小噪声。
+\end{itemize}
+于是得到
+\[
+A + s_0 B + Y (s_1 D) = \Delta m(Y) + \nu_0. \tag{1}
+\]
+
+对 \eqref{eq:odd} 两边应用 $\tau$：
+\begin{itemize}
+\item $\tau(\tilde{C}) = C$；
+\item $\tau(s_0\tilde{D}) = s_0 D$；
+\item $\tau(s_1\tilde{B}) = s_1 B$；
+\item $\tau(e_{\text{odd}}) =: \nu_1(Y)$ 是小噪声。
+\end{itemize}
+得到
+\[
+C + s_0 D + s_1 B = \nu_1. \tag{2}
+\]
+
+\section{构造模块密文（秩‑2）}
+
+将方程 (1)(2) 写成矩阵形式。定义：
+\[
+\mathbf{c}_0 = \begin{pmatrix} A \\ C \end{pmatrix} \in R_n^2, \qquad
+\mathbf{c}_1 = \begin{pmatrix} B & Y D \\ D & B \end{pmatrix} \in R_n^{2\times 2}, \qquad
+\mathbf{s} = \begin{pmatrix} s_0 \\ s_1 \end{pmatrix} \in R_n^2.
+\]
+则
+\[
+\mathbf{c}_0 + \mathbf{c}_1 \mathbf{s}
+= \begin{pmatrix}
+A + s_0 B + Y (s_1 D) \\
+C + s_0 D + s_1 B
+\end{pmatrix}
+= \begin{pmatrix}
+\Delta m(Y) + \nu_0 \\
+\nu_1
+\end{pmatrix}.
+\]
+
+因此，$(\mathbf{c}_0, \mathbf{c}_1)$ 构成一个以向量 $\mathbf{s} = (s_0, s_1)$ 为私钥的模块密文，其解密结果（忽略噪声）为 $(\Delta m, 0)$。
+
+\section{密钥切换：从向量密钥到标量密钥}
+
+假设我们已有一个独立的小环私钥 $s'(Y) \in R_n$，我们希望将上述模块密文转换为普通的小环密文 $(d_0, d_1)$ 满足 $d_0 + s' d_1 \approx \Delta m$。
+
+\subsection{切换密钥生成}
+选取 gadget 基 $B$（例如 $B = 2^{\lceil \log_2 q \rceil / L_g}$）和长度 $L_g$。对每个 $\ell = 0,1,\dots, L_g-1$：
+\begin{itemize}
+\item 均匀随机采样 $a_{0,\ell}, a_{1,\ell} \leftarrow R_n$；
+\item 从小噪声分布 $\chi$ 中采样 $\epsilon_{0,\ell}, \epsilon_{1,\ell}$；
+\item 计算
+\[
+b_{0,\ell} = a_{0,\ell} s' + B^\ell s_0 + \epsilon_{0,\ell}, \qquad
+b_{1,\ell} = a_{1,\ell} s' + B^\ell s_1 + \epsilon_{1,\ell}.
+\]
+\end{itemize}
+定义切换密钥：
+\[
+\mathrm{KSK}_0 = \{ (b_{0,\ell}, a_{0,\ell}) \}_{\ell=0}^{L_g-1}, \qquad
+\mathrm{KSK}_1 = \{ (b_{1,\ell}, a_{1,\ell}) \}_{\ell=0}^{L_g-1}.
+\]
+
+\subsection{通用切换算法}
+对于任意 $(t, u, v) \in R_n^3$ 满足
+\[
+t + s_0 u + s_1 v = \mathrm{msg} \ (\text{mod noise}),
+\]
+我们可以计算 $(d_0, d_1)$ 如下：
+
+\begin{enumerate}
+\item 初始化 $d_0 = t$, $d_1 = 0$。
+\item 将 $u, v$ 做 gadget 分解：存在系数 $u_\ell, v_\ell$（每个系数绝对值 $<B$）使得
+\[
+u = \sum_{\ell=0}^{L_g-1} u_\ell B^\ell, \qquad v = \sum_{\ell=0}^{L_g-1} v_\ell B^\ell.
+\]
+\item 对每个 $\ell$ 更新：
+\[
+d_0 \leftarrow d_0 + u_\ell \cdot b_{0,\ell} + v_\ell \cdot b_{1,\ell}, \qquad
+d_1 \leftarrow d_1 + u_\ell \cdot a_{0,\ell} + v_\ell \cdot a_{1,\ell}.
+\]
+\end{enumerate}
+输出 $(d_0, d_1)$。可以验证（通过代入 $b_{0,\ell}, b_{1,\ell}$ 的定义）：
+\[
+d_0 + s' d_1 = t + s_0 u + s_1 v + \text{small noise} \approx \mathrm{msg}.
+\]
+
+\subsection{应用到我们的模块密文}
+我们将模块密文的两行视为两个独立的“三元素密文”：
+\begin{align}
+\mathrm{CT}_0 &= (A,\; B,\; Y D), \quad \text{因为 } A + s_0 B + s_1 (Y D) \approx \Delta m, \\
+\mathrm{CT}_1 &= (C,\; D,\; B), \quad \text{因为 } C + s_0 D + s_1 B \approx 0.
+\end{align}
+
+对 $\mathrm{CT}_0$ 应用通用切换算法，得到密文 $\mathbf{ct}_0' = (d_{0,0}, d_{0,1})$，满足
+\[
+d_{0,0} + s' d_{0,1} \approx \Delta m.
+\]
+
+对 $\mathrm{CT}_1$ 应用通用切换算法，得到密文 $\mathbf{ct}_1' = (d_{1,0}, d_{1,1})$，满足
+\[
+d_{1,0} + s' d_{1,1} \approx 0.
+\]
+
+\section{输出结果}
+
+令 $\mathbf{ct}_{\text{final}} = \mathbf{ct}_0'$（或 $\mathbf{ct}_0' + \mathbf{ct}_1'$，后者仍近似为 $\Delta m$）。输出 $\mathbf{ct}_{\text{final}} = (d_0, d_1)$，则
+\[
+d_0(Y) + s'(Y) d_1(Y) = \Delta' \cdot m(Y) + e'(Y) \pmod{q'},
+\]
+其中 $\Delta'$ 是由切换过程中 rescale 决定的缩放因子（通常与 $\Delta$ 相差一个与 gadget 参数有关的因子），$e'(Y)$ 是累积噪声，$q'$ 是输出模数（一般可取与原密文相同的模数，或通过模约化调整）。
+
+\section{总结}
+
+上述构造完整地将加密 $m(X^2)$ 的大环密文转换成了加密 $m(Y)$ 的小环密文。整个过程仅使用：
+\begin{itemize}
+\item 公开的线性映射 $\tau$；
+\item 公开的单项式乘法 $X^{-1}$；
+\item 预先生成的切换密钥 $\mathrm{KSK}_0, \mathrm{KSK}_1$；
+\item 标准 gadget 分解与密钥切换。
+\end{itemize}
+所有操作均在 CKKS 同态操作框架内可实现，且推导中未使用任何未定义的符号。
+
+\appendix
+\section{符号速查表}
+
+\begin{center}
+\begin{tabular}{|c|l|}
+\hline
+符号 & 含义 \\
+\hline
+$n$ & 小环维度（2 的幂） \\
+$N = 4n$ & 大环维度 \\
+$R_N$ & 大环 $\mathbb{Z}_q[X]/(X^N+1)$ \\
+$R_n$ & 小环 $\mathbb{Z}_q[Y]/(Y^n+1)$ \\
+$\tau$ & 线性映射：取偶次项系数，$X^{2i}\mapsto Y^i$ \\
+$s(X)$ & 大环私钥 \\
+$s_0(Y), s_1(Y)$ & 大环私钥的偶/奇分量 \\
+$\mathbf{ct}=(c_0,c_1)$ & 输入大环密文 \\
+$m(Y)$ & 待恢复的小环明文 \\
+$\Delta$ & 输入缩放因子 \\
+$e(X)$ & 输入密文中的噪声 \\
+$A,B,C,D$ & 通过 $\tau$ 公开计算的四个小环多项式 \\
+$X^{-1}$ & $X$ 在 $R_N$ 中的逆元，$X^{-1}=-X^{N-1}$ \\
+$\mathbf{c}_0, \mathbf{c}_1$ & 模块密文（矩阵形式） \\
+$s'(Y)$ & 目标小环私钥 \\
+$B, L_g$ & gadget 参数（基和长度） \\
+$\mathrm{KSK}_0, \mathrm{KSK}_1$ & 切换密钥 \\
+$(d_0,d_1)$ & 输出小环密文 \\
+\hline
+\end{tabular}
+\end{center}
+
+\end{document}

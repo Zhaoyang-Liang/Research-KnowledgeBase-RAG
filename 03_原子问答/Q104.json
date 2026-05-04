@@ -1,0 +1,12 @@
+{
+  "qa_id": "Q104",
+  "question": "C^B如何嵌入C^n中？为什么嵌入保持编码？",
+  "answer": "映射ι: C^B→C^n定义为ι(z_1)=(z_1,...,z_1)重复M=n/B次。关键等式Ecd_n(ι(z_1))=Ecd_B(z_1)。原因是周期为B的向量的IDFT只有指数为M倍数的项非零，经变量替换Y=X^{N/(2n)}后与低维编码一致。C^B构成C^n的子环（Hadamard积封闭）。",
+  "card_id": "K032",
+  "source_id": "src_000045",
+  "source_type": "translation_note",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "batch": "Batch-03",
+  "created": "2026-05-04T13:54:56"
+}

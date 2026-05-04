@@ -1,0 +1,30 @@
+{
+  "card_id": "K035",
+  "title": "CKKS中5作为单位根生成元的数论性质",
+  "topic": "CKKS/编码/数学基础",
+  "knowledge_points": [
+    "设n=2^k，则4n=2^{k+2}，5 mod 4n的乘法阶为2^k=n",
+    "因此{5^i mod 4n: i=0,...,n-1}给出了n个互不相同的奇数，且全部≡1(mod 4)",
+    "这些对应的是所有模4余1的与4n互素的奇数——即本原4n次单位根的一半",
+    "原文称\"遍历所有与4n互素的数\"是错的，应是\"遍历所有与4n互素且≡1(mod 4)的数\"",
+    "选择5的原因：(1)互异性，(2)支持Vandermonde矩阵的递归分解（比特反转结构），(3)固定实现、可复现",
+    "此性质使SlotToCoeff中的Vandermonde矩阵可以用O(log n)次操作实现"
+  ],
+  "card_type": "math_basis",
+  "source_id": "src_000049",
+  "source_type": "translation_note",
+  "confidence": "high",
+  "needs_human_review": true,
+  "notes": "翻译笔记。数论性质本身是确定的，confidence=high。指出了原文一处微小不精确。 ⚠ 标题'5作为单位根生成元'不精确：5只生成半本原根(mod 4余1的部分)，不是(Z/4nZ)^×的完全生成元。卡片正文已纠正，但标题表述需调整。",
+  "related_cards": [
+    "K003",
+    "K030",
+    "K022"
+  ],
+  "created": "2026-05-04T13:52:23",
+  "batch": "Batch-03",
+  "publish_target": "03_FHE知识库 (translation_note, needs_verification)",
+  "cross_reference": "K009 (分圆多项式F_p分解)",
+  "duplicate_status": "NOT duplicate - unique topic on 5's number-theoretic properties.",
+  "needs_verification": true
+}

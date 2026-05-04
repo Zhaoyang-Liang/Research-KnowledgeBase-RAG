@@ -1,0 +1,44 @@
+{
+  "title": "密钥切换通用公式与重线性化特例",
+  "source_file": "01_源文件库/03_FHE总论与基础方案/密钥切换与其特例重线性化.md",
+  "category": "03_FHE总论与基础方案",
+  "subtopic": "密钥切换/重线性化",
+  "read_depth": "精读",
+  "ingest_decision": "core_ingest",
+  "generated_at": "2026-05-04",
+  "knowledge_points": [
+    {
+      "id": "keyswitch-general",
+      "concept": "通用密钥切换公式",
+      "formula": "c₀ = c₀ + Σc_j^{(i)}·b_{i,j}, c₁ = -Σc_j^{(i)}·a_{i,j}",
+      "meaning": "将c_j按基B分解，用预计算密钥(a_{i,j},b_{i,j})（满足b_{i,j}-a_{i,j}·s₂≈B^i·s₁^j）组合，实现任意密钥对间的切换"
+    },
+    {
+      "id": "relinearization-special",
+      "concept": "重线性化=密钥切换的特例(s²→s)",
+      "formula": "输入三维(c₀,c₁,c₂)→分解c₂→用RLK_i(a_i,b_i)组合，b_i≈a_i·s+B^i·s²",
+      "meaning": "重线性化只是密钥切换在s₁=s²,s₂=s,k=3时的特例，将乘法产生的高维密文降回2维"
+    },
+    {
+      "id": "digit-decomposition",
+      "concept": "数字分解(Digit Decomposition)是密钥切换的基础",
+      "formula": "c₁=Σ_{i=0}^{d-1} c₁^{(i)}·B^i, d=⌈log_B q⌉",
+      "meaning": "基B越大分解位数d越小（计算快），但切换噪声越大。折中取B=2^{16}或2^{32}"
+    }
+  ],
+  "tags": [
+    "密钥切换",
+    "重线性化",
+    "数字分解",
+    "KeySwitching",
+    "Relinearization",
+    "BGV",
+    "BFV",
+    "CKKS"
+  ],
+  "source_id": "src_000013",
+  "source_title": "密钥切换通用公式与重线性化特例",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/密钥切换与其特例重线性化.md",
+  "source_type": "md",
+  "source_role": "canonical_source"
+}

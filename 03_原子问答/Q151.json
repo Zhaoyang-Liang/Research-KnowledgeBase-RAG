@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q151",
+  "card_id": "K051",
+  "source_id": "src_000083",
+  "question": "论文为什么把槽编号成多维坐标(e₁,...,e_t)？槽不是天然一维向量吗？",
+  "answer": "槽确实可以排成一维向量。但为了描述permutation更方便，作者把S={g₁^{e₁}···g_t^{e_t}}重新编为t维网格。One-dimensional rotation ρ_i^v只动第i个坐标e_i→e_i+v(mod ℓ_i)。槽还是同一批，只是编号方式不同。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05a3",
+  "created": "2026-05-04T15:40"
+}

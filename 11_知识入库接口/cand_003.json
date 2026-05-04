@@ -1,0 +1,16 @@
+{
+  "knowledge_id": "cand_003",
+  "paper_id": "paper_2027_eurocrypt_fhe",
+  "idea_id": "idea_003",
+  "title": "γ_impl as implementation normalization factor",
+  "description": "γ_impl = (C2S_leaf_scaling × S2C_leaf_scaling) / (C2S_top_scaling × S2C_top_scaling) 是C2S/S2C矩阵缩放因子之比，不是经验公式而是直接推导。",
+  "source_ref": "汇总代办路线.md",
+  "source_id": "src_000052",
+  "knowledge_type": "notation_convention",
+  "status": "candidate_knowledge",
+  "needs_validation": true,
+  "needs_human_review": true,
+  "published_to_kb": false,
+  "reverse_link": "04_论文协作区/01_当前论文项目/Eurocrypt2027/",
+  "created": "2026-05-04T13:56:34"
+}

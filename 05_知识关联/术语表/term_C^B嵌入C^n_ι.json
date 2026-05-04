@@ -1,0 +1,6 @@
+{
+  "term": "C^B嵌入C^n (ι)",
+  "definition": "ι: C^B→C^n定义为ι(z)=(z,...,z)重复M=n/B次。ι是Hadamard积下的环同态，C^B的像构成C^n的子环。关键性质：Ecd_n∘ι=Ecd_B，即编码在嵌入下保持一致。",
+  "source_id": "src_000045",
+  "card_id": "K032"
+}

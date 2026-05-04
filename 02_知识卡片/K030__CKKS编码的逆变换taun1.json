@@ -1,0 +1,30 @@
+{
+  "card_id": "K030",
+  "title": "CKKS编码的逆变换τ_n^{-1}: 复向量到多项式的完整推导",
+  "topic": "CKKS编码/SlotToCoeff/典范嵌入",
+  "knowledge_points": [
+    "给定z∈C^n，计算p(Y)=τ_n^{-1}(z)的完整步骤：(1)解U_n·w=z得w∈C^n，(2)将w拆为p_0+i·p_1，(3)组装p(Y)=Σ p_0_j·Y^j + Σ p_1_j·Y^{j+n}",
+    "U_n是Vandermonde矩阵，U_n[i,j]=ζ_{n,i}^j，其中ζ_{n,i}=exp(2πi·5^i/(4n))",
+    "由于ζ_{n,i}^n=i，后一半系数的贡献被转化为纯虚数倍，从而实系数多项式p(Y)在复点上求值得到复向量",
+    "因此τ_n^{-1}本质上是：IDFT → 分离虚实部 → 分别放入多项式的高低半部分",
+    "CKKS编码定义为Ecd(z)=⌊Δ·τ_n^{-1}(z)⌋∈Z[X]/(X^N+1)，其中令Y=X^{N/(2n)}"
+  ],
+  "card_type": "concept",
+  "source_id": "src_000050",
+  "source_type": "translation_note",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "notes": "翻译笔记，非原始论文。推导正确但需对照Geelen原文验证Vandermonde矩阵具体形式。 需对照Geelen原文验证U_n矩阵具体形式。",
+  "related_cards": [
+    "K001",
+    "K002",
+    "K003",
+    "K022"
+  ],
+  "created": "2026-05-04T13:52:23",
+  "batch": "Batch-03",
+  "publish_target": "03_FHE知识库 (translation_note, support_ingest)",
+  "cross_reference": "K018 (典范嵌入), K019 (SlotToCoeff正向), K036 (τ_n正向)",
+  "duplicate_status": "NOT duplicate - K030 covers τ_n^{-1} (INVERSE/encoding direction), K018/K019 cover forward. Complementary perspectives.",
+  "needs_verification": true
+}

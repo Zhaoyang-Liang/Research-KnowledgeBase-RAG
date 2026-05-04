@@ -1,0 +1,25 @@
+{
+  "card_id": "K045",
+  "title": "C2S/S2C作为线性变换T的数学结构与矩阵表示",
+  "topic": "C2S/S2C/线性变换",
+  "knowledge_points": [
+    "C2S是线性变换：输出每个系数a_k都可写成输入槽坐标m_{i,j}的固定线性组合a_k=Σc_{k,(i,j)}·m_{i,j}。不涉及输入之间的乘法。",
+    "输入空间：K_n^ℓ（ℓ个槽，每槽d维扩域元素）。输出空间：多项式系数空间(a_0,...,a_{ℓd-1})。选定基后，T是一个ℓd×ℓd矩阵。",
+    "朴素密文算法：预计算完整的T矩阵（dense ℓd×ℓd），然后同态执行矩阵乘法。代价O(N²)，对实际参数不可行。",
+    "T矩阵的常数c_{k,(i,j)}仅由槽表示/基/打包方式决定，与具体输入消息无关。这是'线性'的关键含义。",
+    "论文的核心观察：T不是任意dense矩阵——它有FT-like结构，可分解为M→U_ℓ→M^{-1}三步。"
+  ],
+  "card_type": "concept",
+  "source_id": "src_000070",
+  "claim_source_type": "用户笔记",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "publish_target": "03_FHE知识库",
+  "notes": "解释C2S为什么可以写成矩阵T，以及朴素方法为什么慢。",
+  "related_cards": [
+    "K044",
+    "K046"
+  ],
+  "cross_reference": "K044(Y-X): C2S/S2C定义；K046(Y-X): M→U_ℓ→M^{-1}三步分解。",
+  "confidence": "medium"
+}

@@ -1,0 +1,44 @@
+{
+  "title": "BGV与CKKS完整同态计算流程",
+  "source_file": "01_源文件库/03_FHE总论与基础方案/BGV-CKKS完整流程举例.md",
+  "category": "03_FHE总论与基础方案",
+  "subtopic": "同态计算流程",
+  "read_depth": "精读",
+  "ingest_decision": "core_ingest",
+  "generated_at": "2026-05-04",
+  "knowledge_points": [
+    {
+      "id": "BGV-workflow",
+      "concept": "BGV完整流程: 乘法→重线性化→噪声评估→模数切换",
+      "formula": "c× = (c₀d₀, c₀d₁+c₁d₀, c₁d₁) → Relin(s²→s) → ModSwitch(q→q)",
+      "meaning": "每次乘法后密文从2维变为3维，必须先重线性化降回2维，再根据噪声水平决定是否模数切换"
+    },
+    {
+      "id": "BFV-CKKS-workflow",
+      "concept": "BFV/CKKS流程: 乘法→重线性化→重缩放",
+      "formula": "c_mult = Relin(c×) → c_new = ⌊(1/p)·c_mult⌉",
+      "meaning": "BFV中p=t(明文模数)，CKKS中p=编码缩放因子。重缩放同时降模数和恢复缩放因子"
+    },
+    {
+      "id": "noise-control-timing",
+      "concept": "噪声控制时机表",
+      "formula": "加法后不立即控噪，乘法后必须重线性化，BGV需模数切换，BFV/CKKS需重缩放",
+      "meaning": "加法噪声线性增长（慢），乘法噪声指数增长（快），因此噪声控制策略不同"
+    }
+  ],
+  "tags": [
+    "BGV",
+    "BFV",
+    "CKKS",
+    "同态计算流程",
+    "重线性化",
+    "模数切换",
+    "重缩放",
+    "噪声控制"
+  ],
+  "source_id": "src_000012",
+  "source_title": "BGV与CKKS完整同态计算流程",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/BGV-CKKS完整流程举例.md",
+  "source_type": "md",
+  "source_role": "canonical_source"
+}

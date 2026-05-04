@@ -1,0 +1,90 @@
+{
+  "card_id": "K017",
+  "version": "v2",
+  "title": "BGV与BFV的核心区别：消息低位vs高位",
+  "source_id": "src_000016",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/BFV与BGV的高低位明文.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "高位, 低位, BGV, BFV, 消息位置"
+  },
+  "category": "FHE总论与基础方案",
+  "subtopic": "BGV vs BFV对比",
+  "chinese_summary": "BGV与BFV的根本区别在于明文消息在密文中的位置。BGV：消息在低位(c₀=a·s+t·e+m)，模t后噪声e被消掉只剩m。模数切换缩小模数q→q'，噪声绝对值等比例缩小，消息不变。BFV：消息放大Δ=⌊q/t⌋倍放在高位(c₀=a·s+Δ·m+e)，重缩放÷t恢复尺度。用比喻：BGV像在尺子低刻度写数字→噪声大了换短尺子；BFV像放大后在尺子高刻度写→噪声大了把尺子和物体同时缩小。",
+  "knowledge_points": [
+    {
+      "id": "K017-1",
+      "concept": "BGV消息在低位",
+      "formula": "c₀=a·s+t·e+m, Dec: [c₀+c₁·s]_q mod t=m",
+      "meaning": "解密时先模q消去a·s，再模t消去t·e（若|t·e|<q/2）。消息z在低位不受模数大小影响。"
+    },
+    {
+      "id": "K017-2",
+      "concept": "BFV消息在高位",
+      "formula": "c₀=a·s+Δ·m+e, Δ=⌊q/t⌋, Dec: ⌊(t/q)·[c₀+c₁·s]_q⌉",
+      "meaning": "消息被放大Δ倍占据密文系数的高位。解密需除以Δ恢复消息，精度依赖q足够大。"
+    },
+    {
+      "id": "K017-3",
+      "concept": "ModSwitch(BGV) vs Rescale(BFV)",
+      "formula": "BGV:⌊(q'/q)·c⌉(消息不变); BFV:⌊(1/t)·c⌉(尺度恢复)",
+      "meaning": "ModSwitch任意比例缩小模数→灵活；Rescale固定比例÷t→结构化。BGV更灵活但参数跟踪更复杂。"
+    },
+    {
+      "id": "K017-4",
+      "concept": "比喻理解",
+      "formula": "BGV=低刻度换尺子; BFV=放大后同比例缩小",
+      "meaning": "BGV:改变测量工具(模数); BFV:改变被测量对象(消息放大因子)和测量工具同步缩小。"
+    },
+    {
+      "id": "K017-5",
+      "concept": "对Bootstrapping的影响",
+      "formula": "BGV:需精确整数模约化; BFV:可用模数切换降噪换模数",
+      "meaning": "BGV bootstrapping需精确整数电路→昂贵。BFV可利用尺度不变性简化某些操作。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "BGV Dec: m=[c₀+c₁·s]_q mod t",
+      "meaning": "BGV解密：先模q后模t"
+    },
+    {
+      "formula": "BFV Dec: m=⌊(t/q)·[c₀+c₁·s]_q⌉",
+      "meaning": "BFV解密：缩放恢复"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "低位明文",
+      "en": "low-bit plaintext",
+      "definition": "BGV：消息放在系数最低位，模t后即消息"
+    },
+    {
+      "term": "高位明文",
+      "en": "high-bit plaintext",
+      "definition": "BFV：消息放大Δ倍占据系数高位"
+    },
+    {
+      "term": "Δ",
+      "en": "Delta",
+      "definition": "BFV的缩放因子=⌊q/t⌋"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "-",
+    "RLWE_lattice": "加密结构差异",
+    "FHE_technique": "ModSwitch vs Rescale的技术根源",
+    "current_paper": "当前基于CKKS，消息尺度变化需明确定义"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K017-1",
+    "QA-K017-2",
+    "QA-K017-3",
+    "QA-K017-4",
+    "QA-K017-5"
+  ],
+  "rag_ingestion_suggestion": "高优先级，避免BGV/BFV混淆"
+}

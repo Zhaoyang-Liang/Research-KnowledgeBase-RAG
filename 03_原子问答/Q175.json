@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q175",
+  "card_id": "K057",
+  "source_id": "src_000102",
+  "question": "为什么BGV的消息在低位而BFV在高位？这有什么本质影响？",
+  "answer": "BGV消息在低位：加密时t·e+m把消息嵌在模t低位，解密直接m=[...]_q mod t。优点是不需要缩放因子Δ，模数切换比例任意。BFV消息在高位：乘Δ=⌊q/t⌋抬到q高位，解密需要⌊(t/q)·(...)⌉。优点是尺度不变（乘法后重缩放恢复Δ）。本质影响：BGV噪声控制更灵活但参数复杂，BFV操作更直观但模数链固定。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b1",
+  "created": "2026-05-04T16:00"
+}

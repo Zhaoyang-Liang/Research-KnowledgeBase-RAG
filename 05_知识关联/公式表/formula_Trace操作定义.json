@@ -1,0 +1,6 @@
+{
+  "name": "Trace操作定义",
+  "latex": "\\mathsf{Tr}_{n\\to B}(\\mathbf{z})_i=\\sum_{j=0}^{n/B-1}z_{i+jB}",
+  "description": "槽向量的水平求和",
+  "source_id": "src_000048"
+}

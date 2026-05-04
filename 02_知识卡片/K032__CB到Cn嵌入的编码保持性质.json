@@ -1,0 +1,29 @@
+{
+  "card_id": "K032",
+  "title": "C^B到C^n的嵌入与编码保持性质",
+  "topic": "CKKS/编码/子环结构",
+  "knowledge_points": [
+    "定义嵌入ι:C^B→C^n为ι(z_1)=(z_1,z_1,…,z_1)重复M=n/B次",
+    "关键等式：Ecd_n(ι(z_1))=Ecd_B(z_1)——编码在嵌入下保持一致",
+    "代数解释：重复向量构成C^n的子环（在Hadamard积下封闭），ι是环同态",
+    "原因是周期为B的向量的IDFT只有指数为M=n/B的倍数的项非零，经过变量替换Y=X^{N/(2n)}后与低维编码完全一致",
+    "原文中的\"2M-1\"求和上限是笔误，应为\"2B-1\"（即k=0,...,2B-1）",
+    "应用：在PaCo中用于将多个多项式的系数打包进一个密文的不同槽"
+  ],
+  "card_type": "concept",
+  "source_id": "src_000045",
+  "source_type": "translation_note",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "notes": "翻译笔记。指出了原文求和范围错误(2M vs 2B)。需核原文验证。 ⚠ 已纠正原文求和范围错误(2M→2B)，需作者人工确认。",
+  "related_cards": [
+    "K030",
+    "K022"
+  ],
+  "created": "2026-05-04T13:52:23",
+  "batch": "Batch-03",
+  "publish_target": "03_FHE知识库 (translation_note, needs_verification — 含原文笔误修正)",
+  "cross_reference": "K022 (Y=X^{N/(2n)}代换)",
+  "duplicate_status": "NOT duplicate - unique topic on C^B embedding and subring structure.",
+  "needs_verification": true
+}

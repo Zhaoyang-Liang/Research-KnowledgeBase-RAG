@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q168",
+  "card_id": "K060/061",
+  "source_id": "src_000105,src_000106",
+  "question": "ModSwitch、Rescale、KeySwitch三者关系是什么？",
+  "answer": "ModSwitch（BGV）：改q不改s，任意比例，目的降噪。Rescale（BFV/CKKS）：改q且隐含改Δ或p，固定比例=t或p，目的保持缩放因子一致。KeySwitch：改s不改q，目的换密钥/重线性化。ModSwitch和Rescale都改变q但语义不同；KeySwitch和前两者正交（改变不同对象）。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b1",
+  "created": "2026-05-04T16:00"
+}

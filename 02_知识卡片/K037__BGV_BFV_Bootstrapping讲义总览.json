@@ -1,0 +1,31 @@
+{
+  "card_id": "K037",
+  "title": "BGV/BFV Bootstrapping讲义总览：229页系统教程",
+  "topic": "BGV/BFV/Bootstrapping/讲义资源",
+  "knowledge_points": [
+    "作者：梁朝阳，2026年4月18日，229页 + 52页beamer。覆盖BGV/BFV bootstrapping所需全部代数基础与算法流程。",
+    "三部分结构：Part I 代数与数论基础（分圆环、Frobenius轨道、CRT、slot几何、automorphism/rotation）；Part II 主流程与表示变换（解密关系、sparse/fully packed、CoeffToSlot/SlotToCoeff、unpack/repack）；Part III 优化与复杂度（digit extraction、BSGS、hoisting、full/thin bootstrap）。",
+    "BGV/BFV bootstrapping核心流程：旧密文→同态解密→CoeffToSlot→digit extraction(或BFV rounding)→SlotToCoeff→新密文。关键区分：BGV用digit extraction移除噪声的高位digit，BFV用rounding。",
+    "BGV/BFV与CKKS bootstrapping的本质区别：BGV/BFV工作在finite ring arithmetic（目标是消除一个精确的模t消息上的噪声）；CKKS工作在approximate arithmetic（目标是把近似复数上的缩放因子恢复）。因此两者的C2S/S2C/中间步骤的数学本质不同。",
+    "讲义包括完整伪代码附录（参数生成、编码解码、加解密、key switching、weighted rotations、BSGS、hoisting、端到端bootstrap）。"
+  ],
+  "card_type": "reference_resource",
+  "source_id": "src_000059",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/02_核心技术模块/BGV-BFV Bootstrapping.pdf",
+  "claim_source_type": "lecture_notes",
+  "needs_human_review": false,
+  "needs_verification": false,
+  "batch": "Batch-04",
+  "document_role": "directly_related",
+  "read_depth": "deep_read",
+  "publish_target": "03_FHE知识库",
+  "notes": "作者标注为南开大学密码科学与技术。讲义质量极高，是BGV/BFV领域系统性的中文资料。建议人工阅读第2.9节（与CKKS对比）和第13章（复杂度）。",
+  "related_cards": [
+    "K012",
+    "K013",
+    "K017",
+    "K028"
+  ],
+  "created": "2026-05-04T14:30",
+  "source_notes": "canonical_source(src_000059)。src_000060~src_000062为同内容的不同格式(support_source)。"
+}

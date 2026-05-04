@@ -1,0 +1,41 @@
+{
+  "title": "选择分圆多项式的十大理由",
+  "source_file": "01_源文件库/01_抽象代数与代数数论/为什么选择分圆多项式-好处汇总.md",
+  "category": "01_数学与代数基础",
+  "subtopic": "代数数论/分圆域优势",
+  "read_depth": "精读",
+  "ingest_decision": "core_ingest",
+  "knowledge_points": [
+    {
+      "id": "cyclo-algebra",
+      "concept": "代数优势: 整环、Galois群交换、判别式小",
+      "formula": "n=2^k时x^n+1不可约(Eisenstein), Gal(Q(ζ_M)/Q)=(Z/MZ)^×交换",
+      "meaning": "整环无零因子保证安全；交换Galois群使自同构操作简单(旋转=自同构)"
+    },
+    {
+      "id": "cyclo-compute",
+      "concept": "计算优势: NTT、稀疏形式",
+      "formula": "x^n+1仅两项, x^n≡-1使模约化极快, p≡1(mod 2M)时可做NTT",
+      "meaning": "多项式乘法O(M log M)而非O(M²)；模约化只需一次减法"
+    },
+    {
+      "id": "cyclo-encode",
+      "concept": "编码优势: 自然槽结构、求值=NTT",
+      "formula": "槽分解=CRT在不可约因子上的分解; 自同构x↦x^k诱导槽旋转Rot_k",
+      "meaning": "打包/解包等价于NTT/INTT，槽旋转通过Galois自同构同态实现"
+    }
+  ],
+  "tags": [
+    "分圆多项式",
+    "NTT",
+    "整环",
+    "Galois群",
+    "槽旋转",
+    "Eisenstein判别法"
+  ],
+  "source_id": "src_000010",
+  "source_title": "选择分圆多项式的十大理由",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/为什么选择分圆多项式-好处汇总.md",
+  "source_type": "md",
+  "source_role": "canonical_source"
+}

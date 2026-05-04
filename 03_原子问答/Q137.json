@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q137",
+  "card_id": "K047",
+  "source_id": "src_000072",
+  "question": "为什么不同槽的局部基不一样？",
+  "answer": "CRT分解下，各槽同构但'扮演生成元'的具体元素不同。槽i的自然基是{ζ_{m,i}^j}（j=0,...,d-1），各槽的ζ_{m,i}来自域的不同嵌入→彼此不同。必须用M统一为公共基{ζ_m^j}后才能跨槽操作。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

@@ -1,0 +1,13 @@
+{
+  "qa_id": "Q186",
+  "question": "什么是格的平行六面体泄漏攻击？",
+  "answer": "平行六面体泄漏（learning the parallelepiped）是 Nguyen-Regev 2006 攻击 GGH/NTRUSign 的方法。\n\n攻击原理：(1) GGH 签名 s 恰好落在私钥基 B_sk 决定的平行六面体 P(B_sk) = {B_sk x : −1/2 ≤ x_i < 1/2} 内。(2) 接收多个 (m, s) 对 → s 值构成 P(B_sk) 内的均匀采样点。(3) 计算这些点的协方差矩阵，协方差矩阵的特征向量正好对应 B_sk 的 Gram-Schmidt 向量方向。(4) 通过 Gram-Schmidt 方向可以直接重构私钥基。\n\n几何直觉：P(B_sk) 是一个歪斜的盒子，每个签名都是盒子里的随机点。收集足够的点，你可以计算出盒子的边缘方向和尺寸。\n\nFalcon/Dilithium 如何避免：使用高斯采样（球面对称分布）+ 拒绝采样，签名分布是球形的，不泄漏基的形状。",
+  "source_id": "src_000113",
+  "batch": "Batch-05c",
+  "confidence": "medium",
+  "source_status": "source_preserved",
+  "needs_human_review": false,
+  "review_policy": "review_when_used_for_paper",
+  "publish_target": "02_RLWE_格密码_后量子知识库",
+  "cross_reference": "GGH早期也是FHE方案（Gentry09的前身），但本问答聚焦签名安全。与FHE的关系是历史性的，非直接技术依赖。"
+}

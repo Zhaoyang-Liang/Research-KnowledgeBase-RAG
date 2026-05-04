@@ -1,0 +1,85 @@
+{
+  "card_id": "K025",
+  "version": "v2",
+  "title": "多项式分解方法总览",
+  "source_id": "src_000026",
+  "source_relative_path": "01_源文件库/04_FHE核心技术模块/1-总览.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "总览, 多项式分解, 框架"
+  },
+  "category": "FHE核心技术模块",
+  "subtopic": "多项式分解",
+  "chinese_summary": "多项式分解是bootstrapping的前处理步骤，目标是将N次多项式分解为n次子多项式，使得后续处理可以在更小的环上进行。总览给出了三种分解方法的框架：系数法(coeff)、槽法(slot)、混合法。每种方法对应不同的矩阵变换和同态实现策略。框架统一了看似不同的技术为线性变换p↦M·p。",
+  "knowledge_points": [
+    {
+      "id": "K025-1",
+      "concept": "分解的统一框架",
+      "formula": "p↦M·p, M∈R^{(N/n)×N}",
+      "meaning": "所有分解方法都可写为线性变换。差异在于矩阵M的结构——决定计算复杂度和slot语义。"
+    },
+    {
+      "id": "K025-2",
+      "concept": "三种方法概览",
+      "formula": "系数法M_coeff, 槽法M_slot, 混合法M_hybrid",
+      "meaning": "系数法M_coeff简单但破坏槽；槽法M_slot保留槽但需额外计算；混合法折中。"
+    },
+    {
+      "id": "K025-3",
+      "concept": "分解后的子多项式",
+      "formula": "p ↦ (p₀,…,p_{N/n-1}), 每个p_i是n次多项式",
+      "meaning": "将大环多项式分裂为多个小环多项式。小环可以独立处理，降低计算复杂度。"
+    },
+    {
+      "id": "K025-4",
+      "concept": "与bootstrapping的关系",
+      "formula": "分解→子环处理→合并→完整bootstrapping",
+      "meaning": "分解使bootstrapping可以在小子环上进行→降低每个操作的模数和噪声预算。"
+    },
+    {
+      "id": "K025-5",
+      "concept": "⚠ 需对照原文确认",
+      "formula": "当前论文是否明确采用某种分解方法？",
+      "meaning": "总览是通用框架，需确认当前论文的具体选择。此卡片flag为需要人工确认。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "p↦M·p, M∈R^{(N/n)×N}",
+      "meaning": "多项式分解的统一线性框架"
+    },
+    {
+      "formula": "p↦(p₀,…,p_{N/n-1}), deg(p_i)=n",
+      "meaning": "分解为子多项式"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "多项式分解",
+      "en": "polynomial decomposition",
+      "definition": "将大环多项式拆分为多个小环子多项式"
+    },
+    {
+      "term": "分解矩阵",
+      "en": "decomposition matrix",
+      "definition": "定义拆分规则的线性变换矩阵M"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "多项式环",
+    "RLWE_lattice": "-",
+    "FHE_technique": "Bootstrapping前处理",
+    "current_paper": "当前论文construction的前处理步骤"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "atomic_questions": [
+    "QA-K025-1",
+    "QA-K025-2",
+    "QA-K025-3",
+    "QA-K025-4",
+    "QA-K025-5"
+  ],
+  "rag_ingestion_suggestion": "中优先级，框架性卡片，需对照论文确认"
+}

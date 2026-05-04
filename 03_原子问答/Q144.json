@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q144",
+  "card_id": "K049",
+  "source_id": "synthesized",
+  "question": "当前论文的C2S/S2C与Split_k/Merge_k是什么关系？",
+  "answer": "论文结构：Split_k→(C2S_n→EvalMod_n→S2C_n)×k→Merge_k。Split将大环分解为k个leaf→每个leaf独立执行C2S→EvalMod→S2C→Merge合并结果。C2S/S2C是每个leaf的内部组件，Split/Merge是论文的顶层创新。",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

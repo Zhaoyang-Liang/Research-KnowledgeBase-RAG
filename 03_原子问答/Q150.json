@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q150",
+  "card_id": "K051",
+  "source_id": "src_000081",
+  "question": "为什么自同构τ_j会诱导Slot Permutation？",
+  "answer": "τ_j把根标签h变成hj。Slot是按陪集[h]=h⟨p⟩编号的，τ_j把整个陪集[h]送到[hj]，不依赖于代表元选择（因为(hp^k)j=hj·p^k∈[hj]）。所以τ_j在slot层面诱导了陪集置换[h]↦[hj]——这就是slot permutation的数学机制。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05a3",
+  "created": "2026-05-04T15:40"
+}

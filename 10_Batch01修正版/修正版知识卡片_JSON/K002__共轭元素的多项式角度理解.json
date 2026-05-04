@@ -1,0 +1,90 @@
+{
+  "card_id": "K002",
+  "version": "v2",
+  "title": "共轭元素的多项式角度理解",
+  "source_id": "src_000002",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/共轭-多项式角度.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "共轭, 自同构, 最小多项式, Galois群"
+  },
+  "category": "数学基础",
+  "subtopic": "域论/Galois群",
+  "chinese_summary": "共轭的本质是将生成元替换为最小多项式的其他根。设α的最小多项式为m_α(X)，则α的所有共轭为m_α(X)的全部根。域自同构σ:K→K将α映为共轭。在分圆域K=Q(ζ_m)中，ζ_m的共轭为ζ_m^k(k∈Z_m^×)，自同构τ_k通过τ_k(ζ_m)=ζ_m^k作用于域。这直接联系到FHE中的rotation操作——每个槽置换对应一个Frobenius自同构。",
+  "knowledge_points": [
+    {
+      "id": "K002-1",
+      "concept": "共轭的代数定义",
+      "formula": "α'是α的共轭 ⇔ m_α(α')=0, m_α∈F[X]最小多项式",
+      "meaning": "共轭不依赖嵌入到C，由最小多项式的根定义。纯代数概念。"
+    },
+    {
+      "id": "K002-2",
+      "concept": "自同构与共轭的对应",
+      "formula": "Gal(K/F)→{α的共轭}, σ↦σ(α)",
+      "meaning": "Galois群作用在α的所有共轭上传递，|Gal(K/F)|=共轭个数=扩张次数。"
+    },
+    {
+      "id": "K002-3",
+      "concept": "分圆域中的共轭",
+      "formula": "τ_k(ζ_m)=ζ_m^k, k∈Z_m^×, |Z_m^×|=φ(m)",
+      "meaning": "ζ_m有φ(m)个共轭，自同构群≅Z_m^×。"
+    },
+    {
+      "id": "K002-4",
+      "concept": "FHE自同构与槽置换",
+      "formula": "τ_k∘eval_ζ(m)=eval_{ζ^k}(m)=m(ζ^k)",
+      "meaning": "rotation操作将每个槽中的值通过τ_k重新分配到不同槽。槽索引由Z_m^×/<p>代表元给出。"
+    },
+    {
+      "id": "K002-5",
+      "concept": "共轭与复共轭的区别",
+      "formula": "复共轭:a+bi↦a−bi; 代数共轭:α↦α'(m_α的另一个根)",
+      "meaning": "复共轭对应特定自同构τ_{-1}(取ζ_m→ζ_m^{-1})，代数共轭是更一般概念。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "τ_k(ζ_m)=ζ_m^k, k∈(Z/mZ)^×",
+      "meaning": "分圆域中自同构的定义"
+    },
+    {
+      "formula": "|Gal(Q(ζ_m)/Q)|=φ(m)",
+      "meaning": "分圆域的Galois群阶"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "共轭",
+      "en": "conjugate",
+      "definition": "同一最小多项式的不同根"
+    },
+    {
+      "term": "自同构",
+      "en": "automorphism",
+      "definition": "域到自身的保持代数结构的双射"
+    },
+    {
+      "term": "Galois群",
+      "en": "Galois group",
+      "definition": "扩张K/F的全体F-自同构组成的群"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "Galois理论核心",
+    "RLWE_lattice": "RLWE环自同构群≅Gal(Q(ζ_m)/Q)",
+    "FHE_technique": "rotation操作直接来源于共轭",
+    "current_paper": "trace和field switching大量使用自同构"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K002-1",
+    "QA-K002-2",
+    "QA-K002-3",
+    "QA-K002-4",
+    "QA-K002-5"
+  ],
+  "rag_ingestion_suggestion": "高优先级，自同构理论基础"
+}

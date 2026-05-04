@@ -1,0 +1,115 @@
+{
+  "ready": {
+    "matched": 8,
+    "partial": 0,
+    "failed": 0
+  },
+  "defer": {
+    "blocked": 2,
+    "leaked": 0
+  },
+  "details": {
+    "T01": {
+      "id": "T01",
+      "status": "✓ MATCHED",
+      "hits": 5,
+      "cards": [
+        "K005",
+        "K002",
+        "K010"
+      ],
+      "qas": []
+    },
+    "T03": {
+      "id": "T03",
+      "status": "✓ MATCHED",
+      "hits": 5,
+      "cards": [
+        "K067",
+        "K069",
+        "K065"
+      ],
+      "qas": []
+    },
+    "T07": {
+      "id": "T07",
+      "status": "✓ MATCHED",
+      "hits": 5,
+      "cards": [
+        "K045",
+        "K037",
+        "K046"
+      ],
+      "qas": [
+        "Q145"
+      ]
+    },
+    "T08": {
+      "id": "T08",
+      "status": "✓ MATCHED",
+      "hits": 5,
+      "cards": [
+        "K045",
+        "K046",
+        "K044"
+      ],
+      "qas": []
+    },
+    "T14": {
+      "id": "T14",
+      "status": "✓ MATCHED",
+      "hits": 5,
+      "cards": [
+        "K037",
+        "K050"
+      ],
+      "qas": []
+    },
+    "T16": {
+      "id": "T16",
+      "status": "✓ MATCHED",
+      "hits": 5,
+      "cards": [
+        "K060",
+        "K068",
+        "K013"
+      ],
+      "qas": []
+    },
+    "T20": {
+      "id": "T20",
+      "status": "✓ MATCHED",
+      "hits": 5,
+      "cards": [
+        "K065"
+      ],
+      "qas": []
+    },
+    "T21": {
+      "id": "T21",
+      "status": "✓ MATCHED",
+      "hits": 5,
+      "cards": [
+        "K066"
+      ],
+      "qas": []
+    },
+    "T28": {
+      "id": "T28",
+      "status": "✓ BLOCKED (no matches)",
+      "hits": 0,
+      "cards": [],
+      "qas": []
+    },
+    "T29": {
+      "id": "T29",
+      "status": "⚠ PARTIAL (some ready matched)",
+      "hits": 5,
+      "cards": [
+        "K037",
+        "K038"
+      ],
+      "qas": []
+    }
+  }
+}

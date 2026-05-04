@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q145",
+  "card_id": "K046",
+  "source_id": "src_000079,src_000080",
+  "question": "C2S/S2C和CKKS encoding/decoding有什么本质区别？",
+  "answer": "CKKS encoding(σ^{-1})：外部复数消息→环元素（从外部进内部）。C2S/S2C：同一已加密环元素的slot↔coefficient两种内部表示之间的线性变换（内部转换）。前者是编码，后者是重表示，操作对象和方向都不同。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

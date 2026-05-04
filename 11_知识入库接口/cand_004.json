@@ -1,0 +1,16 @@
+{
+  "knowledge_id": "cand_004",
+  "paper_id": "paper_2027_eurocrypt_fhe",
+  "idea_id": "idea_004",
+  "title": "leaf security不继承top security",
+  "description": "leaf在R_{QP,n}上暴露keys，安全参数必须用(n,log(QP))而非(N,log(QP))计算。sparse secret需额外分析sparse-secret attacks。",
+  "source_ref": "汇总代办路线.md",
+  "source_id": "src_000052",
+  "knowledge_type": "parameter_lesson",
+  "status": "candidate_knowledge",
+  "needs_validation": true,
+  "needs_human_review": true,
+  "published_to_kb": false,
+  "reverse_link": "04_论文协作区/01_当前论文项目/Eurocrypt2027/",
+  "created": "2026-05-04T13:56:34"
+}

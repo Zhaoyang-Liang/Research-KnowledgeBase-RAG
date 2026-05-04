@@ -1,0 +1,47 @@
+{
+  "title": "分圆多项式在F_p上的分解与槽结构",
+  "source_file": "01_源文件库/01_抽象代数与代数数论/分圆多项式的F_p分解.md",
+  "category": "01_数学与代数基础",
+  "subtopic": "代数数论/分圆多项式分解",
+  "read_depth": "精读",
+  "ingest_decision": "core_ingest",
+  "knowledge_points": [
+    {
+      "id": "cyclo-decomp-theorem",
+      "concept": "分圆多项式F_p分解定理",
+      "formula": "d=ord_M(p), L=φ(M)/d, Φ_M(X)=Π_{i=1}^L F_i(X), deg(F_i)=d",
+      "meaning": "不可约因子的次数d等于p模M的乘法阶，因子个数L=φ(M)/d。每个因子对应一条Frobenius轨道"
+    },
+    {
+      "id": "d1-ideal-case",
+      "concept": "d=1的理想情况(完全分裂)",
+      "formula": "p≡1(mod M) ⇒ d=1, L=φ(M), 每个槽=F_p",
+      "meaning": "槽数最大化，每个槽是基域，最适合SIMD打包。BGV/BFV首选参数"
+    },
+    {
+      "id": "d2-usage",
+      "concept": "d=2的实际用途",
+      "formula": "d=2 ⇒ 每个槽=F_{p²}, 可存p²范围的值",
+      "meaning": "当无法实现d=1时的次优选择；可用于塔式打包，每个槽通过扩域编码更多信息"
+    },
+    {
+      "id": "example-M5-p11",
+      "concept": "具体例子: M=5,p=11",
+      "formula": "d=1,L=4,Φ₅=(X-3)(X-9)(X-5)(X-4) mod 11",
+      "meaning": "4个槽，每个槽=F₁₁，一个密文同时加密4个模11的整数"
+    }
+  ],
+  "tags": [
+    "分圆多项式",
+    "F_p分解",
+    "Frobenius轨道",
+    "槽结构",
+    "SIMD",
+    "d=ord_M(p)"
+  ],
+  "source_id": "src_000009",
+  "source_title": "分圆多项式在F_p上的分解",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/分圆多项式的F_p分解.md",
+  "source_type": "md",
+  "source_role": "canonical_source"
+}

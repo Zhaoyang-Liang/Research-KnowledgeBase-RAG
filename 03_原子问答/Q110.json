@@ -1,0 +1,12 @@
+{
+  "qa_id": "Q110",
+  "question": "5^i mod 4n是否遍历所有与4n互素的奇数？",
+  "answer": "不是。只遍历了所有模4余1的与4n互素的奇数（恰好n个）。另一半模4余3的奇数（如-1≡4n-1）不在其中。原文称\"遍历所有与4n互素的数\"是不精确的。正确的说法是\"遍历所有与4n互素且≡1(mod 4)的奇数\"。",
+  "card_id": "K035",
+  "source_id": "src_000049",
+  "source_type": "translation_note",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-03",
+  "created": "2026-05-04T13:54:56"
+}

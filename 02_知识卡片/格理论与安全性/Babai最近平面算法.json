@@ -1,0 +1,40 @@
+{
+  "title": "Babai Nearest Plane Algorithm",
+  "source_file": "01_源文件库/02_RLWE_格密码_后量子/Babai.md",
+  "category": "04_FHE核心技术模块",
+  "subtopic": "格密码/CVP与Babai",
+  "read_depth": "精读",
+  "ingest_decision": "core_ingest",
+  "knowledge_points": [
+    {
+      "id": "babai-core",
+      "concept": "Babai最近平面算法核心思想",
+      "formula": "c=⌊⟨s,b̃_n⟩/|b̃_n|²⌉ → s'=s-cb_n → 递归降维",
+      "meaning": "用Gram-Schmidt正交向量b̃_n把空间分层，选最近的层，减去cb_n后降到n-1维递归"
+    },
+    {
+      "id": "babai-projection",
+      "concept": "先投影再找最近",
+      "formula": "t=s+u, u⊥span(B), |t-y|²=|s-y|²+|u|²",
+      "meaning": "若目标不在格张成子空间内，先正交投影，因为垂直分量对所有格点距离贡献相同"
+    },
+    {
+      "id": "babai-plane-vs-point",
+      "concept": "平面c·b̃_n+span(b₁..b_{n-1}) vs 格点cb_n+L(b₁..b_{n-1})",
+      "formula": "cb_n=c·b̃_n+(μ项在底面上), 平面选层,格点递归",
+      "meaning": "用b̃_n描述层间距更直观，但递归平移时减cb_n（因为b_n才在格的基中）"
+    }
+  ],
+  "tags": [
+    "Babai",
+    "CVP",
+    "最近平面算法",
+    "Gram-Schmidt",
+    "格基约简"
+  ],
+  "source_id": "src_000025",
+  "source_title": "Babai最近平面算法",
+  "source_relative_path": "01_源文件库/02_RLWE_格密码_后量子/Babai.md",
+  "source_type": "md",
+  "source_role": "canonical_source"
+}

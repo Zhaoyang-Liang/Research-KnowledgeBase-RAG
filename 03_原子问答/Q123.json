@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q123",
+  "card_id": "K039",
+  "source_id": "src_000066",
+  "question": "CKKS为什么不能直接加密复数向量，而要经过多项式？",
+  "answer": "RLWE加密方案加密的是环元素（多项式），不是复数向量。所以必须先把复数信息编码到多项式的系数中。CKKS的做法：让多项式在这些单位根处的取值等于用户想要的复数→通过σ^{-1}插值反推系数。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "created": "2026-05-04T14:52"
+}

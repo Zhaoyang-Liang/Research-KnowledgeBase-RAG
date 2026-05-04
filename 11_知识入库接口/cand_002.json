@@ -1,0 +1,16 @@
+{
+  "knowledge_id": "cand_002",
+  "paper_id": "paper_2027_eurocrypt_fhe",
+  "idea_id": "idea_002",
+  "title": "CKKS bootstrapping core is non-trivial instance of split-compatible criterion",
+  "description": "C2S(L^(1))∘EvalMod(Φ)∘S2C(L^(2))满足split-compatible条件，可用于证明factorized bootstrapping的正确性。",
+  "source_ref": "汇总代办路线.md",
+  "source_id": "src_000052",
+  "knowledge_type": "proof_trick",
+  "status": "candidate_knowledge",
+  "needs_validation": true,
+  "needs_human_review": true,
+  "published_to_kb": false,
+  "reverse_link": "04_论文协作区/01_当前论文项目/Eurocrypt2027/",
+  "created": "2026-05-04T13:56:34"
+}

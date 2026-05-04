@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q133",
+  "card_id": "K045",
+  "source_id": "src_000070",
+  "question": "C2S为什么是线性变换？如何写成矩阵T？",
+  "answer": "因为输出每个系数a_k都是输入槽坐标m_{i,j}的固定线性组合a_k=Σc_{k,(i,j)}·m_{i,j}，不涉输入间相乘。给定输入/输出空间各选基后，T是ℓd×ℓd矩阵。矩阵元素仅由槽结构/基/打包参数决定，与消息无关。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

@@ -1,0 +1,85 @@
+{
+  "card_id": "K026",
+  "version": "v2",
+  "title": "多项式分解正向实现细节",
+  "source_id": "src_000027",
+  "source_relative_path": "01_源文件库/04_FHE核心技术模块/2-正向.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "正向分解, 实现, 步骤"
+  },
+  "category": "FHE核心技术模块",
+  "subtopic": "多项式分解",
+  "chinese_summary": "正向多项式分解的具体实现步骤：(1)选分解方法与矩阵M；(2)将大环系数向量乘M得子系数向量；(3)各子系数向量独立编码为小环多项式；(4)子环多项式可独立同态处理。每个步骤需考虑同态实现的可行性——特别是矩阵M的乘法如何用密钥切换/旋转实现。正向分解是逆向合并的前提。",
+  "knowledge_points": [
+    {
+      "id": "K026-1",
+      "concept": "正向分解步骤",
+      "formula": "coeff_N → M → {coeff_n}_i → encode → {pt_i}",
+      "meaning": "大系数向量→乘M→子系数→编码→子明文多项式。"
+    },
+    {
+      "id": "K026-2",
+      "concept": "矩阵M的同态实现",
+      "formula": "M·coeff ≈ 旋转+加法+乘法组合",
+      "meaning": "M乘法不是简单的线性操作。需要利用M的结构（稀疏性、对称性）转化为旋转和密钥切换。"
+    },
+    {
+      "id": "K026-3",
+      "concept": "子环独立",
+      "formula": "每个子环pt_i可以独立进行同态计算",
+      "meaning": "分解后各子环间无依赖→可以并行处理。这是分解加速的来源。"
+    },
+    {
+      "id": "K026-4",
+      "concept": "与反向(合并)的对应",
+      "formula": "合并 = 正向分解的逆过程",
+      "meaning": "CoeffToSlot类似合并操作。理解正向后才能理解反向。"
+    },
+    {
+      "id": "K026-5",
+      "concept": "⚠ 实现细节需人工确认",
+      "formula": "M的具体结构依赖选择的分解方法",
+      "meaning": "笔记中的实现细节可能需要对照原文验证。标注为需要人工确认。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "coeff^n_i = M_i·coeff^N, i=0,…,N/n-1",
+      "meaning": "正向分解：大系数→子系数"
+    },
+    {
+      "formula": "pt_i = Encode(coeff^n_i)",
+      "meaning": "子系数编码为明文多项式"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "正向分解",
+      "en": "forward decomposition",
+      "definition": "大环多项式→多个小环多项式的拆分"
+    },
+    {
+      "term": "逆向合并",
+      "en": "backward composition",
+      "definition": "多个小环多项式→大环多项式的合并"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "-",
+    "RLWE_lattice": "-",
+    "FHE_technique": "Bootstrapping前/后处理",
+    "current_paper": "当前论文的具体实现参考"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "atomic_questions": [
+    "QA-K026-1",
+    "QA-K026-2",
+    "QA-K026-3",
+    "QA-K026-4",
+    "QA-K026-5"
+  ],
+  "rag_ingestion_suggestion": "中优先级，实现细节参考"
+}

@@ -1,0 +1,64 @@
+{
+  "card_id": "K063",
+  "title": "C2S/S2C方向统一 — PaCo语义权威定义",
+  "domain": "fhe",
+  "topic": "C2S/S2C/术语规范",
+  "confidence": "high",
+  "authority": "C2S_S2C_PaCo_术语方向说明.md & PaCo论文",
+  "status": "authoritative_canonical",
+  "canonical_convention": {
+    "C2S": "CoeffToSlot = coefficient representation → slot representation",
+    "S2C": "SlotToCoeff = slot representation → coefficient representation"
+  },
+  "content": [
+    "【权威定义】C2S = CoeffToSlot: coefficient representation → slot representation。将多项式系数侧的信息搬入 CKKS slots。PaCo证据: 传统CKKS bootstrapping流程 ModRaise → CoeffToSlot → EvalMod → SlotToCoeff。ModRaise后多项式m'=m+qJ的系数m_i+qJ_i被CoeffToSlot放入加密slots。",
+    "【权威定义】S2C = SlotToCoeff: slot representation → coefficient representation。将slots中已得到的近似系数信息移回plaintext polynomial coefficient。PaCo证据: EvalMod后SlotToCoeff将slots中近似系数搬回系数多项式，生成刷新后的ciphertext。",
+    "【矩阵层vs操作语义层】U_n矩阵本身把coefficient vector映射到evaluation/slot vector (U_n: coeff→eval)。但操作名不由裸矩阵方向决定，而是由bootstrapping语义的输入输出决定。例如PaCo的conventional SlotToCoeff中，U_n作为内部矩阵出现，但操作语义是slots→coefficients。",
+    "【partial CoeffToSlot】PaCo新方法: partial CoeffToSlot = 将rotated polynomial b'_v(Z)的coefficients b'_{v,i}嵌入encrypted slots。仍属CoeffToSlot家族(coefficients→slots)。后续slotwise操作计算近似系数后，final conventional SlotToCoeff将slot数据转回系数多项式。",
+    "【禁止表达式】以下在canonical字段中一律错误: SlotToCoeff(C2S), CoeffToSlot(S2C), C2S=slot→coeff, S2C=coeff→slot。仅允许出现在original_note_convention字段中作为历史记录。",
+    "【与CKKS编码/解码的区别】CKKS encoding(σ⁻¹): 外部复数向量z→plaintext polynomial; CKKS decoding(τ_n/Δ): plaintext polynomial→复数向量。C2S/S2C是bootstrapping内部的同态线性变换，在系数数据和slot数据之间搬运同一plaintext信息。两组概念不可混淆。"
+  ],
+  "cross_reference": [
+    "K019: CKKS C2S=U_n·coeff (矩阵层方向)",
+    "K020: CKKS S2C=U_n⁻¹·slot (矩阵层方向)",
+    "K044: BGV-BFV CoeffToSlot/SlotToCoeff (已按本卡修正)",
+    "K045: C2S/S2C作为线性变换T",
+    "K046: M→U_ℓ→M^{-1}三步分解管线",
+    "权威依据: 05_知识关联/C2S_S2C_PaCo_术语方向说明.md"
+  ],
+  "needs_human_review": false,
+  "rag_status": "ready",
+  "card_type": "concept",
+  "claim_source_type": "论文分析",
+  "knowledge_status": "source_preserved",
+  "source_id": "src_000029",
+  "batch": "C2S-S2C-Terminology-Fix",
+  "created": "2026-05-04",
+  "knowledge_points": [
+    {
+      "id": "kp_1",
+      "text": "C2S/S2C方向速查表（PaCo语义约定，GHPS Eurocrypt 2025）：C2S direction = CoeffToSlot direction = coefficient → slot（系数表示转换到slot表示）；S2C direction = SlotToCoeff direction = slot → coefficient（slot表示转换到系数表示）。在BGV bootstrapping中，线性变换阶段执行S2C（slot→coefficient），Digit Extraction阶段执行C2S（coefficient→slot）。PaCo paper中发生在coefficient侧的线性变换步骤统称为C2S变换。全库统一采用此PaCo semantic convention，所有卡片和原子问答已按此方向修正。",
+      "confidence": "high",
+      "rag_status": "ready",
+      "topic_tags": [
+        "C2S/S2C",
+        "方向定义",
+        "PaCo约定",
+        "速查"
+      ]
+    },
+    {
+      "id": "kp_2",
+      "text": "C2S/S2C方向速查表（PaCo语义约定，GHPS Eurocrypt 2025）：C2S direction = CoeffToSlot direction = coefficient → slot（系数表示转换到slot表示）；S2C direction = SlotToCoeff direction = slot → coefficient（slot表示转换到系数表示）。在BGV bootstrapping中，线性变换阶段执行S2C（slot→coefficient），Digit Extraction阶段执行C2S（coefficient→slot）。PaCo paper中发生在coefficient侧的线性变换步骤统称为C2S变换。全库统一采用此PaCo semantic convention，所有卡片和原子问答已按此方向修正。",
+      "confidence": "high",
+      "rag_status": "ready",
+      "topic_tags": [
+        "C2S/S2C",
+        "方向定义",
+        "PaCo约定",
+        "速查"
+      ]
+    }
+  ],
+  "summary": "C2S/S2C方向统一权威定义（PaCo语义）：C2S = CoeffToSlot = coefficient → slot direction；S2C = SlotToCoeff = slot → coefficient direction。基于GHPS (Eurocrypt 2025) PaCo论文确立的全库统一术语方向约定。"
+}

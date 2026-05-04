@@ -1,0 +1,94 @@
+{
+  "card_id": "K005",
+  "version": "v2",
+  "title": "自同构个数与实/复嵌入的对应",
+  "source_id": "src_000005",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/自同构的个数.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "自同构个数, 实嵌入, 复嵌入, Galois群"
+  },
+  "category": "数学基础",
+  "subtopic": "域论/Galois群",
+  "chinese_summary": "Galois扩张K/F的F-自同构个数=[K:F]。分圆域K=Q(ζ_m)中|Gal|=φ(m)。自同构总数=实嵌入数+2×复嵌入复数对数。在CKKS中，φ(m)个自同构对应于φ(m)个复嵌入，但因共轭约束独立槽数=φ(m)/2。每个自同构对应FHE中一个同态旋转操作。",
+  "knowledge_points": [
+    {
+      "id": "K005-1",
+      "concept": "自同构个数公式",
+      "formula": "|Gal(K/F)|=[K:F] (Galois扩张)",
+      "meaning": "分圆域中等于φ(m)，CKKS常用环=N。"
+    },
+    {
+      "id": "K005-2",
+      "concept": "自同构与嵌入的关系",
+      "formula": "[K:Q]=r₁+2r₂, r₁实嵌入数, r₂复嵌入对",
+      "meaning": "分圆域无实嵌入(r₁=0)，全为复嵌入对。"
+    },
+    {
+      "id": "K005-3",
+      "concept": "自同构与FHE rotation",
+      "formula": "Rot_k: m(X)↦m(X^k), k∈Z_m^×",
+      "meaning": "分圆自同构在多项式环层面=变量替换。rotation/key-switching实现基础。"
+    },
+    {
+      "id": "K005-4",
+      "concept": "自同构与槽置换",
+      "formula": "τ_k作用于槽:(v₀,…,v_{L-1})↦(v_{π_k(0)},…,v_{π_k(L-1)})",
+      "meaning": "每个自同构在SIMD槽层面是一个置换π_k。"
+    },
+    {
+      "id": "K005-5",
+      "concept": "子域固定于自同构子群",
+      "formula": "子域对应Galois子群 H≤Gal(K/F) 的固定域",
+      "meaning": "field switching中选择让哪些自同构固定来决定切换到哪个子域。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "|Gal(Q(ζ_m)/Q)|=φ(m)",
+      "meaning": "分圆Galois群的阶"
+    },
+    {
+      "formula": "[K:Q]=r₁+2r₂",
+      "meaning": "扩张次数的实-复分解"
+    },
+    {
+      "formula": "Rot_k: X↦X^k (mod Φ_m)",
+      "meaning": "FHE中的自同构(旋转)操作"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "自同构",
+      "en": "automorphism",
+      "definition": "域到自身的同构映射"
+    },
+    {
+      "term": "Galois扩张",
+      "en": "Galois extension",
+      "definition": "可分且正规的代数扩张"
+    },
+    {
+      "term": "实嵌入",
+      "en": "real embedding",
+      "definition": "数域到R的单同态"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "Galois理论核心",
+    "RLWE_lattice": "RLWE环Galois群决定可用自同构操作",
+    "FHE_technique": "rotation/trace/field switching基于自同构",
+    "current_paper": "field switching中自同构选择决定复杂度"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K005-1",
+    "QA-K005-2",
+    "QA-K005-3",
+    "QA-K005-4",
+    "QA-K005-5"
+  ],
+  "rag_ingestion_suggestion": "高优先级，自同构/FHE rotation理解的桥梁"
+}

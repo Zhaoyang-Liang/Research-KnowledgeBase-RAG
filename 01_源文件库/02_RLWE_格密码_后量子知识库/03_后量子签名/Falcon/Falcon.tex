@@ -1,0 +1,1090 @@
+\documentclass[11pt,a4paper]{ctexart}
+
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{setspace}
+
+\setstretch{1.18}
+\setlist[itemize]{leftmargin=2em}
+\setlist[enumerate]{leftmargin=2.2em}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black,
+  citecolor=blue!60!black,
+  pdftitle={Falcon 讲义：从 FFT、Gram 矩阵到 Falcon Tree 与 ffSampling},
+  pdfauthor={}
+}
+
+\title{\textbf{Falcon: Question and Answer}\\[0.5em]
+\large 从 FFT、Gram 矩阵到 Falcon Tree 与 ffSampling}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{问题背景：Falcon 到底在解决什么}
+
+\subsection{Falcon 不是“普通签名”，而是格上的 hash-and-sign}
+
+从最粗粒度看，Falcon 是一种 \emph{hash-and-sign} 签名方案。  
+所谓 hash-and-sign，并不是先“算一个哈希值”再“随便做点代数操作”，而是：
+
+\begin{enumerate}
+    \item 先把消息压缩成一个目标对象；
+    \item 再用私钥在某个带陷门的结构中，围绕这个目标对象构造出一个短的见证；
+    \item 验证者只需要公钥和消息，就能检查这个见证是否满足关系。
+\end{enumerate}
+
+Falcon 的难点不在“哈希”本身，而在于：  
+\textbf{这个见证不是任意解，而是必须是一个很短、并且分布正确的格向量。}
+
+也就是说，Falcon 不是“解一个方程就结束了”，而是“在格上按正确分布采样一个短解”。
+
+\subsection{从“验证关系”反推签名任务：为什么本质是找一个短向量}
+
+Falcon 的验证关系可以粗略理解成：  
+对于消息导出的某个目标 \(c\)，签名向量 \((s_1,s_2)\) 必须满足某个模 \(q\) 的线性关系，并且范数要足够小。
+
+因此，从验证视角反推，签名者的任务并不是“随便找一对满足模关系的向量”，而是要找一对
+\[
+(s_1,s_2)
+\]
+使得：
+
+\begin{itemize}
+    \item 它满足验证关系；
+    \item 它在欧氏意义下足够短。
+\end{itemize}
+
+在格语言里，这就可以重述为：
+
+\begin{quote}
+\textbf{围绕一个由消息决定的目标点，在某个 NTRU 格附近找一个格点，使得目标点与该格点的差向量很短。}
+\end{quote}
+
+因此，Falcon 的签名问题从一开始就是一个“带目标中心的短向量构造问题”。
+
+\subsection{为什么“找到一个短向量”还不够，必须按正确分布采样}
+
+如果 Falcon 只要求“找到一个短向量”，那可以想象很多启发式算法都能试着去找一个短解。  
+但这在密码学里通常是不够的，因为：
+
+\begin{itemize}
+    \item 如果输出分布偏斜，重复签名会泄露关于私钥的信息；
+    \item 如果总是输出“某种最短解”或“某个确定性近似最近点”，签名会带有明显的结构偏差；
+    \item 在 trapdoor 签名中，安全性分析依赖的往往不是“存在一个短解”，而是“输出服从接近理想离散高斯的分布”。
+\end{itemize}
+
+因此，Falcon 真正需要的是：
+
+\[
+\text{不是 solve，而是 sample。}
+\]
+
+也就是：  
+\textbf{不是求出一个短向量，而是按正确的离散高斯分布采样出一个短向量。}
+
+\subsection{Falcon 的真正难点：不是 NTRU 方程，而是 trapdoor sampling}
+
+初学时，很容易把 Falcon 的核心误以为是 NTRU 方程
+\[
+fG-gF=q.
+\]
+这当然很重要，因为它构造了私钥的代数结构；但它还不是 Falcon 最难的部分。
+
+真正难点在于：
+
+\begin{enumerate}
+    \item 如何把私钥变成一个可用于采样的“好基”；
+    \item 如何围绕一个中心在格上按正确分布采样；
+    \item 如何让整个过程在高维多项式环上足够高效；
+    \item 如何在实现时避免微小数值误差破坏采样分布。
+\end{enumerate}
+
+因此，\textbf{Falcon 的灵魂是 trapdoor sampling，而不是 NTRU 方程本身。}
+
+\section{代数舞台：Falcon 工作在哪个空间里}
+
+\subsection{环 \(R=\mathbb Z[x]/(x^n+1)\) 的含义：对象不是数，而是多项式}
+
+Falcon 工作在一个幂二 cyclotomic ring 上：
+\[
+R=\mathbb Z[x]/(x^n+1),
+\]
+其中 \(n\) 通常是 \(512\) 或 \(1024\)。
+
+这个定义的含义是：
+
+\begin{itemize}
+    \item 环元素不是单个整数，而是次数小于 \(n\) 的多项式；
+    \item 运算不是普通多项式运算，而是模掉关系 \(x^n=-1\) 后的结果；
+    \item 因此，环乘法本质上是带有 negacyclic 结构的卷积。
+\end{itemize}
+
+所以在 Falcon 中，\(f,g,F,G,h,c\) 都不是普通数，而是多项式。
+
+\subsection{从多项式到二维环向量：\((c,0)\)、\((s_1,s_2)\)、\((u,v)\) 分别是什么}
+
+由于 Falcon 的格对象自然生活在 \(R^2\) 中，因此很多变量都不是单个多项式，而是二维环向量：
+
+\begin{itemize}
+    \item \((c,0)\)：消息导出的目标点；
+    \item \((s_1,s_2)\)：签名向量；
+    \item \((u,v)\)：格中一般元素；
+    \item \((t_0,t_1)\)、\((z_0,z_1)\)：在秘密基坐标中的中心与采样结果。
+\end{itemize}
+
+因此，Falcon 的几何图像应当理解成：  
+\textbf{我们不是在一条直线上操作，而是在一个由“两个多项式分量”组成的空间里操作。}
+
+\subsection{公钥格与秘密格基：公开描述和秘密短基的区别}
+
+同一个格可以有两种非常不同的描述方式：
+
+\begin{enumerate}
+    \item \textbf{公钥描述：} 用 \(h=g/f \bmod q\) 这样的公开对象给出格的定义；
+    \item \textbf{私钥描述：} 用一组特别短的基向量给出格的一个好基。
+\end{enumerate}
+
+这两者描述的是同一个格，但几何质量完全不同：
+
+\begin{itemize}
+    \item 公钥能告诉你“格是什么”；
+    \item 私钥能告诉你“格有一组特别好的短基，可用来高效采样”。
+\end{itemize}
+
+因此，Falcon 私钥的核心作用不是单纯保存秘密，而是提供一个 \emph{trapdoor basis}。
+
+\subsection{为什么“ambient space / 格 / 坐标空间”必须严格区分}
+
+Falcon 初学最容易混淆三件事：
+
+\begin{enumerate}
+    \item \textbf{ambient space（环境空间）}：所有目标点和格点生活的大空间；
+    \item \textbf{格}：环境空间中的离散子集；
+    \item \textbf{坐标空间}：相对于某组基写出来的系数空间。
+\end{enumerate}
+
+如果 \(B\) 是某组基，那么：
+
+\begin{itemize}
+    \item \(z\) 是基坐标；
+    \item \(w=Bz\) 才是环境空间中的真实格点；
+    \item \(t=B^{-1}y\) 是目标点 \(y\) 在基 \(B\) 下的实数中心。
+\end{itemize}
+
+这三者一定要分清，否则后面关于 Gram 矩阵、中心修正和 ffSampling 的所有公式都会混乱。
+
+\section{私钥结构：从 NTRU 方程到秘密短基}
+
+\subsection{\(fG-gF=q\) 的作用：为什么这不是附带条件，而是 trapdoor 的核心}
+
+NTRU 方程
+\[
+fG-gF=q
+\]
+不是一个“顺便满足”的约束，而是 trapdoor 的核心。
+
+它的作用在于：  
+由 \((f,g,F,G)\) 生成的两个向量会落在同一个 NTRU 格里，并且因为这些多项式是“小”的，所以对应基向量也是短的。
+
+换句话说：
+
+\begin{quote}
+\textbf{NTRU 方程的意义不是“好看”，而是它恰好把公钥格和私钥短基联系起来。}
+\end{quote}
+
+\subsection{由 \((f,g,F,G)\) 生成的基到底是哪一个矩阵}
+
+在一个常见 convention 下，可以把秘密基写成
+\[
+B_{f,g}=
+\begin{pmatrix}
+g & -f\\
+G & -F
+\end{pmatrix}.
+\]
+
+这里每个条目都是环元素，因此本质上是一个“多项式矩阵”。
+
+这个基的两列可以看成两个格向量，它们生成了对应的 NTRU 格。不同文献里会有转置或符号差异，但本质对象相同。
+
+\subsection{为什么同一个格会有“公钥基”和“秘密短基”两种表示}
+
+因为“格”本身只是一个集合，不同基可以生成同一个集合。  
+所以：
+
+\begin{itemize}
+    \item 公钥给出一个容易公开、但通常不短的描述；
+    \item 私钥给出一组不该公开、但足够短的生成向量。
+\end{itemize}
+
+在密码学上，这正是陷门的含义：
+
+\begin{quote}
+\textbf{公开知道格，私下知道好基。}
+\end{quote}
+
+\subsection{秘密短基为什么能让采样变得可行}
+
+如果只有公钥描述，你通常只能知道“哪个点属于格”，但很难高效地在目标点附近采样。  
+一旦有秘密短基，你就能：
+
+\begin{enumerate}
+    \item 把目标点写到这组好基下；
+    \item 在基坐标中围绕这个中心采样；
+    \item 再变回真实格点。
+\end{enumerate}
+
+因此，秘密短基的几何意义是：
+
+\begin{quote}
+\textbf{它把一个难以直接操作的格，变成了一个可以在坐标空间里进行高斯采样的问题。}
+\end{quote}
+
+\section{签名任务的几何重述：我们到底在找什么}
+
+\subsection{为什么 \(c\) 或 \((c,0)\) 一般不是格点}
+
+消息经过哈希后得到一个环元素 \(c\)。  
+Falcon 实际围绕的是目标点
+\[
+(c,0)\in R^2.
+\]
+
+这个点一般并不在格里。原因很简单：格点必须满足由公钥格定义给出的模约束，而随便一个哈希结果通常不会天然满足这些约束。
+
+因此，\((c,0)\) 是一个\textbf{目标点}，但不是一个\textbf{格点}。
+
+\subsection{从“找短签名”改写成“在目标点附近找格点”}
+
+如果目标点不在格里，那么最自然的重述就是：
+
+\begin{quote}
+\textbf{找一个格点 \(w\)，使它尽量靠近 \((c,0)\)。}
+\end{quote}
+
+一旦找到这样的 \(w\)，那么差值
+\[
+s=(c,0)-w
+\]
+就会很短。
+
+所以签名问题等价于：
+
+\[
+\text{给定目标点 }(c,0)\text{，采样一个附近格点 }w.
+\]
+
+\subsection{\(w\)、\(s\)、\(t\)、\(z\) 四个变量分别扮演什么角色}
+
+这四个变量最好一次性区分清楚：
+
+\begin{itemize}
+    \item \(w\)：环境空间中的真实格点；
+    \item \(s=(c,0)-w\)：最终短签名向量；
+    \item \(t=B^{-1}(c,0)\)：目标点在秘密基下的实数中心；
+    \item \(z\)：围绕 \(t\) 采样得到的整数基坐标。
+\end{itemize}
+
+它们满足下面这条闭环关系：
+\[
+w=Bz,\qquad s=(c,0)-w.
+\]
+
+\subsection{为什么真正输出的是差值 \(s=(c,0)-w\)，而不是格点 \(w\)}
+
+验证关系最终关心的是一个短向量，它能把消息导出的目标与公钥格联系起来。  
+如果直接输出 \(w\)，其长度并不一定小，而且也不对应 Falcon 验证时想检查的对象。
+
+真正有意义的是目标点与格点的差：
+
+\[
+s=(c,0)-w.
+\]
+
+因为它既满足正确的模关系，又在欧氏意义下足够短，因此适合作为签名。
+
+\section{坐标变换：为什么要引入 \(t=(c,0)B^{-1}\)}
+
+\subsection{从原空间到基坐标：什么叫“把目标点写到秘密基下”}
+
+如果 \(B\) 是秘密短基，那么任何格点都可写成
+\[
+w=Bz
+\]
+其中 \(z\) 是整数坐标。
+
+给定目标点 \(y=(c,0)\)，我们先问：
+
+\begin{quote}
+\textbf{如果允许实数系数，目标点 \(y\) 在基 \(B\) 下应该写成什么坐标？}
+\end{quote}
+
+这就得到
+\[
+t=B^{-1}y.
+\]
+
+因此，\(t\) 只是目标点在基坐标中的位置。
+
+\subsection{为什么 \(t\) 不是采样结果，而只是中心}
+
+\(t\) 一般不是整数向量，因此它对应的不是格点，而只是“理想坐标中心”。
+
+真正格点对应的是整数坐标 \(z\)。  
+因此 Falcon 的核心任务不是输出 \(t\)，而是从 \(t\) 附近采样一个整数向量 \(z\)。
+
+\subsection{为什么“找格点”会变成“找靠近 \(t\) 的整数向量 \(z\)”}
+
+因为如果
+\[
+t=B^{-1}(c,0),
+\]
+那么
+\[
+(c,0)=Bt.
+\]
+
+如果我们找到一个整数向量 \(z\) 满足 \(z\approx t\)，那么对应的格点
+\[
+w=Bz
+\]
+就会满足
+\[
+w\approx Bt=(c,0).
+\]
+
+于是“在目标点附近找格点”就变成了“在坐标空间里找一个靠近 \(t\) 的整数向量”。
+
+\subsection{\(w=zB\) 与 \(s=(c,0)-w\) 如何闭环}
+
+一旦从中心 \(t\) 采样到整数坐标 \(z\)，就可以得到真实格点
+\[
+w=Bz.
+\]
+
+再取差：
+\[
+s=(c,0)-w.
+\]
+
+于是整条链条闭环：
+
+\[
+(c,0)\xrightarrow{B^{-1}} t \xrightarrow{\text{sample}} z \xrightarrow{B} w \xrightarrow{(c,0)-w} s.
+\]
+
+这就是 Falcon 签名最核心的几何路径。
+
+\section{Gram 矩阵：几何信息为什么要从 \(B\) 转移到 \(G\)}
+
+\subsection{什么是 Gram 矩阵，它记录了什么}
+
+如果 \(B\) 的列向量是基向量，那么 Gram 矩阵定义为
+\[
+G=B^T B
+\]
+（复数情形写成 \(G=B^*B\)）。
+
+它记录了两类几何信息：
+
+\begin{itemize}
+    \item 对角项：各个基向量的长度平方；
+    \item 非对角项：基向量之间的内积，也就是耦合程度。
+\end{itemize}
+
+因此 \(G\) 是“基的几何摘要”。
+
+\subsection{\(\|Bx\|^2=x^T G x\) 的真正含义}
+
+若 \(x\) 是基坐标，真实向量是
+\[
+v=Bx,
+\]
+那么它的真实欧氏长度平方是
+\[
+\|v\|^2=\|Bx\|^2=x^T B^T B x=x^T G x.
+\]
+
+这意味着：
+
+\begin{quote}
+\textbf{在基坐标里讨论长度，真正该看的不是 \(\|x\|^2\)，而是 \(x^T G x\)。}
+\end{quote}
+
+\subsection{为什么 \(x\) 的普通欧氏长度不等于“真实长度”}
+
+因为 \(x\) 只是“相对于基 \(B\) 的系数”，而不是标准正交基下的真实坐标。
+
+如果 \(B\) 不是正交基，那么坐标里的单位步长映到真实空间后：
+
+\begin{itemize}
+    \item 可能被拉长；
+    \item 可能被压缩；
+    \item 不同方向之间还会彼此耦合。
+\end{itemize}
+
+所以一般有
+\[
+\|x\|^2 \neq \|Bx\|^2.
+\]
+
+\subsection{非对角项意味着什么：耦合、非正交与“不能独立采样”}
+
+如果
+\[
+G=
+\begin{pmatrix}
+a & b\\
+b & c
+\end{pmatrix},
+\]
+那么
+\[
+x^T G x=ax_1^2+2bx_1x_2+cx_2^2.
+\]
+
+其中 \(2bx_1x_2\) 就是耦合项。  
+它说明：第一个坐标怎么取，会影响第二个坐标的代价。
+
+因此，只要 \(G\) 不是对角矩阵，采样就不是逐坐标独立的。
+
+\section{为什么直接采样不行：从联合高斯到条件高斯}
+
+\subsection{“围绕 \(t\) 采样”究竟是围绕什么量}
+
+Falcon 中的“围绕 \(t\) 采样”不是指按普通欧氏距离围绕 \(t\) 取整，而是指：
+
+\[
+\Pr[z]\propto \exp\!\left(-\frac{1}{2\sigma^2}(z-t)^T G (z-t)\right).
+\]
+
+也就是说，\((z-t)\) 的“远近”是由 \(G\) 定义的几何来衡量的。
+
+\subsection{独立采样什么时候成立，为什么 Falcon 里不成立}
+
+只有当 \(G\) 是对角矩阵时，
+\[
+(z-t)^T G (z-t)
+\]
+才会分解成各坐标平方和。  
+这时多维分布会变成各维独立的一维分布乘积。
+
+Falcon 中 \(G\) 一般不是对角矩阵，因此不能直接分别对每个坐标做独立高斯采样。
+
+\subsection{为什么问题本质上是一个联合分布采样问题}
+
+一旦存在耦合项，概率就不是
+\[
+P(z_0,z_1)=P(z_0)P(z_1)
+\]
+而是某个真正的联合分布。  
+这意味着采样时必须考虑：
+
+\begin{itemize}
+    \item 某一维的选择会影响另一维的条件分布；
+    \item 最合理的策略是把联合分布拆成边缘分布与条件分布。
+\end{itemize}
+
+\subsection{采样难点不在整数，而在“耦合”}
+
+“整数”本身并不是难点。真正困难的是：
+
+\begin{quote}
+\textbf{如何在高维耦合结构下，按正确条件分布递归地采样。}
+\end{quote}
+
+这就引出 LDL / LDL\(^*\) 分解。
+
+\section{LDL / LDL\(^*\) 分解：把耦合问题拆开}
+
+\subsection{从二维标量情形进入：\(G=L D L^T\) 到底在做什么}
+
+二维时，设
+\[
+G=
+\begin{pmatrix}
+a & b\\
+b & c
+\end{pmatrix}.
+\]
+我们把它写成
+\[
+G=
+\begin{pmatrix}
+1 & 0\\
+\ell & 1
+\end{pmatrix}
+\begin{pmatrix}
+d_0 & 0\\
+0 & d_1
+\end{pmatrix}
+\begin{pmatrix}
+1 & \ell\\
+0 & 1
+\end{pmatrix}.
+\]
+
+这里的意义是：
+
+\begin{itemize}
+    \item \(D\) 负责“每个方向自己的尺度”；
+    \item \(L\) 负责“不同方向之间如何耦合”。
+\end{itemize}
+
+因此 LDL 分解本质上是在把“带耦合的二次型”变成“一个递归可处理的结构”。
+
+\subsection{块 LDL：为什么高维时自然出现左右两半和耦合块}
+
+高维时，自然把矩阵按左右两块分成
+\[
+G=
+\begin{pmatrix}
+G_{00} & G_{01}\\
+G_{10} & G_{11}
+\end{pmatrix}.
+\]
+
+块 LDL 的形状是
+\[
+G=
+\begin{pmatrix}
+I & 0\\
+L_{10} & I
+\end{pmatrix}
+\begin{pmatrix}
+D_{00} & 0\\
+0 & D_{11}
+\end{pmatrix}
+\begin{pmatrix}
+I & L_{10}^T\\
+0 & I
+\end{pmatrix}.
+\]
+
+这说明高维问题天然分成：
+
+\begin{itemize}
+    \item 左半子问题；
+    \item 右半子问题；
+    \item 一个描述二者耦合的块 \(L_{10}\)。
+\end{itemize}
+
+\subsection{\(l=L_{10}\) 是什么，为什么它不是人为定义而是公式推出来的}
+
+从块 LDL 的左下角匹配条件可得：
+\[
+L_{10}D_{00}=G_{10}.
+\]
+
+若取 \(D_{00}=G_{00}\)，就得到
+\[
+L_{10}=G_{10}G_{00}^{-1}.
+\]
+
+因此，树节点里存的 \(l\) 不是拍脑袋定义出来的，而是 LDL 分解在当前层必然产生的耦合块。
+
+\subsection{Schur 补为什么会成为下一层子问题}
+
+块 LDL 分解后，右下角会变成一个新的矩阵：
+\[
+S=G_{11}-G_{10}G_{00}^{-1}G_{01},
+\]
+这就是 Schur 补。
+
+它的重要性在于：  
+\textbf{它描述了在消掉当前层耦合以后，右半子问题自身还剩下什么几何结构。}
+
+因此，Schur 补自然成为下一层递归子问题。
+
+\section{中心修正公式的来源：不是规则，而是推导结果}
+
+\subsection{从二次型配方推导条件中心}
+
+二维标量情形下，设
+\[
+G=L D L^T,\qquad
+L=
+\begin{pmatrix}
+1 & 0\\
+l & 1
+\end{pmatrix},
+\qquad
+D=
+\begin{pmatrix}
+d_0 & 0\\
+0 & d_1
+\end{pmatrix}.
+\]
+
+设
+\[
+y_0=z_0-t_0,\qquad y_1=z_1-t_1.
+\]
+
+则
+\[
+(z-t)^T G (z-t)
+=
+d_0(y_0+l y_1)^2+d_1 y_1^2.
+\]
+
+\subsection{为什么先采右边后，左边中心会变成 \(t_0'=t_0+l(t_1-z_1)\)}
+
+固定 \(z_1\) 后，\(y_1\) 已经是常数，于是关于 \(z_0\) 的部分变成
+\[
+d_0\big((z_0-t_0)+l(z_1-t_1)\big)^2.
+\]
+
+把括号整理成“\(z_0-\text{某个中心}\)”的形式：
+\[
+(z_0-t_0)+l(z_1-t_1)
+=
+z_0-\bigl(t_0-l(z_1-t_1)\bigr)
+=
+z_0-\bigl(t_0+l(t_1-z_1)\bigr).
+\]
+
+因此，条件中心就是
+\[
+\boxed{
+t_0' = t_0 + l(t_1-z_1).
+}
+\]
+
+\subsection{这个公式在块矩阵情形下如何推广}
+
+如果左右两侧都不再是标量，而是向量块，则完全同理：
+
+\[
+t=
+\begin{pmatrix}
+t_0\\
+t_1
+\end{pmatrix},
+\qquad
+z=
+\begin{pmatrix}
+z_0\\
+z_1
+\end{pmatrix},
+\qquad
+l=L_{10}.
+\]
+
+则条件中心公式自然推广为
+\[
+\boxed{
+t_0' = t_0 + l\,(t_1-z_1).
+}
+\]
+
+这就是高维版本的“右边偏差修正左边中心”。
+
+\subsection{在 FFT 域里为什么会写成逐点乘版本}
+
+在真实 Falcon 中，所有对象已经转到 FFT 表示。  
+在那里，多项式乘法和某些线性耦合作用会退化为逐频点运算。
+
+因此，上面的块矩阵公式在 FFT 域里常写成
+\[
+\boxed{
+t_0' = t_0 + (t_1-z_1)\odot l,
+}
+\]
+其中 \(\odot\) 表示逐点乘。
+
+所以 FFT 版不是另一套理论，而只是同一条件中心公式在 Fourier 坐标里的写法。
+
+\section{ffSampling 的本质：树驱动的递归条件采样}
+
+\subsection{ffSampling 的输入、输出、目标分布分别是什么}
+
+ffSampling 的输入是：
+
+\begin{itemize}
+    \item 一个中心 \(t\)；
+    \item 一棵 Falcon tree \(T\)。
+\end{itemize}
+
+输出是：
+
+\[
+z\in \mathbb Z^n
+\]
+
+其目标是让 \(z\) 按照围绕 \(t\) 的正确离散高斯分布被采样出来。
+
+也就是说，ffSampling 不是“求最近点”，而是“按正确条件分布递归采样”。
+
+\subsection{为什么顺序是“先右后左”，而不是反过来}
+
+这是由条件分布的拆分方式决定的。  
+在当前层，分布被拆成：
+
+\[
+P(z_0,z_1)=P(z_1)\,P(z_0\mid z_1).
+\]
+
+因此必须先采 \(z_1\)，然后才能知道左侧的条件中心 \(t_0'\)，再去采 \(z_0\)。
+
+这不是实现偏好，而是概率分解的自然顺序。
+
+\subsection{内部节点做什么，叶子做什么}
+
+一棵树在 ffSampling 中的作用非常明确：
+
+\begin{itemize}
+    \item \textbf{内部节点：} 存 \(l\)，负责“先采右边，再修正左边中心”；
+    \item \textbf{叶子节点：} 存 \(\sigma\)，直接调用一维采样器 \(\mathrm{SamplerZ}\)。
+\end{itemize}
+
+所以树本质上是一份“递归采样说明书”。
+
+\subsection{ffSampling 与 Babai 的相似点和根本区别}
+
+两者的相似点在于：
+
+\begin{itemize}
+    \item 都先把目标写到某个好基坐标里；
+    \item 都按递归/回代顺序依次决定坐标；
+    \item 都会出现“后面的决定影响前面的有效中心”这种结构。
+\end{itemize}
+
+根本区别在于：
+
+\begin{itemize}
+    \item Babai 的目标是近似最近点，倾向于做确定性 round；
+    \item ffSampling 的目标是正确离散高斯采样，每一步都是随机化的一维高斯取整。
+\end{itemize}
+
+因此，ffSampling 可以理解为“带 Babai 骨架的随机化高斯采样”，但它不是 Babai 本身。
+
+\section{FFT：Falcon 为什么不在系数域里干活}
+
+\subsection{一个多项式的两种表示：系数表示 vs 单位根取值表示}
+
+设
+\[
+f(x)=a_0+a_1x+\cdots+a_{N-1}x^{N-1}.
+\]
+
+它可以有两种常用表示：
+
+\begin{itemize}
+    \item \textbf{系数表示：}
+    \[
+    (a_0,a_1,\dots,a_{N-1});
+    \]
+    \item \textbf{单位根取值表示：}
+    \[
+    \bigl(f(\omega^0),f(\omega^1),\dots,f(\omega^{N-1})\bigr),
+    \]
+    其中 \(\omega=e^{2\pi i/N}\)。
+\end{itemize}
+
+FFT 的作用就是快速在这两种表示之间切换。
+
+\subsection{FFT 真正算的是什么，不是“函数调用”而是递归求值}
+
+FFT 不是简单写成 \(\mathrm{FFT}(f)\) 就当黑盒调用结束。  
+它真正做的是：
+
+\begin{quote}
+\textbf{把多项式在一整组单位根上的取值，递归地拆成更小规模的取值问题。}
+\end{quote}
+
+因此，FFT 的核心不是“名称”，而是“递归求值结构”。
+
+\subsection{为什么偶数/奇数拆分会把 \(N\) 点问题递归变成 \(N/2\) 点问题}
+
+把多项式写成
+\[
+f(x)=f_{\mathrm{even}}(x^2)+x f_{\mathrm{odd}}(x^2).
+\]
+
+那么
+\[
+f(\omega^k)=f_{\mathrm{even}}(\omega^{2k})+\omega^k f_{\mathrm{odd}}(\omega^{2k}).
+\]
+
+关键在于：\(\omega^{2k}\) 只跑过更低阶单位根，因此原来的 \(N\) 点取值问题就分裂成了两个 \(N/2\) 点问题。
+
+这就是 FFT 递归的真正来源。
+
+\subsection{复数和单位根在这里不是装饰，而是分裂结构的来源}
+
+如果没有单位根与复数结构，那么“偶数/奇数拆分”并不会自动对应“更小规模的同类问题”。
+
+正是因为单位根满足幂次闭合性质，比如
+\[
+\omega^{2k}
+\]
+仍然落在更小阶单位根系统里，FFT 才能递归。
+
+因此，复数在 Falcon 里不是装饰性符号，而是 FFT 分裂结构的基础。
+
+\section{从 FFT 到 split\_fft / merge\_fft：Falcon 里的递归为什么长这样}
+
+\subsection{为什么 Falcon 的“二分”不是随便切块，而是 Fourier 结构诱导的}
+
+Falcon 里的 split\_fft 不是把数组随便砍成两半，而是沿着 Fourier 表示天然的递归结构，把当前对象拆成两个更小的 FFT 子对象。
+
+因此，这里的“左右两半”不是普通线性代数里的随意分块，而是：
+
+\begin{quote}
+\textbf{由 Fourier 递归诱导出来的两个更小子问题。}
+\end{quote}
+
+\subsection{split\_fft 到底在拆什么，merge\_fft 又在合什么}
+
+如果当前对象是某个多项式在 FFT 域里的表示，那么 split\_fft 做的是：
+
+\begin{itemize}
+    \item 把当前大小的 FFT 表示拆成两个更小大小的 FFT 表示；
+    \item 这两个子对象分别对应递归中的左右子问题。
+\end{itemize}
+
+merge\_fft 则做相反的事情：  
+把两个子问题的结果重新拼回当前层的表示。
+
+\subsection{为什么在 FFT 域里，多项式乘法会退化成逐点运算}
+
+设 \(a,b\) 是两个多项式，那么在系数域里 \(ab\) 是卷积。  
+而在 FFT 域里：
+\[
+\mathrm{FFT}(ab)=\mathrm{FFT}(a)\odot \mathrm{FFT}(b).
+\]
+
+这意味着：
+
+\begin{itemize}
+    \item 原来复杂的多项式乘法；
+    \item 在 FFT 域里退化成逐点乘。
+\end{itemize}
+
+这正是 Falcon 选择在 FFT 域中组织整个签名和采样过程的根本原因。
+
+\subsection{为什么真实 Falcon 的修正公式会写成 \((t_1-z_1)\odot l\)}
+
+因为在 FFT 域里，原来块矩阵形式的耦合作用被按频点拆开了。  
+所以抽象上写成
+\[
+t_0' = t_0 + l(t_1-z_1)
+\]
+的公式，在实现里会表现成
+\[
+t_0' = t_0 + (t_1-z_1)\odot l.
+\]
+
+这里 \(l\) 不再被看成一个普通致密矩阵，而更像一个逐频点施加修正的系数向量。
+
+\section{Falcon Tree：它不是 FFT tree，而是 LDL\(^*\) tree}
+
+\subsection{Falcon Tree 从哪里来：从基到 Gram，再到递归 LDL\(^*\)}
+
+Falcon tree 的来源链条是：
+
+\[
+B_{f,g}
+\;\longrightarrow\;
+\mathrm{Gram}(B_{f,g})
+\;\longrightarrow\;
+\text{递归 LDL}^*
+\;\longrightarrow\;
+T.
+\]
+
+所以树不是 FFT 自己长出来的，而是：
+
+\begin{quote}
+\textbf{在 FFT 表示下，对 Gram 矩阵做递归 LDL\(^*\) 分解后，把结果存成了一棵树。}
+\end{quote}
+
+\subsection{树节点里到底存什么：\(l\)、左右子树、叶子 \(\sigma\)}
+
+Falcon tree 的节点分两类：
+
+\begin{itemize}
+    \item \textbf{内部节点：} 存当前层耦合项 \(l\)，以及左右子树 \(T_0,T_1\)；
+    \item \textbf{叶子节点：} 存一维采样所需的标准差 \(\sigma\)。
+\end{itemize}
+
+因此，树里不直接存“整个大矩阵”，而是存分解后每一层真正需要的最少信息。
+
+\subsection{为什么签名时要“用树”，而不是每次现算分解}
+
+如果每次签名都重新从基 \(B_{f,g}\) 现算 Gram 矩阵、再现做一遍递归 LDL\(^*\) 分解，代价太高。
+
+因此，Falcon 采用预处理思想：
+
+\begin{enumerate}
+    \item 先把采样所需的递归分解结构建好；
+    \item 存成 Falcon tree；
+    \item 签名时直接按树递归运行 ffSampling。
+\end{enumerate}
+
+\subsection{Falcon Tree 与 ffSampling 的一一对应关系}
+
+可以把 Falcon tree 看成 ffSampling 的执行说明书：
+
+\begin{itemize}
+    \item 树的形状告诉你递归结构；
+    \item 内部节点的 \(l\) 告诉你怎么修正中心；
+    \item 叶子的 \(\sigma\) 告诉你怎么调用一维 \(\mathrm{SamplerZ}\)。
+\end{itemize}
+
+因此，“建树”和“用树”是一一对应的两个过程。
+
+\section{真实 Falcon 流程：把所有对象放回论文中的符号}
+
+\subsection{\(c \to (\mathrm{FFT}(c),0)\to t\) 这步到底在干什么}
+
+真实 Falcon 中，消息先经过哈希得到 \(c\)。  
+然后把目标点 \((c,0)\) 转到 FFT 表示，并变到秘密基坐标中：
+
+\[
+t \leftarrow (\mathrm{FFT}(c),\mathrm{FFT}(0))\cdot \mathrm{FFT}(B_{f,g})^{-1}.
+\]
+
+这一步只是在做一件事：
+
+\begin{quote}
+\textbf{把目标点用秘密短基的 FFT 坐标表示出来。}
+\end{quote}
+
+\subsection{\(z\leftarrow \mathrm{ffSampling}(t,T)\) 这一步内部真实发生了什么}
+
+这一步内部发生的是：
+
+\begin{enumerate}
+    \item 若当前节点不是叶子，先 split\_fft；
+    \item 先递归采右半 \(z_1\)；
+    \item 用节点里的 \(l\) 修正左半中心 \(t_0'\)；
+    \item 再递归采左半 \(z_0\)；
+    \item merge\_fft 回当前层。
+\end{enumerate}
+
+如果已经到叶子，则直接调用
+\[
+z\leftarrow \mathrm{SamplerZ}(t,\sigma).
+\]
+
+\subsection{\(s=(t-z)\cdot \mathrm{FFT}(B_{f,g})\) 与签名输出的关系}
+
+采样完成后，\(z\) 只是基坐标中的整数采样结果。  
+将其与中心之差乘回基：
+
+\[
+s=(t-z)\cdot \mathrm{FFT}(B_{f,g}),
+\]
+
+就得到了真实空间中的短向量。再转回适当表示后，这就是签名输出对应的核心对象。
+
+\subsection{为什么标准 Falcon、deterministic Falcon、trapdoor 应用场景风险不同}
+
+标准 Falcon 中，消息通常会混入随机盐，因此同一个消息不太会反复落到完全相同的采样中心。  
+而 deterministic Falcon 或某些 trapdoor 应用场景中：
+
+\begin{itemize}
+    \item 同一个输入更可能重复出现；
+    \item 浮点误差引发的细微采样差异更容易被比较；
+    \item 因而实现脆弱性更容易变成真正的密钥泄露。
+\end{itemize}
+
+这也是相关论文特别强调的风险差异来源。
+
+\section{论文的攻击点：为什么 SamplerZ 会成为致命脆弱点}
+
+\subsection{ffSampling 为什么最终归约到一系列一维 \texttt{SamplerZ}}
+
+虽然 ffSampling 在外层看是高维递归过程，但每次递归都会继续拆半。  
+拆到叶子后，问题就变成：
+
+\begin{quote}
+\textbf{围绕一个标量中心，对整数做一维离散高斯采样。}
+\end{quote}
+
+这一步就是 \texttt{SamplerZ}。
+
+因此，整个高维采样最终归约成很多次一维 \texttt{SamplerZ} 调用。
+
+\subsection{“中心接近整数”为什么会导致实现极端敏感}
+
+如果某次叶子调用的中心非常接近整数，比如
+\[
+k+\varepsilon,\qquad |\varepsilon|\ll 1,
+\]
+那么极小的浮点舍入差异就可能改变：
+
+\begin{itemize}
+    \item 采样器的接受/拒绝分支；
+    \item 实际返回的整数结果；
+    \item 最终高维向量的某个分量。
+\end{itemize}
+
+这就是“中心接近整数时异常敏感”的根源。
+
+\subsection{浮点误差如何传到叶子采样器}
+
+浮点误差不会凭空只在叶子出现，它会沿着整条链路传递：
+
+\[
+\text{FFT 运算误差}
+\to
+\text{Gram / LDL}^*\text{ 误差}
+\to
+\text{中心修正误差}
+\to
+\text{叶子输入误差}.
+\]
+
+因此，叶子上的 \(\mathrm{SamplerZ}\) 看起来只是最后一步，但它承接了整个前序数值误差的累积。
+
+\subsection{从“微小差异”到“私钥恢复”的攻击链条}
+
+攻击链条的核心逻辑是：
+
+\begin{enumerate}
+    \item 两次几乎相同的执行，本应输出相同或统计上难以区分的结果；
+    \item 但由于浮点误差和接近整数中心，某些叶子上的 \(\mathrm{SamplerZ}\) 输出发生可观察差异；
+    \item 这些差异通过树结构映射回高维签名；
+    \item 在某些场景下，比较两次输出的结构化差异可以反推出私钥信息。
+\end{enumerate}
+
+因此，论文真正指出的不是“Falcon 数学上错了”，而是：
+
+\begin{quote}
+\textbf{Falcon 的正确数学采样，在有限精度实现下具有高度脆弱性，而脆弱点最终集中爆发在 \texttt{SamplerZ} 与中心修正链条上。}
+\end{quote}
+
+\section*{结语}
+
+如果把整份讲义压缩成一句话，那么 Falcon 的核心可以概括为：
+
+\begin{quote}
+\textbf{在多项式环上，用秘密短基把目标点变成一个中心 \(t\)，再借助 Gram 矩阵的递归 LDL\(^*\) 分解构造 Falcon tree，最后由 ffSampling 在这棵树的驱动下，按正确的离散高斯分布采样出一个短签名。}
+\end{quote}
+
+其中，真正最难理解、也最值得理解的主线是：
+
+\[
+B \;\longrightarrow\; G \;\longrightarrow\; \text{LDL}^* \;\longrightarrow\; T \;\longrightarrow\; \text{ffSampling}.
+\]
+
+只要这条链打通，Falcon 的大部分核心结构就真正连起来了。
+
+\end{document}

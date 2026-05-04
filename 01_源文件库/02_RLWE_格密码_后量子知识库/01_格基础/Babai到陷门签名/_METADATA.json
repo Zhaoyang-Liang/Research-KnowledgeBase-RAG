@@ -1,0 +1,8 @@
+{
+  "source_id": "src_000114",
+  "document_role": "side_material",
+  "future_batch_candidate": "Post-Quantum Signatures",
+  "review_policy": "review_when_signature_batch_starts",
+  "notes": "Klein-GPV采样器基于Babai的笔记。连接Babai算法与格陷门签名。K066已覆盖Babai基础，具体签名采样暂不展开。",
+  "processed_in": "Batch-05c (部分内容进入K066的KP6)"
+}

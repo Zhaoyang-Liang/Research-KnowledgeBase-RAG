@@ -1,0 +1,16 @@
+# SlotToCoeff在密文态下的语义：表示切换的完整过程
+
+**card_id**: K031 | **publish_target**: 03_FHE知识库 (translation_note, support_ingest)  
+**source_id**: src_000046 | **source_type**: translation_note  
+**needs_human_review**: True | **needs_verification**: True  
+**cross_reference**: K019 (SlotToCoeff正向推导)  
+
+## Knowledge Points
+
+1. SlotToCoeff不是"把明文槽里的数拿出来放到多项式系数里"，而是用同态线性变换把一个"槽向量语义"的密文变成"多项式系数语义"的密文
+2. 具体步骤：(1)两个密文ct_0=Enc*(p_0)和ct_1=Enc*(p_1)，(2)同态合成ct=ct_0+Ecd(i)·ct_1=Enc*(w)，(3)同态乘U_n矩阵得ct'=Enc*(z)=Enc(⌊Δp⌋)
+3. 整过程中从不解密——所有操作都是密文层面的加法和矩阵乘法
+4. 为什么可以分析明文语义：在同态加密中，描述密文计算语义的标准方式就是描述它对底层消息的作用
+5. 名字SlotToCoeff指的不是矩阵U_n的方向，而是"密文语义从槽表示切换到系数表示"
+
+**notes**: 翻译笔记。解释了SlotToCoeff不是解密-重编码，而是纯密文态线性变换。 密文态语义描述需对照原文验证。

@@ -1,0 +1,10 @@
+{
+  "qa_id": "Q114",
+  "question": "BGV/BFV Bootstrapping讲义有哪些核心内容？",
+  "answer": "229页系统教程，三部分结构：(1)代数与数论基础（分圆环、Frobenius轨道、CRT、slot几何）；(2)主流程（CoeffToSlot、digit extraction(BGV)/rounding(BFV)、SlotToCoeff、unpack/repack）；(3)优化（BSGS、hoisting、full/thin bootstrap）。含完整伪代码附录。",
+  "card_id": "K037",
+  "source_id": "src_000059",
+  "source_type": "lecture_notes",
+  "batch": "Batch-04",
+  "created": "2026-05-04T14:30"
+}

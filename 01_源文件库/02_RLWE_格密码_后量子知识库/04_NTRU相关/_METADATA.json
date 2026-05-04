@@ -1,0 +1,8 @@
+{
+  "source_id": "src_000118",
+  "document_role": "support_note",
+  "source_status": "source_preserved",
+  "review_policy": "review_when_used",
+  "notes": "NTRU代数知识补充笔记。包含NTRU环的代数结构、参数关系等杂项。未形成稳定知识卡片，保留为支撑材料。等NTRU/Falcon签名专题时再用。",
+  "processed_in": "Batch-05c (基本导入，未深度处理)"
+}

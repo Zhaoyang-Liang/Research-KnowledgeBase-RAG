@@ -1,0 +1,52 @@
+# macOS
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Env / API keys
+.env
+*.env
+config.env
+.env.*
+!.env.example
+!config.example.env
+
+# Secrets
+*api_key*
+*apikey*
+*secret*
+*token*
+*.pem
+*.key
+
+# RAG generated runtime data
+06_RAG入库准备/api_rag/data/
+06_RAG入库准备/api_rag/config.env
+06_RAG入库准备/api_rag/__pycache__/
+
+# Generated index / binary cache
+*.pkl
+embeddings.jsonl
+bm25_index.pkl
+*.faiss
+*.lance
+
+# Large dependency copies
+lattigo-v6-local/
+**/lattigo-v6-local/
+
+# Temp / backup
+*.bak
+*.tmp
+*.swp
+*.log
+~$*
+
+# Archives
+99_归档/
+*.tar
+*.tar.gz
+*.tgz

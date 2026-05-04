@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q146",
+  "card_id": "K050",
+  "source_id": "src_000087",
+  "question": "SIMD编码是什么？BGV/BFV如何实现\"一次操作处理多个数据\"？",
+  "answer": "SIMD：利用CRT分解将明文环R_t=Z_t[X]/(Φ_M)分解为L个槽的直积。将一个长度为L的明文向量编码为一个多项式a(X)，使得一次环加法/乘法等价于对所有槽的分量并行加/乘。这就是\"单指令多数据\"——一个同态操作同时处理L个独立数据。Encoding=插值(槽值→多项式)，Decoding=求值(多项式→槽值)。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05a3",
+  "created": "2026-05-04T15:40"
+}

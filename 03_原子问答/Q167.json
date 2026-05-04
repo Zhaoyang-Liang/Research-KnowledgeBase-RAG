@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q167",
+  "card_id": "K060",
+  "source_id": "src_000105",
+  "question": "一句话区分ModSwitch和KeySwitch？",
+  "answer": "ModSwitch换模数q不换密钥s（降噪），KeySwitch换密钥s不换模数q（重线性化/密钥授权）。比喻：ModSwitch=换尺子的刻度单位，KeySwitch=换锁。两者数学正交，实践中常成对使用（先KeySwitch降维，再ModSwitch降噪）。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b1",
+  "created": "2026-05-04T16:00"
+}

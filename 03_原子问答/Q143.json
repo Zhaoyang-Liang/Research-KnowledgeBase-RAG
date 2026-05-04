@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q143",
+  "card_id": "K049",
+  "source_id": "synthesized",
+  "question": "C2S/S2C在CKKS bootstrapping管线中处于哪个位置？",
+  "answer": "管线：ModRaise→C2S→EvalMod→S2C→ModSwitch。C2S在模数提升后、同态求值前（将slot表示转为系数表示供EvalMod使用）。S2C在求值后、模数降低前（将结果转回slot表示）。",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

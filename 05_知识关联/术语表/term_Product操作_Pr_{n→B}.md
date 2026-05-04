@@ -1,0 +1,5 @@
+# Product操作 Pr_{n→B}
+
+CKKS同态操作，将槽向量分组后对组内元素做Hadamard乘积。是数域扩张中范数(Norm)在槽表示下的类比。消耗对数级别。
+
+source: src_000048

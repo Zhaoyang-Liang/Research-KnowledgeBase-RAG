@@ -1,0 +1,25 @@
+{
+  "card_id": "K069",
+  "title": "Ideal Lattice与RLWE：理想格的定义、性质与安全性",
+  "topic": "RLWE/格密码/理想格",
+  "knowledge_points": [
+    "1. 理想格 (Ideal Lattice) 定义：设 R = Z[X]/(f) 为多项式环（f 为首一多项式）。每个理想 I ⊂ R 对应一个格（通过系数嵌入 Z^deg(f)）。Ideal lattice = 由多项式理想决定的格。与一般格的区别：理想格具有环代数结构——不仅对整数线性组合封闭，也对乘法（mod f）封闭。",
+    "2. 分圆多项式 f = Φ_M(X)：实践中最常用的是 f = X^N+1（M = 2N 的 2-幂次分圆多项式）。此时 R = Z[X]/(X^N+1) 是一个 Dedekind 整环的 order（在 M 为 2 的幂时即为整闭的）。对应的理想格具有丰富的代数对称性（自同构群 Aut(R) ≅ Z_{2N}^×）。",
+    "3. RLWE 的理想格视角：(a, a·s + e) ∈ R_q^2 中，a·s 的系数实际上是理想乘法。RLWE 安全性等价于在 ideal lattice 上解决 BDD-like 问题。LPR 2010 的归约：Ideal-SVP → RLWE（在分圆环上，量子归约）。",
+    "4. 理想格的安全性问题：(a) 额外的代数结构可能为攻击者所用——subfield attacks, algebraic number theory attacks (CDW 2016, BS 2016 等)。(b) 当分圆多项式在 Z_q 上分裂为许多不可约因子时，ρ = (X-ζ^{2i+1}) → 可通过 CRT 分解分析。(c) 解决方法：选择适当参数使攻击的复杂度足够高（N 足够大，模数选择避免特殊分解特征）。",
+    "5. 与当前论文的关系：CKKS 使用分圆环 R = Z[X]/(X^N+1)。Split/Merge 利用 R_N ≅ ⊕ R_{N/k} 的代数分解（module view, HERMES）。此分解的代数正确性来自分圆多项式的性质，不破坏 RLWE 结构——但需要确保 leaf ring 的参数满足安全要求（参见 P0-7）。",
+    "⚠️ Caveat：理想格的安全性是活跃研究领域。algebraic attack 的复杂度和参数条件非常细碎。本卡只给基本定义和安全概念。实际参数选择应遵循最新的安全评估（如 lattice-estimator + 针对 ideal lattice 的特殊考量）。"
+  ],
+  "card_type": "concept",
+  "source_id": "src_000119, src_000115, src_000118",
+  "claim_source_type": "用户笔记 + LPR 2010 + 分圆多项式基本性质",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05c",
+  "publish_target": "02_RLWE_格密码_后量子知识库",
+  "related_cards": "K065(Y-X): LWE/RLWE基本关系（理想格是RLWE的安全基础）；K041(Y-X): CKKS complex slot vs CRT slot（分圆多项式分解）。",
+  "cross_reference": "K065(Y-X): LWE/RLWE基本关系（理想格是RLWE的安全基础）；K041(Y-X): CKKS complex slot vs CRT slot（分圆多项式分解）。",
+  "notes": "全库术语：分圆多项式 Φ_M = ∏{gcd(k,M)=1} (X - ζ_M^k)。M=2的幂→X^N+1。Ideal-SVP = 理想格上的SVP。代数结构对安全性的影响仍在研究中。",
+  "source_status": "source_preserved",
+  "review_policy": "review_when_used_for_paper"
+}

@@ -1,0 +1,12 @@
+{
+  "qa_id": "Q111",
+  "question": "τ_n(p(Y))正向如何计算？",
+  "answer": "(1)将p(Y)系数拆为p_0(前n个)和p_1(后n个)；(2)利用ζ_{n,i}^n=i，计算p(ζ_{n,i})=Σ(p_j+i·p_{j+n})ζ_{n,i}^j；(3)定义w=p_0+i·p_1∈C^n；(4)τ_n(p)=U_n·w。本质是\"拆分→合成复向量→Vandermonde求值\"。",
+  "card_id": "K036",
+  "source_id": "src_000051",
+  "source_type": "translation_note",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-03",
+  "created": "2026-05-04T13:54:56"
+}

@@ -1,0 +1,101 @@
+{
+  "card_id": "K012",
+  "version": "v2",
+  "title": "Gentry09/BGV/BFV/CKKS四方案全对比(v2增强)",
+  "source_id": "src_000011",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/gentry-BGFV-CKKS.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "Gentry, BGV, BFV, CKKS, LWE, RLWE"
+  },
+  "category": "FHE总论与基础方案",
+  "subtopic": "FHE方案对比",
+  "chinese_summary": "四大FHE方案核心区别：BGV明文在低位+ModSwitch任意比例降噪；BFV明文放大Δ=⌊q/t⌋在高位+Rescale固定比例÷t；CKKS复数近似编码+Rescale。BGV与BFV均为精确整数但噪声控制方式不同；CKKS牺牲精度换取效率（bootstrapping更高效）。注意BFV和CKKS的Rescale名称相同但机制不同：BFV除以t恢复尺度，CKKS除以编码因子Δ≈大素数降低模数层。",
+  "knowledge_points": [
+    {
+      "id": "K012-1",
+      "concept": "LWE/RLWE加密统一形式",
+      "formula": "LWE:(⟨a,s⟩+e+m,−a); RLWE:(a·s+e+m,−a) in R_q",
+      "meaning": "加解密结构同，差异在m位置和噪声控制。"
+    },
+    {
+      "id": "K012-2",
+      "concept": "BGV噪声控制",
+      "formula": "c←⌊(q'/q)·c⌉, 任意q'<q, 消息m不变",
+      "meaning": "模数切换缩小模数→噪声比例降低→消息在低位(m mod t)不变。"
+    },
+    {
+      "id": "K012-3",
+      "concept": "BFV尺不变性",
+      "formula": "Δ=⌊q/t⌋, c'←⌊(t/q)·c⌉(重缩放)",
+      "meaning": "消息放大Δ倍写高位，重缩放÷t恢复原始尺度。尺不变：消息表示一致。"
+    },
+    {
+      "id": "K012-4",
+      "concept": "CKKS近似复数编码",
+      "formula": "m=⌊Δ·σ(z)⌉, z∈C^{N/2}, Decode≈z/Δ",
+      "meaning": "典范嵌入编码复数向量为多项式，放大Δ取整。解码≈z/Δ。"
+    },
+    {
+      "id": "K012-5",
+      "concept": "Bootstrapping比较",
+      "formula": "CKKS用sin多项式近似取模→更低深度",
+      "meaning": "CKKS允许近似→bootstrapping更高效。BGV/BFV需精确整数电路→更昂贵。"
+    },
+    {
+      "id": "K012-6",
+      "concept": "⚠ BFV vs CKKS Rescale差异",
+      "formula": "BFV: ÷t恢复尺度; CKKS: ÷Δ(素数)降模数层",
+      "meaning": "同名不同义！BFV Rescale保持消息尺度不变，CKKS Rescale消费模数链层级。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "BGV: c=(a·s+t·e+m,−a), Dec: m=[c₀+c₁·s]_q mod t",
+      "meaning": "BGV加解密，明文在低位"
+    },
+    {
+      "formula": "BFV: c=(a·s+Δ·m+e,−a), Δ=⌊q/t⌋",
+      "meaning": "BFV加密，明文放大Δ在高位"
+    },
+    {
+      "formula": "CKKS: Encode(z,Δ)=⌊Δ·σ^{-1}(z)⌉",
+      "meaning": "CKKS编码：逆典范嵌入后放大取整"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "模数切换",
+      "en": "Modulus Switching (ModSwitch)",
+      "definition": "BGV中缩放密文至更小模数降噪，消息不变"
+    },
+    {
+      "term": "重缩放",
+      "en": "Rescale/Scale-down",
+      "definition": "BFV: ÷t恢复尺度; CKKS: ÷Δ降模数层"
+    },
+    {
+      "term": "尺不变",
+      "en": "scale-invariant",
+      "definition": "BFV特征：消息表示在计算中保持一致尺度（由Δ固定）"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "RLWE环选择",
+    "RLWE_lattice": "所有方案基于RLWE",
+    "FHE_technique": "三方案噪声控制是FHE核心技术",
+    "current_paper": "当前论文基于CKKS bootstrapping改进"
+  },
+  "claim_source_type": "我的笔记+原文精读",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K012-1",
+    "QA-K012-2",
+    "QA-K012-3",
+    "QA-K012-4",
+    "QA-K012-5",
+    "QA-K012-6"
+  ],
+  "rag_ingestion_suggestion": "最高优先级，FHE总览卡片"
+}

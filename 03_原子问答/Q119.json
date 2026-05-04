@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q119",
+  "card_id": "K039",
+  "source_id": "src_000066",
+  "question": "CKKS编码与典范嵌入的关系是什么？",
+  "answer": "CKKS编码≠典范嵌入本身。典范嵌入σ的方向是'多项式→单位根取值向量'(解码方向)。CKKS编码使用σ^{-1}：从想要的目标取值向量出发，通过插值反推出多项式。所以说CKKS编码是基于典范嵌入坐标的逆向构造。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "created": "2026-05-04T14:52"
+}

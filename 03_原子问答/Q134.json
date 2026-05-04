@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q134",
+  "card_id": "K045",
+  "source_id": "src_000070",
+  "question": "朴素C2S方法为什么太慢？",
+  "answer": "直接实现完整的T矩阵乘法（dense ℓd×ℓd）代价O(N²)。在BGV/BFV中N可达2^{15}级别→不可行。论文的核心贡献：发现T不是任意dense矩阵，可分解为M→U_ℓ→M^{-1}三步，每步有结构化加速。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q127",
+  "card_id": "K042",
+  "source_id": "src_000066",
+  "question": "CKKS的coefficient view和slot view分别是什么？如何转换？",
+  "answer": "coefficient view：多项式系数(a_0,...,a_{N-1})。slot view：(m(ζ^{s_j}))_{j=0}^{N-1}，在N个单位根处的取值。转换：slot=U_n·coeff（Vandermonde矩阵）；coeff=U_n^{-1}·slot（逆Vandermonde→插值）。CKKS编码从slot出发→求coeff；解码从coeff出发→求slot。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "created": "2026-05-04T14:52"
+}

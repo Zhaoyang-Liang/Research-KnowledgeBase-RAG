@@ -1,0 +1,12 @@
+{
+  "qa_id": "Q103",
+  "question": "SlotToCoeff在密文层面具体怎么做？",
+  "answer": "输入ct_0=Enc*(p_0)和ct_1=Enc*(p_1)。(1)同态合成ct=ct_0+Ecd(i)×ct_1=Enc*(w)，其中w=p_0+i·p_1；(2)同态乘Vandermonde矩阵ct'=Ecd(U_n)×ct=Enc*(z)。由于τ_n^{-1}(z)=p，所以ct'等价于Enc(⌊Δp⌋)。整个过程无解密。",
+  "card_id": "K031",
+  "source_id": "src_000046",
+  "source_type": "translation_note",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "batch": "Batch-03",
+  "created": "2026-05-04T13:54:56"
+}

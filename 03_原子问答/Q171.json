@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q171",
+  "card_id": "K062",
+  "source_id": "src_000101",
+  "question": "当前论文(CKKS bootstrapping)和BGV bootstrapping的主要区别是什么？",
+  "answer": "核心区别：(1)域不同——CKKS在复数域C上做C2S/S2C（DFT/FFT类矩阵），BGV在有限域F_{p^d}上（CRT+FFT-like）。(2)精度——CKKS近似（允许误差），BGV精确。(3)噪声控制——CKKS用Rescale（含浮点精度管理），BGV用ModSwitch（纯整数缩放）。(4)evalMod电路——CKKS处理复数近似取模，BGV处理整数精确取模。共性：结构上都是coeff→slot→evalDec→slot→coeff四步管线的实例。",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "batch": "Batch-05b1",
+  "created": "2026-05-04T16:00"
+}

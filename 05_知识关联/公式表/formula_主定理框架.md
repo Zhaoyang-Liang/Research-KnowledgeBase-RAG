@@ -1,0 +1,7 @@
+# 主定理框架
+
+$$\widetilde{\operatorname{BTS}}_{N,k}^{\mathrm{fac}}=\gamma_{\mathrm{impl}}^{-1}\operatorname{Merge}_k\circ\left(\bigoplus\operatorname{BTS}_n\right)\circ\operatorname{Split}_k\approx\operatorname{BTS}_N$$
+
+factored bootstrapping主定理
+
+source: src_000052

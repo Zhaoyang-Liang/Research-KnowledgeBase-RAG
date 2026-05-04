@@ -1,0 +1,540 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[UTF8]{ctex}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.5em}
+
+\title{Gentry09 中 \(a\) 与 \(a'\) 的关系：\\
+从格陪集到模 \(2\) 正确性的精确整理}
+\author{}
+\date{}
+
+\newtheorem{definition}{定义}
+\newtheorem{proposition}{命题}
+\newtheorem{remark}{注}
+\newtheorem{example}{例}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{引言}
+
+在学习 Gentry09 时，一个很容易被说糊涂、但实际上又非常关键的问题是：
+
+\begin{quote}
+解密过程中得到的量 \(a'\)，和加密时最初构造的
+\[
+a=m+2e
+\]
+到底是什么关系？
+\end{quote}
+
+很多讲解会直接说“解密恢复出 \(a\)”；但如果严格追问，这句话其实并不总是无条件成立。另一方面，如果只说“\(a'\) 和 \(a\) 模同一个格同余”，这又可能太弱，不足以推出消息比特一定恢复正确。
+
+因此，这个问题的关键不在于泛泛地说“差一个格向量”，而在于：
+
+\begin{enumerate}[label=\arabic*.]
+    \item 先精确写出 \(a'\) 与 \(a\) 的代数关系；
+    \item 再判断这种关系是否足以推出模 \(2\) 后消息不变；
+    \item 最后区分哪些结论是\textbf{必要的}，哪些只是\textbf{更强但非必须的}。
+\end{enumerate}
+
+本文只做这一件事：专门把 \(a\) 与 \(a'\) 的关系讲清楚。
+
+\section{记号与问题设置}
+
+\subsection{加密前构造的短偏移}
+
+Gentry09 的简化描述中，消息为
+\[
+m\in\{0,1\},
+\]
+并先构造
+\[
+a = m + 2e,
+\]
+其中 \(e\) 是小噪声。
+
+这里 \(a\) 的作用不是格点，而是一个承载消息的\textbf{短偏移}。因为 \(2e\) 为偶数项，所以
+\[
+a \bmod 2 = m.
+\]
+
+因此，最终解密只要能恢复一个与 \(a\) 在模 \(2\) 意义下等价的量，就足以恢复消息。
+
+\subsection{格与密钥}
+
+设
+\[
+L = L(B_{pk}) = L(B_{sk})
+\]
+表示同一个格，其中
+
+\begin{itemize}[leftmargin=2em]
+    \item \(B_{pk}\) 是公钥劣质基；
+    \item \(B_{sk}\) 是私钥优质基。
+\end{itemize}
+
+加密与解密都围绕这个格展开。
+
+\subsection{密文与解密输出}
+
+可将密文写成
+\[
+c = \ell + a,
+\qquad \ell\in L.
+\]
+这里 \(\ell\) 表示加密过程中所引入的格点部分。
+
+解密时，私钥算法根据 \(c\) 再恢复一个格点 \(\ell'\in L\)，并输出
+\[
+a' = c - \ell'.
+\]
+
+问题就在于：这个 \(a'\) 与原始 \(a\) 到底是什么关系？
+
+\section{从定义直接推出的关系}
+
+这是最基本、最不会错的一步。
+
+由
+\[
+c=\ell+a
+\]
+以及
+\[
+a' = c-\ell'
+\]
+立刻得到
+\[
+a' = (\ell+a)-\ell' = a + (\ell-\ell').
+\]
+
+令
+\[
+\lambda = \ell-\ell',
+\]
+则 \(\lambda\in L\)，因为 \(L\) 对加法和减法封闭。于是：
+
+\[
+a' = a + \lambda,
+\qquad \lambda\in L.
+\]
+
+因此必然有
+
+\[
+a' - a \in L,
+\]
+也就是
+
+\[
+a' \equiv a \pmod L.
+\]
+
+\begin{proposition}
+在 Gentry09 的上述抽象写法中，总有
+\[
+a' \equiv a \pmod L.
+\]
+\end{proposition}
+
+\begin{proof}
+由
+\[
+a' = a + (\ell-\ell')
+\]
+且 \(\ell,\ell'\in L\)，可知 \(\ell-\ell'\in L\)。因此
+\[
+a'-a \in L,
+\]
+即
+\[
+a' \equiv a \pmod L.
+\]
+\end{proof}
+
+\subsection{这一步的意义}
+
+这一步告诉我们：解密输出 \(a'\) 与原始 \(a\) 一定属于同一个模格陪集。
+
+但这还不是最终正确性，因为消息恢复不是模格，而是模 \(2\)。
+
+所以现在的关键问题变成：
+
+\begin{quote}
+仅有
+\[
+a'-a\in L
+\]
+是否足以推出
+\[
+a' \equiv a \pmod 2 \ ?
+\]
+\end{quote}
+
+答案是：\textbf{一般不足以推出。}
+
+\section{为什么“\(a'-a\in L\)”一般不够}
+
+\subsection{模 \(2\) 正确性真正需要什么}
+
+由
+\[
+a' = a+\lambda
+\]
+可得
+\[
+a' \bmod 2 = (a+\lambda)\bmod 2 = (a\bmod 2)+(\lambda\bmod 2).
+\]
+
+因此，要推出
+\[
+a' \bmod 2 = a \bmod 2,
+\]
+必须证明
+\[
+\lambda \equiv 0 \pmod 2.
+\]
+
+换言之，仅仅知道 \(\lambda\in L\) 还不够，还必须进一步知道这个格向量在模 \(2\) 下消失。
+
+\subsection{反例}
+
+\begin{example}
+取一维格
+\[
+L=\mathbb Z.
+\]
+令
+\[
+a=0,\qquad \lambda=1\in L.
+\]
+则
+\[
+a' = a+\lambda = 1.
+\]
+于是
+\[
+a\bmod 2 = 0,\qquad a'\bmod 2 = 1.
+\]
+
+因此，虽然
+\[
+a'-a = 1 \in L,
+\]
+但消息却发生了变化。
+\end{example}
+
+这个反例说明：
+
+\[
+\boxed{
+a'-a\in L \quad \text{一般不能推出} \quad a'\equiv a\pmod 2.
+}
+\]
+
+所以如果有人只证明到“\(a'\) 与 \(a\) 模格同余”，那对 bit 解密正确性来说通常是不够的。
+
+\section{两种足够的正确性路线}
+
+为了保证最终恢复消息，需要更强条件。常见有两条路线。
+
+\subsection{路线一：强形式，证明 \(a'=a\)}
+
+这是最直观的路线。
+
+若能证明
+\[
+\ell'=\ell,
+\]
+则由
+\[
+a' = c-\ell',\qquad c=\ell+a
+\]
+立刻得到
+\[
+a' = (\ell+a)-\ell = a.
+\]
+
+于是
+\[
+a'\bmod 2 = a\bmod 2 = (m+2e)\bmod 2 = m.
+\]
+
+\begin{proposition}
+若解密时恢复出的格点满足
+\[
+\ell'=\ell,
+\]
+则必有
+\[
+a'=a,
+\]
+因此消息正确恢复。
+\end{proposition}
+
+\begin{proof}
+由
+\[
+a' = c-\ell'
+\]
+和
+\[
+c=\ell+a
+\]
+代入得
+\[
+a' = (\ell+a)-\ell' = a+(\ell-\ell').
+\]
+若 \(\ell'=\ell\)，则
+\[
+a'=a.
+\]
+于是
+\[
+a'\bmod 2 = a\bmod 2 = (m+2e)\bmod 2 = m.
+\]
+\end{proof}
+
+\subsection{这条路线的几何意义}
+
+这条路线要求私钥优质基足够好，使得解密算法恢复出的格点 \(\ell'\) 正好是加密分解中对应的那个格点 \(\ell\)。这正是 Babai 算法与最近格点问题进入正确性分析的地方。
+
+若 \(a\) 很小，则
+\[
+c=\ell+a
+\]
+表示 \(c\) 离格点 \(\ell\) 很近。若 \(\ell\) 是唯一最近格点，且优质基保证恢复成功，就会得到 \(\ell'=\ell\)，从而 \(a'=a\)。
+
+这是一条\textbf{很强、很干净}的正确性路径。
+
+\subsection{路线二：弱形式，只需证明模 \(2\) 不变}
+
+对 bit 解密而言，其实不必要求 \(a'=a\)。只要能证明
+\[
+a' \equiv a \pmod 2,
+\]
+就已经足够。
+
+而这又可由更弱的条件推出，例如
+\[
+a'-a \in 2\mathbb Z^m,
+\]
+或更一般地，
+\[
+a'-a
+\]
+落在某个模 \(2\) 后消失的理想/子格中。
+
+\begin{proposition}
+若
+\[
+a'-a \in 2\mathbb Z^m,
+\]
+则
+\[
+a' \equiv a \pmod 2,
+\]
+从而消息正确恢复。
+\end{proposition}
+
+\begin{proof}
+由
+\[
+a'-a \in 2\mathbb Z^m
+\]
+可知 \(a'-a\) 的每个坐标都是偶数，因此
+\[
+a'-a \equiv 0 \pmod 2.
+\]
+于是
+\[
+a' \equiv a \pmod 2.
+\]
+又因为
+\[
+a = m+2e,
+\]
+所以
+\[
+a \equiv m \pmod 2.
+\]
+综上，
+\[
+a' \equiv m \pmod 2,
+\]
+消息正确恢复。
+\end{proof}
+
+\subsection{这条路线比前一条弱，但已经够用}
+
+需要特别强调：
+
+\begin{itemize}[leftmargin=2em]
+    \item “证明 \(a'=a\)”是更强结论；
+    \item “证明 \(a'\equiv a\pmod 2\)”是恢复消息所需的最小层面结论之一；
+    \item 因此，若方案的结构保证
+    \[
+    a'-a
+    \]
+    自动落在模 \(2\) 消失的理想或子格中，那么完全没必要再追求 \(a'=a\)。
+\end{itemize}
+
+从密码正确性的角度看，弱路线已经足够。
+
+\section{如何理解这两条路线的关系}
+
+\subsection{强路线推出弱路线}
+
+显然，若
+\[
+a'=a,
+\]
+则自动有
+\[
+a'\equiv a \pmod 2.
+\]
+
+因此：
+
+\[
+\text{强路线} \Longrightarrow \text{弱路线}.
+\]
+
+\subsection{弱路线不推出强路线}
+
+反过来不成立。完全可能有
+\[
+a' \neq a,
+\]
+但仍有
+\[
+a' \equiv a \pmod 2.
+\]
+
+例如一维情形下，
+\[
+a=1,\qquad a'=3.
+\]
+则
+\[
+a'\neq a,
+\]
+但
+\[
+a' \equiv a \pmod 2.
+\]
+
+因此，消息正确恢复并不要求逐点恢复原始 \(a\)。
+
+\subsection{复习时最容易混淆的地方}
+
+很多讲解一上来就说“解密恢复 \(a\)”；这种说法在直觉层面有帮助，但若不加说明，容易让人误以为这是唯一必要的证明目标。
+
+实际上更准确的区分应该是：
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+层次 & 目标 & 是否必需 \\
+\midrule
+强层次 & 证明 \(a'=a\) & 非必需，但很强很清楚 \\
+弱层次 & 证明 \(a'\equiv a\pmod 2\) & 对 bit 正确性已足够 \\
+更弱层次 & 仅证明 \(a'-a\in L\) & 一般不够 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{推荐的严谨表述}
+
+如果要在复习笔记、讲义或考试答案中用一句话准确描述 \(a\) 与 \(a'\) 的关系，推荐使用下面这版：
+
+\begin{quote}
+由加密与解密定义可知，解密输出 \(a'\) 与原始 \(a\) 总满足
+\[
+a'-a\in L.
+\]
+但这一般不足以推出消息正确。若进一步证明解密恢复出与加密对应的同一格点，则有 \(a'=a\)；更一般地，只要证明 \(a'-a\) 落在模 \(2\) 消失的理想或偶子格中，就可推出
+\[
+a' \equiv a \pmod 2,
+\]
+从而正确恢复 bit 消息。
+\end{quote}
+
+这句话的好处在于：
+
+\begin{itemize}[leftmargin=2em]
+    \item 先写出总是成立的基础关系；
+    \item 再指出这还不够；
+    \item 最后明确给出两种足够条件。
+\end{itemize}
+
+\section{最终总结}
+
+本文专门整理了 Gentry09 中 \(a\) 与 \(a'\) 的关系。核心结论如下。
+
+\subsection*{结论 1}
+总有
+\[
+a' = a + (\ell-\ell'),
+\]
+因此
+\[
+a'-a \in L,
+\qquad\text{即}\qquad
+a' \equiv a \pmod L.
+\]
+
+\subsection*{结论 2}
+仅有
+\[
+a'-a\in L
+\]
+一般不足以推出 bit 解密正确，因为一般格向量不一定在模 \(2\) 下消失。
+
+\subsection*{结论 3}
+若能证明
+\[
+\ell'=\ell,
+\]
+则得到最强结论
+\[
+a'=a,
+\]
+从而消息正确恢复。
+
+\subsection*{结论 4}
+对 bit 正确性而言，其实不必要求 \(a'=a\)。只要能证明
+\[
+a'-a \equiv 0 \pmod 2,
+\]
+例如
+\[
+a'-a\in 2\mathbb Z^m
+\]
+或落在模 \(2\) 后消失的理想/子格中，就已经足够。
+
+\subsection*{一句话版}
+\begin{quote}
+\(a'\) 与 \(a\) 总是模格同余，但要恢复消息，还必须进一步证明它们在模 \(2\) 意义下相同；证明 \(a'=a\) 是一种更强但非唯一必要的路线。
+\end{quote}
+
+\end{document}

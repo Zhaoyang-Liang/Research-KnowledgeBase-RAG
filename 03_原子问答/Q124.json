@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q124",
+  "card_id": "K039",
+  "source_id": "src_000066",
+  "question": "CKKS编码中为什么要乘Δ再round？Δ的作用是什么？",
+  "answer": "σ^{-1}解出的m_e通常不是整数系数（含√2等无理数）。必须映射到R=Z[X]/(Φ_M)。先乘大数Δ放大→减少round的相对误差（如64√2≈90.51→91，误差仅0.5/91），再round到最近整数。Δ越大→精度越高→但噪声预算消耗越大。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "created": "2026-05-04T14:52"
+}

@@ -1,0 +1,285 @@
+\documentclass[UTF8,11pt]{ctexart}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+\usepackage{bbm}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{tikz-cd}
+
+\title{Coefficient-Split 视角下 CKKS Bootstrapping Core 的子环分解}
+\author{}
+\date{}
+
+% theorem environments
+\newtheorem{theorem}{定理}
+\newtheorem{lemma}{引理}
+\newtheorem{proposition}{命题}
+\newtheorem{corollary}{推论}
+\theoremstyle{definition}
+\newtheorem{definition}{定义}
+\newtheorem{remark}{注记}
+\newtheorem{example}{例子}
+
+% commands
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\RN}{R_N}
+\newcommand{\Rn}{R_n}
+\newcommand{\Eval}{\operatorname{Eval}}
+\newcommand{\CtwoS}{\operatorname{C2S}}
+\newcommand{\StwoC}{\operatorname{S2C}}
+\newcommand{\BTS}{\operatorname{BTS}}
+\newcommand{\Split}{\operatorname{Split}}
+\newcommand{\Merge}{\operatorname{Merge}}
+\newcommand{\EvalMod}{\operatorname{EvalMod}}
+\newcommand{\Diag}{\operatorname{diag}}
+\newcommand{\Id}{\operatorname{Id}}
+\newcommand{\BlockSplit}{\operatorname{BlockSplit}}
+\newcommand{\Red}{\operatorname{Red}}
+\newcommand{\op}{\operatorname}
+
+\begin{document}
+
+
+\section{核心交换图（逐步版）}
+
+为使交换结构更清晰，先约定两个记号：
+\[
+\mathbb{C}^{N}_{\mathrm{can}}
+\quad:=\quad
+\text{大环 canonical slot 空间},
+\qquad
+\mathbb{C}^{N}_{\mathrm{coeff}}
+\quad:=\quad
+\text{大环 coefficient-packed slot 空间}.
+\]
+类似地，
+\[
+\mathbb{C}^{n}_{\mathrm{can}},
+\qquad
+\mathbb{C}^{n}_{\mathrm{coeff}}
+\]
+分别表示小环的 canonical slot 空间与 coefficient-packed slot 空间。
+
+再记
+\[
+S=\bigoplus_{r=0}^{k-1}S_r,
+\qquad
+\EvalMod_N=f^{\oplus N},
+\qquad
+\EvalMod_n=f^{\oplus n}.
+\]
+
+\subsection*{Step 1: \(\CtwoS\) 与 \(\Split_k\) 的交换图}
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+\mathbb{C}^{N}_{\mathrm{can}}
+    \arrow[r,"\Split_k"]
+    \arrow[d,"\CtwoS_N"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{can}}
+    \arrow[d,"\displaystyle\bigoplus_{r=0}^{k-1}\CtwoS_n"]
+\\
+\mathbb{C}^{N}_{\mathrm{coeff}}
+    \arrow[r,"S"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{coeff}}
+\end{tikzcd}
+\]
+
+对应关系为
+\[
+\boxed{
+\left(\bigoplus_{r=0}^{k-1}\CtwoS_n\right)\circ \Split_k
+=
+S\circ \CtwoS_N.
+}
+\]
+
+\subsection*{Step 2: \(\EvalMod\) 与 coefficient 分组的交换图}
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+\mathbb{C}^{N}_{\mathrm{coeff}}
+    \arrow[r,"S"]
+    \arrow[d,"f^{\oplus N}"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{coeff}}
+    \arrow[d,"\displaystyle\bigoplus_{r=0}^{k-1}f^{\oplus n}"]
+\\
+\mathbb{C}^{N}_{\mathrm{coeff}}
+    \arrow[r,"S"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{coeff}}
+\end{tikzcd}
+\]
+
+对应关系为
+\[
+\boxed{
+\left(\bigoplus_{r=0}^{k-1}\EvalMod_n\right)\circ S
+=
+S\circ \EvalMod_N.
+}
+\]
+
+\subsection*{Step 3: \(\StwoC\) 与 \(\Merge_k\) 的交换图}
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+\mathbb{C}^{N}_{\mathrm{coeff}}
+    \arrow[r,"S"]
+    \arrow[d,"\StwoC_N"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{coeff}}
+    \arrow[d,"\displaystyle\bigoplus_{r=0}^{k-1}\StwoC_n"]
+\\
+\mathbb{C}^{N}_{\mathrm{can}}
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{can}}
+    \arrow[l,"\Merge_k"']
+\end{tikzcd}
+\]
+
+对应关系为
+\[
+\boxed{
+\Merge_k\circ
+\left(\bigoplus_{r=0}^{k-1}\StwoC_n\right)\circ S
+=
+\StwoC_N.
+}
+\]
+
+\subsection*{Step 4: 将三步串起来的整体交换图}
+
+把 Step 1, Step 2, Step 3 纵向串联，可得完整 bootstrapping core 分解图：
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+\mathbb{C}^{N}_{\mathrm{can}}
+    \arrow[r,"\Split_k"]
+    \arrow[d,"\CtwoS_N"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{can}}
+    \arrow[d,"\displaystyle\bigoplus_{r=0}^{k-1}\CtwoS_n"]
+\\
+\mathbb{C}^{N}_{\mathrm{coeff}}
+    \arrow[r,"S"]
+    \arrow[d,"f^{\oplus N}"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{coeff}}
+    \arrow[d,"\displaystyle\bigoplus_{r=0}^{k-1}f^{\oplus n}"]
+\\
+\mathbb{C}^{N}_{\mathrm{coeff}}
+    \arrow[r,"S"]
+    \arrow[d,"\StwoC_N"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{coeff}}
+    \arrow[d,"\displaystyle\bigoplus_{r=0}^{k-1}\StwoC_n"]
+\\
+\mathbb{C}^{N}_{\mathrm{can}}
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{can}}
+    \arrow[l,"\Merge_k"']
+\end{tikzcd}
+\]
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+\text{大环正常 slots}
+    \arrow[r,"\text{先拆成 }k\text{ 个小环密文}"]
+    \arrow[d,"\text{把大环 coefficients 放到 slots 里}"']
+&
+\text{\(k\) 个小环正常 slots}
+    \arrow[d,"\text{各自把小环 coefficients 放到 slots 里}"]
+\\
+\text{大环 coefficient 向量}
+    \arrow[r,"\text{按下标模 }k\text{ 分组}"']
+    \arrow[d,"\text{逐坐标做 EvalMod}"']
+&
+\text{\(k\) 组小环 coefficient 向量}
+    \arrow[d,"\text{每组逐坐标做 EvalMod}"]
+\\
+\text{模约减后的大环 coefficient 向量}
+    \arrow[r,"\text{仍按下标模 }k\text{ 分组}"']
+    \arrow[d,"\text{恢复成大环正常 slots}"']
+&
+\text{\(k\) 组模约减后的小环 coefficient 向量}
+    \arrow[d,"\text{各自恢复成小环正常 slots}"]
+\\
+\text{大环正常 slots}
+&
+\text{\(k\) 个小环正常 slots}
+    \arrow[l,"\text{合并回一个大环密文}"']
+\end{tikzcd}
+\]
+
+因此整体满足
+\[
+\boxed{
+\Merge_k
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}
+\bigl(\StwoC_n\circ \EvalMod_n\circ \CtwoS_n\bigr)
+\right)
+\circ
+\Split_k
+=
+\StwoC_N\circ \EvalMod_N\circ \CtwoS_N.
+}
+\]
+
+若记
+\[
+\BTS_N:=\StwoC_N\circ \EvalMod_N\circ \CtwoS_N,
+\qquad
+\BTS_n:=\StwoC_n\circ \EvalMod_n\circ \CtwoS_n,
+\]
+则上式可简写为
+\[
+\boxed{
+\Merge_k
+\circ
+\left(\bigoplus_{r=0}^{k-1}\BTS_n\right)
+\circ
+\Split_k
+=
+\BTS_N.
+}
+\]
+
+\subsection*{Step 5: 考虑实现中的全局归一化因子}
+
+若真实实现中存在全局常数 \(\gamma_k\)，则更保守地写为
+\[
+\boxed{
+\Merge_k^{\mathrm{impl}}
+\circ
+\left(\bigoplus_{r=0}^{k-1}\BTS_n^{\mathrm{impl}}\right)
+\circ
+\Split_k^{\mathrm{impl}}
+\approx
+\gamma_k\,\BTS_N^{\mathrm{impl}}.
+}
+\]
+
+等价地，
+\[
+\boxed{
+\gamma_k^{-1}\,
+\Merge_k^{\mathrm{impl}}
+\circ
+\left(\bigoplus_{r=0}^{k-1}\BTS_n^{\mathrm{impl}}\right)
+\circ
+\Split_k^{\mathrm{impl}}
+\approx
+\BTS_N^{\mathrm{impl}}.
+}
+\]
+
+\end{document}

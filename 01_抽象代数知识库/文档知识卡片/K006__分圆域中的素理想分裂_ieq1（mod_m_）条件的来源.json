@@ -1,0 +1,85 @@
+{
+  "card_id": "K006",
+  "version": "v2",
+  "title": "分圆域中的素理想分裂：i≡1(mod m₀)条件的来源",
+  "source_id": "src_000006",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/Prime Spliting.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "prime splitting, i≡1(mod m₀)"
+  },
+  "category": "数学基础",
+  "subtopic": "代数数论/素理想分解",
+  "chinese_summary": "分圆域K=Q(ζ_m)中素数p的素理想分裂由p模m的阶决定：p完全不分裂⇔p≡1(mod m)。条件i≡1(mod m₀)源于子域K₀=Q(ζ_{m₀})的自同构固定条件：τ_i(ζ_{m₀})=ζ_{m₀}^i=ζ_{m₀}⇔m₀|(i-1)。这决定了field switching中哪些自同构可做迹操作而不改变子域。",
+  "knowledge_points": [
+    {
+      "id": "K006-1",
+      "concept": "分圆域p分裂判定",
+      "formula": "p在Q(ζ_m)中不分裂⇔p≡1(mod m)",
+      "meaning": "p模m行为决定p在分圆域中的分裂。代数数论经典定理。"
+    },
+    {
+      "id": "K006-2",
+      "concept": "i≡1(mod m₀)来源",
+      "formula": "τ_i(ζ_{m₀})=ζ_{m₀}^i=ζ_{m₀}⇔m₀|(i-1)",
+      "meaning": "自同构固定子域生成元的充要条件。"
+    },
+    {
+      "id": "K006-3",
+      "concept": "固定子域与Galois子群",
+      "formula": "Fix(H)={α∈K:σ(α)=α∀σ∈H}, H≤Gal",
+      "meaning": "子域K₀=子群H={τ_i:i≡1(mod m₀)}的固定域。"
+    },
+    {
+      "id": "K006-4",
+      "concept": "Field switching约束",
+      "formula": "Tr_{K→K₀}只对满足i≡1(mod m₀)的自同构求和",
+      "meaning": "迹操作只对固定子域的自同构求和→商群Gal(K/K₀)。"
+    },
+    {
+      "id": "K006-5",
+      "concept": "与SIMD槽联系",
+      "formula": "素理想分解→Φ_m=∏fᵢ→CRT→∏F_{p^d}→SIMD槽",
+      "meaning": "素数分裂→分圆分解→CRT→SIMD槽的完整链条。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "τ_i(ζ_{m₀})=ζ_{m₀}⇔i≡1(mod m₀)",
+      "meaning": "自同构固定子域生成元的充要条件"
+    },
+    {
+      "formula": "Tr_{K→K₀}(α)=Σ_{σ∈Gal(K/K₀)}σ(α)",
+      "meaning": "只对固定K₀的自同构求和"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "素理想分裂",
+      "en": "prime ideal splitting",
+      "definition": "基域素理想在扩域整数环中分解为素理想乘积"
+    },
+    {
+      "term": "固定域",
+      "en": "fixed field",
+      "definition": "被自同构子群逐点固定的最大子域"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "代数数论素理想分解",
+    "RLWE_lattice": "与分圆环CRT分解直接相关",
+    "FHE_technique": "field switching核心约束条件来源",
+    "current_paper": "当前论文field switching依赖此条件"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K006-1",
+    "QA-K006-2",
+    "QA-K006-3",
+    "QA-K006-4",
+    "QA-K006-5"
+  ],
+  "rag_ingestion_suggestion": "极高优先级，field switching数学基础"
+}

@@ -1,0 +1,19 @@
+# Vandermonde矩阵、DFT矩阵、典范嵌入矩阵的关系与区别
+
+**card_id**: K054 | **batch**: Batch-05a3 | **confidence**: low
+**source_id**: src_000094, src_000018 | **claim_source_type**: 用户笔记+跨论文综合
+⚠️ **needs_human_review**: true
+📝 **note_quality**: synthesis
+
+## Knowledge Points
+
+1. Vandermonde矩阵：V_{ij}=x_i^j，给定点集{x_i}构造。最通用的求值/插值矩阵——多项式f(X)在x_i处的值=V·(系数向量)。矩阵是否可快速分解取决于点集选择。
+2. DFT矩阵：Vandermonde的特例，点集取单位根ω^i。此时矩阵有对称性(ω^{k+n/2}=-ω^k)，可Cooley-Tukey分解为log n层稀疏矩阵，得O(n log n)。
+3. CKKS典范嵌入矩阵(U_n)：也是Vandermonde/DFT型矩阵，U_n[i,j]=ζ^{s_i·s_j}，其中ζ是m次本原单位根，S⊂Z_m^*/⟨5⟩为half-slot代表元。N×N而非N/2×N/2(因共轭补全)。
+4. BGV/BFV的U_ℓ矩阵(HERMES/ring packing context)：ℓ×ℓ块Vandermonde矩阵，块(r,c)=ζ_m^{drc}·I_d。也是Fourier型但维度/域/上下文不同。
+5. 本质统一性：所有这些都是{Vandermonde at roots-of-unity}的不同实例——因此都有FFT-like分解潜力。但域(C vs F_q)、维度(N vs n vs ℓd)、用途(编码vs卷积vs C2S)不同。
+6. ⚠️ BGV/BFV CRT slot的求值根和CKKS complex slot的典范嵌入根虽然都是"单位根"，但所在的域和结构完全不同。不可简单写成NTT=FFT=CKKS embedding。
+
+**交叉引用**: K018(Y-X): CKKS典范嵌入U_n矩阵；K048(Y-X): BGV/BFV U_ℓ块Fourier矩阵；K053(Y-X): DFT/FFT/NTT通用定义。K054做跨context关系整理（统一点集的Vandermonde视角）。
+
+**备注**: ⚠️ cross_source_synthesis, confidence=low。跨CKKS/BGV/BFV/信号处理的多context综合，需作者核实每个对应关系的正确性。

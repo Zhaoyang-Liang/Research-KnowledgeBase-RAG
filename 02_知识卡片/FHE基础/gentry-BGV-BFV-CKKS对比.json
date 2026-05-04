@@ -1,0 +1,63 @@
+{
+  "title": "Gentry09、BGV、BFV、CKKS四方案全对比",
+  "source_file": "01_源文件库/03_FHE总论与基础方案/gentry-BGFV-CKKS.md",
+  "category": "03_FHE总论与基础方案",
+  "subtopic": "FHE方案对比",
+  "read_depth": "精读",
+  "ingest_decision": "core_ingest",
+  "generated_at": "2026-05-04",
+  "knowledge_points": [
+    {
+      "id": "LWE-RLWE-basics",
+      "concept": "LWE与RLWE假设",
+      "formula": "b_i = ⟨a_i, s⟩ + e_i (mod q)",
+      "meaning": "RLWE将LWE从向量推广到多项式环R=Z[X]/(X^N+1)，密钥和密文尺寸从O(n)降到O(N)"
+    },
+    {
+      "id": "bootstrapping-core",
+      "concept": "自举核心思想",
+      "formula": "Enc_{pk}(Dec_{sk}(c)) = fresh Enc(m)",
+      "meaning": "同态计算解密电路，噪声重置，实现无限深度同态计算"
+    },
+    {
+      "id": "BGV-encrypt",
+      "concept": "BGV加密/解密与模数切换",
+      "formula": "c=(a·s+t·e+m, -a), c'=⌊q'/q·c⌉ (ModSwitch)",
+      "meaning": "明文在低位，噪声通过模数切换降低绝对值"
+    },
+    {
+      "id": "BFV-encrypt",
+      "concept": "BFV加密与重缩放",
+      "formula": "c=(a·s+Δ·m+e, -a), Δ=⌊q/t⌋, 重缩放除以Δ",
+      "meaning": "明文在高位(Δ倍)，尺度不变，重缩放控制噪声"
+    },
+    {
+      "id": "CKKS-encode",
+      "concept": "CKKS编码与近似计算",
+      "formula": "m=Encode(z,Δ), z'=Decode(c₀+c₁·s) ≈ z",
+      "meaning": "规范嵌入将复数向量编码为多项式，允许近似误差，适合ML/科学计算"
+    },
+    {
+      "id": "scheme-comparison",
+      "concept": "四方案核心区别",
+      "formula": "BGV: m低位+ModSwitch | BFV: m高位+Rescale | CKKS: 复数近似+Rescale",
+      "meaning": "BGV/BFV精确整数(BGV模数切换,BFV重缩放), CKKS近似复数(效率最高)"
+    }
+  ],
+  "tags": [
+    "FHE",
+    "LWE",
+    "RLWE",
+    "BGV",
+    "BFV",
+    "CKKS",
+    "Gentry",
+    "Bootstrapping",
+    "方案对比"
+  ],
+  "source_id": "src_000011",
+  "source_title": "Gentry09/BGV/BFV/CKKS四方案全对比",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/gentry-BGFV-CKKS.md",
+  "source_type": "md",
+  "source_role": "canonical_source"
+}

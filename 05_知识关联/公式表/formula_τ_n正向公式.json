@@ -1,0 +1,6 @@
+{
+  "name": "τ_n正向公式",
+  "latex": "\\tau_n(p(Y))=(p(\\zeta_{n,i}))_{i\\in[0,n)}=U_n(\\mathbf{p}_0+\\mathbf{I}\\mathbf{p}_1)",
+  "description": "典范嵌入正向",
+  "source_id": "src_000051"
+}

@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q184",
+  "question": "重线性化和密钥切换（KeySwitch）有什么关系？是一回事吗？",
+  "answer": "重线性化是密钥切换的一个特例。\n\nKeySwitch 的一般形式：给定密文在旧密钥 s_old 下，切换到新密钥 s_new 下。输入 c = (c₀, c₁)（s_old 下），发布 KSK = {Enc_{s_new}(T^i·s_old)}_i，输出 c' = (c₀', c₁')（s_new 下）。\n\n重线性化特例：(1) 旧密钥 = s²（扩展密钥），新密钥 = s（原密钥）。(2) 输入 c = (α₀, α₁, α₂)（在密钥 (1, s, s²) 下），输出 c' = (β₀, β₁)（在密钥 (1, s) 下），α₂ 的 s² 项被 KSK 吃掉。\n\n其他 KS 场景：(a) 密钥授权 s₁→s₂（不同用户间委托计算），(b) bootstrapping s_old→s_fresh（刷新密文），(c) C2S/S2C 中 rotation key switching（s→s(X^k) 的逆向）。\n\n结论：重线性化 = KeySwitch(s²→s)。所有场景用同一个数学框架（位分解 + KSK 参积），区别只在 KSK 的内容不同。",
+  "source_id": "src_000013, src_000112, src_000104",
+  "batch": "Batch-05c",
+  "confidence": "medium",
+  "source_status": "source_preserved",
+  "needs_human_review": false,
+  "review_policy": "review_when_used_for_paper"
+}

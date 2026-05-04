@@ -1,0 +1,7 @@
+{
+  "name": "split-compatible criterion",
+  "latex": "F_N=\\operatorname{Merge}_k\\circ\\left(\\bigoplus_r L_n^{(2)}\\circ\\Phi_n\\circ L_n^{(1)}\\right)\\circ\\operatorname{Split}_k",
+  "description": "作者提出的通用分解框架",
+  "source_id": "src_000053",
+  "needs_human_review": true
+}

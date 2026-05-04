@@ -1,0 +1,90 @@
+{
+  "card_id": "K004",
+  "version": "v2",
+  "title": "Trace落入基域的证明与field switching中的应用",
+  "source_id": "src_000004",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/Trace与固定.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "trace, Tr, 基域, 固定, field switching"
+  },
+  "category": "数学基础",
+  "subtopic": "域论/Trace与Norm",
+  "chinese_summary": "扩张K/F的迹Tr_{K/F}(α)=Σ_{σ∈Gal(K/F)}σ(α)一定落入基域F，因为迹和被所有自同构固定（重排不变）。在field switching中，Tr_{n→B}通过旋转-加法链实现同态降维，将大环密文投影到子环，复杂度从O(n²)降到O(n log n)。这是GHPS field switching算法的核心操作。",
+  "knowledge_points": [
+    {
+      "id": "K004-1",
+      "concept": "迹的代数定义",
+      "formula": "Tr_{K/F}(α)=Σ_{σ∈Gal(K/F)}σ(α)∈F",
+      "meaning": "扩张K/F中所有F-自同构下像的和，结果必在基域。"
+    },
+    {
+      "id": "K004-2",
+      "concept": "落入基域的证明",
+      "formula": "τ(Tr(α))=Στ∘σ(α)=Σσ'(α)=Tr(α), ∀τ∈Gal",
+      "meaning": "自同构作用于迹和只是重排求和，故迹不变→被所有自同构固定→必在基域。"
+    },
+    {
+      "id": "K004-3",
+      "concept": "同态迹的实现",
+      "formula": "Tr(c)=c+Rot₁(c)+Rot₂(c)+…+Rot_{d-1}(c)",
+      "meaning": "通过d-1次自同构旋转再加和实现同态迹。"
+    },
+    {
+      "id": "K004-4",
+      "concept": "Field switching中的迹",
+      "formula": "Tr_{n→B}: R_E→R_{E_B}, 将大环多项式投影到子环",
+      "meaning": "迹降维是field switching核心：减小bootstrapping密文尺寸。"
+    },
+    {
+      "id": "K004-5",
+      "concept": "迹与范数的区别",
+      "formula": "Norm_{K/F}(α)=Πσ(α); Tr=Σ, Norm=Π",
+      "meaning": "迹是求和(加法性)，范数是乘积(乘法性)。FHE中主要用迹的加法结构。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "Tr_{K/F}(α)=Σ_{i=0}^{d-1}τⁱ(α), d=[K:F]",
+      "meaning": "Galois扩张中的迹公式"
+    },
+    {
+      "formula": "Tr(c)=c+Rot₁(c)+…+Rot_{d-1}(c)",
+      "meaning": "同态迹的旋转-加法实现"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "迹",
+      "en": "trace",
+      "definition": "扩张中元素在所有F-自同构下像的和"
+    },
+    {
+      "term": "基域",
+      "en": "base field",
+      "definition": "扩张的起始域F"
+    },
+    {
+      "term": "Field switching",
+      "en": "field switching",
+      "definition": "GHPS技术：通过迹将密文从大分圆环转换到小子环"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "域扩张的迹理论",
+    "RLWE_lattice": "迹满足Tr(a+b)=Tr(a)+Tr(b)，线性操作",
+    "FHE_technique": "field switching / bootstrapping降维核心",
+    "current_paper": "当前论文field switching核心依赖迹"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K004-1",
+    "QA-K004-2",
+    "QA-K004-3",
+    "QA-K004-4",
+    "QA-K004-5"
+  ],
+  "rag_ingestion_suggestion": "极高优先级，field switching数学基础"
+}

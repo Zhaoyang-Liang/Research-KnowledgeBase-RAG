@@ -1,0 +1,792 @@
+\documentclass[11pt,a4paper]{ctexart}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+
+% ----------------------------
+% Macros
+% ----------------------------
+\newcommand{\RR}{\mathbb{R}}
+\newcommand{\ZZ}{\mathbb{Z}}
+\newcommand{\CC}{\mathbb{C}}
+
+\newcommand{\Enc}{\mathsf{Enc}}
+\newcommand{\Auto}[1]{\mathsf{Auto}_{#1}}
+\newcommand{\Add}{\mathsf{Add}}
+\newcommand{\Sub}{\mathsf{Sub}}
+\newcommand{\MulPt}[1]{\mathsf{MulPt}_{#1}}
+\newcommand{\Round}{\operatorname{Round}}
+
+\newcommand{\ct}{\mathbf{ct}}
+\newcommand{\cte}{\mathbf{ct}_{\mathrm{even}}^{\uparrow}}
+\newcommand{\ctoy}{\mathbf{ct}_{\mathrm{odd},Y}^{\uparrow}}
+\newcommand{\cto}{\mathbf{ct}_{\mathrm{odd}}^{\uparrow}}
+
+\newcommand{\Rbig}{\mathcal{R}_N^{\RR}}
+\newcommand{\Rint}{\mathcal{R}_N^{\ZZ}}
+\newcommand{\Ssmall}{\mathcal{S}_n}
+
+\newcommand{\rep}{\mathrel{\vDash_{\Delta}}}
+
+% ----------------------------
+% Theorem environments
+% ----------------------------
+\newtheorem{definition}{定义}[section]
+\newtheorem{proposition}[definition]{命题}
+\newtheorem{theorem}[definition]{定理}
+\newtheorem{lemma}[definition]{引理}
+\newtheorem{corollary}[definition]{推论}
+\newtheorem{remark}[definition]{注}
+
+% ----------------------------
+% Title
+% ----------------------------
+\title{在 CKKS 密文上实现多项式的 FFT 式奇偶拆分与重构\\
+\large 一份自洽且可直接落地的推导说明}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+
+\tableofcontents
+\newpage
+
+
+\begin{abstract}
+本文整理并严格推导一个可直接在 CKKS 密文上执行的“FFT 式奇偶拆分 / 反向重构”过程。设
+\[
+P(Y)=\sum_{j=0}^{2n-1}p_jY^j \in \RR[Y]/(Y^{2n}+1),
+\]
+我们希望在不经过 CoeffToSlot / SlotToCoeff 的前提下，直接从一个加密 \(P(Y)\) 的 CKKS 密文出发，得到两个分别对应
+\[
+P_{\mathrm{even}}(T)=\sum_{i=0}^{n-1}p_{2i}T^i,
+\qquad
+P_{\mathrm{odd}}(T)=\sum_{i=0}^{n-1}p_{2i+1}T^i
+\]
+的密文；并进一步给出从这两个分支密文重构原始密文的完整公式。全文采用多项式视角而非槽向量视角，因为这样可以直接使用 CKKS 的标准操作：自同构、加法、减法与明文--密文乘法。文中所有代数等式都在明文多项式层面精确成立；对应的密文操作在 CKKS 语义下可直接实现。
+\end{abstract}
+
+\section{目标与方法选择}
+
+本文的目标是严格说明以下两件事：
+
+\begin{enumerate}[label=\arabic*.]
+    \item \textbf{正向拆分：} 从一个加密
+    \[
+    P(Y)=\sum_{j=0}^{2n-1}p_jY^j
+    \]
+    的 CKKS 密文出发，同态地得到两个分支密文，分别对应 FFT 递归中的偶部分和奇部分；
+    
+    \item \textbf{反向重构：} 从这两个分支密文出发，同态地恢复原始的 \(P(Y)\) 密文。
+\end{enumerate}
+
+需要强调的是，这里我们\textbf{不采用}直接把系数向量
+\[
+(p_0,p_1,\dots,p_{2n-1})^\top
+\]
+看成一个长度 \(2n\) 向量，再用矩阵 \(E,O\) 去做抽取的方案。原因是：标准 CKKS 的“矩阵--密文乘法”作用对象本质上是\textbf{槽向量表示}，而这里我们要处理的是\textbf{多项式系数表示}。如果走矩阵 \(E,O\) 的路线，通常需要先做一次 CoeffToSlot，把系数信息变成槽向量；那样虽然理论上也可行，但不如直接在多项式域里做来得自然。
+
+因此，本文选择如下更适合 CKKS 密文域的路线：
+\[
+P(Y)=P_{\mathrm{even}}(Y^2)+Y\,P_{\mathrm{odd}}(Y^2),
+\]
+并结合
+\[
+P(-Y)=P_{\mathrm{even}}(Y^2)-Y\,P_{\mathrm{odd}}(Y^2)
+\]
+来实现分裂与重构。
+
+\section{记号、环与 CKKS 语义约定}
+
+\subsection{基本参数与环}
+
+固定一个 2 的幂 \(N\ge 1\)，以及一个满足 \(n\mid N\) 且 \(n < N\) 的 2 的幂。定义
+\[
+k=\frac{N}{2n}\in \ZZ_{>0}.
+\]
+
+考虑两个环：
+
+\begin{align*}
+\Ssmall &= \RR[Y]/(Y^{2n}+1),\\
+\Rbig &= \RR[X]/(X^N+1).
+\end{align*}
+
+通过代换
+\[
+Y=X^k
+\]
+把 \(\Ssmall\) 嵌入到 \(\Rbig\) 中。由于
+\[
+Y^{2n}=(X^k)^{2n}=X^{2nk}=X^N=-1,
+\]
+所以该嵌入是良定义的。
+
+在 CKKS 中，实际明文多项式（经过缩放与取整后）属于整数环
+\[
+\Rint=\ZZ[X]/(X^N+1).
+\]
+但本文中的代数推导主要发生在实系数环 \(\Rbig\) 中；最后再通过 CKKS 编码把实系数对象送入 \(\Rint\)。
+
+\subsection{多项式与偶奇分支}
+
+设
+\[
+P(Y)=\sum_{j=0}^{2n-1}p_jY^j \in \Ssmall.
+\]
+
+定义两个多项式：
+\begin{align}
+P_{\mathrm{even}}(T) &= \sum_{i=0}^{n-1}p_{2i}T^i, \label{eq:def-even}\\
+P_{\mathrm{odd}}(T) &= \sum_{i=0}^{n-1}p_{2i+1}T^i. \label{eq:def-odd}
+\end{align}
+
+于是
+\[
+P(Y)=P_{\mathrm{even}}(Y^2)+Y\,P_{\mathrm{odd}}(Y^2).
+\]
+
+这里
+\[
+P_{\mathrm{even}}(T)
+\]
+的系数向量正是
+\[
+(p_0,p_2,\dots,p_{2n-2}),
+\]
+而
+\[
+P_{\mathrm{odd}}(T)
+\]
+的系数向量正是
+\[
+(p_1,p_3,\dots,p_{2n-1}).
+\]
+
+因此，这两个多项式正对应 FFT 递归中“偶数项系数向量”和“奇数项系数向量”。
+
+\subsection{CKKS 语义记号}
+
+为了把推导写得清楚，同时不被实现细节淹没，我们约定如下的\textbf{语义记号}。
+
+\begin{definition}[密文表示的消息]
+设当前 CKKS scale 为 \(\Delta\)。若一个密文 \(\ct\) 解密后得到的明文多项式为
+\[
+m(X)=\Round\!\bigl(\Delta F(X)\bigr)+e(X)\in \Rint,
+\]
+其中 \(F(X)\in \Rbig\)，而 \(e(X)\) 是 CKKS 中通常的小噪声项，则记为
+\[
+\ct \rep F(X).
+\]
+这表示：\(\ct\) 在当前 scale 下\textbf{表示}消息 \(F(X)\)。
+\end{definition}
+
+这里 \(\Round\) 表示逐系数取最近整数。于是：
+
+\begin{itemize}
+    \item 当写 \(\ct \rep F(X)\) 时，真正被加密的是 \(\Round(\Delta F(X))\)（再加上通常的小加密噪声）；
+    \item 本文中的代数等式都作用在 \(F(X)\) 这个\textbf{被表示的消息}层面；
+    \item 若实现中需要做 rescale、modulus switching 或 scale matching，则默认按标准 CKKS 方式处理，使得\(\ct\) 所表示的消息不变。为集中讨论代数正确性，这些实现细节在公式中省略。
+\end{itemize}
+
+\subsection{本文使用的同态操作}
+
+我们只使用以下四类标准操作。
+
+\begin{enumerate}[label=(\roman*)]
+    \item \textbf{自同构：}
+    \[
+    \Auto{a}(\ct), \qquad a \text{ 为奇数},
+    \]
+    表示对密文应用环自同构
+    \[
+    \sigma_a:\Rbig\to\Rbig,\qquad f(X)\mapsto f(X^a).
+    \]
+
+    \item \textbf{加法：}
+    \[
+    \Add(\ct_1,\ct_2).
+    \]
+
+    \item \textbf{减法：}
+    \[
+    \Sub(\ct_1,\ct_2).
+    \]
+
+    \item \textbf{明文--密文乘法：}
+    \[
+    \MulPt{u(X)}(\ct),
+    \]
+    其中 \(u(X)\in \Rbig\) 是一个明文多项式（例如常数 \(1/2\)、单项式 \(X^k\) 或 \(-X^{N-k}\)）。
+\end{enumerate}
+
+这些操作在消息层面满足以下标准语义：
+
+\begin{proposition}[操作的消息语义]
+设 \(\ct,\ct_1,\ct_2\) 为 CKKS 密文，\(u(X)\in\Rbig\)，\(a\) 为奇数。
+\begin{enumerate}[label=(\arabic*)]
+    \item 若 \(\ct \rep F(X)\)，则
+    \[
+    \Auto{a}(\ct)\rep F(X^a).
+    \]
+    \item 若 \(\ct_1\rep F_1(X)\) 且 \(\ct_2\rep F_2(X)\)，则
+    \[
+    \Add(\ct_1,\ct_2)\rep F_1(X)+F_2(X),
+    \]
+    \[
+    \Sub(\ct_1,\ct_2)\rep F_1(X)-F_2(X).
+    \]
+    \item 若 \(\ct\rep F(X)\)，则
+    \[
+    \MulPt{u(X)}(\ct)\rep u(X)\,F(X).
+    \]
+\end{enumerate}
+\end{proposition}
+
+\begin{remark}
+上面的第三条在实现里可能伴随 scale 调整与 rescale；但在“被表示的消息”这一层面，其作用就是乘上 \(u(X)\)。
+\end{remark}
+
+\subsection{上标 \(\uparrow\) 的含义}
+
+稍后我们会得到形如
+\[
+P_{\mathrm{even}}(X^{2k}), \qquad P_{\mathrm{odd}}(X^{2k})
+\]
+这样的对象。它们虽然仍属于大环 \(\Rbig\)，但只包含 \(X^{2k}\) 的幂，因此实际上落在更小的子环里。为提醒读者“它仍存放在大环中，但语义上来自更小子环”，我们记对应密文为
+\[
+\cte,\qquad \ctoy,\qquad \cto,
+\]
+其中上标 \({}^{\uparrow}\) 表示“提升回大环中的表示”。
+
+\section{精确的代数恒等式}
+
+本节所有等式都发生在 \(\Ssmall=\RR[Y]/(Y^{2n}+1)\) 中，是\textbf{精确等式}。
+
+\begin{proposition}[FFT 式偶奇分解]
+设
+\[
+P(Y)=\sum_{j=0}^{2n-1}p_jY^j.
+\]
+定义 \(P_{\mathrm{even}}, P_{\mathrm{odd}}\) 如 \eqref{eq:def-even} 与 \eqref{eq:def-odd}。则
+\begin{equation}
+P(Y)=P_{\mathrm{even}}(Y^2)+Y\,P_{\mathrm{odd}}(Y^2). \label{eq:fft-split}
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+直接展开右边：
+\begin{align*}
+P_{\mathrm{even}}(Y^2)+Y\,P_{\mathrm{odd}}(Y^2)
+&=
+\sum_{i=0}^{n-1}p_{2i}(Y^2)^i
++
+Y\sum_{i=0}^{n-1}p_{2i+1}(Y^2)^i\\
+&=
+\sum_{i=0}^{n-1}p_{2i}Y^{2i}
++
+\sum_{i=0}^{n-1}p_{2i+1}Y^{2i+1}\\
+&=
+\sum_{j=0}^{2n-1}p_jY^j\\
+&=P(Y).
+\end{align*}
+\end{proof}
+
+\begin{proposition}[以 \(P(-Y)\) 表示偶奇分支]
+在 \eqref{eq:fft-split} 的条件下，有
+\begin{equation}
+P(-Y)=P_{\mathrm{even}}(Y^2)-Y\,P_{\mathrm{odd}}(Y^2). \label{eq:p-minus-y}
+\end{equation}
+从而
+\begin{equation}
+P_{\mathrm{even}}(Y^2)=\frac{P(Y)+P(-Y)}{2}, \label{eq:even-half-sum}
+\end{equation}
+\begin{equation}
+Y\,P_{\mathrm{odd}}(Y^2)=\frac{P(Y)-P(-Y)}{2}. \label{eq:odd-half-diff}
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+将 \eqref{eq:fft-split} 中的 \(Y\) 替换为 \(-Y\) 即得 \eqref{eq:p-minus-y}。再把 \eqref{eq:fft-split} 与 \eqref{eq:p-minus-y} 相加、相减即可得到 \eqref{eq:even-half-sum} 与 \eqref{eq:odd-half-diff}。
+\end{proof}
+
+\section{正向方向：从 \texorpdfstring{\(\ct_P\)}{ctP} 到两个分支密文}
+
+\subsection{输入}
+
+设输入密文为
+\[
+\ct_P \rep P(X^k),
+\]
+其中
+\[
+P(X^k)=\sum_{j=0}^{2n-1}p_jX^{jk}\in \Rbig.
+\]
+
+也就是说，\(\ct_P\) 是一个直接在 CKKS 大环中表示 \(P(Y)\)（经 \(Y=X^k\) 嵌入后）的密文。
+
+\subsection{第一步：构造 \texorpdfstring{\(P(-Y)\)}{P(-Y)} 的密文}
+
+\begin{proposition}[实现 \(Y\mapsto -Y\) 的自同构]
+取
+\[
+a=1+2n.
+\]
+则 \(a\) 为奇数，因此对应一个合法的环自同构
+\[
+\sigma_a:\Rbig\to\Rbig,\qquad f(X)\mapsto f(X^a).
+\]
+并且
+\begin{equation}
+\sigma_a(X^k)=-X^k. \label{eq:auto-sends-Y-to-minus-Y}
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+由于 \(2n\) 为偶数，所以 \(a=1+2n\) 为奇数。再由 \(k=N/(2n)\) 可得
+\[
+2nk=N.
+\]
+因此
+\begin{align*}
+\sigma_a(X^k)
+&=X^{ka}\\
+&=X^{k(1+2n)}\\
+&=X^{k+2nk}\\
+&=X^{k+N}\\
+&=X^k\cdot X^N\\
+&=X^k\cdot(-1)\\
+&=-X^k.
+\end{align*}
+这就证明了 \eqref{eq:auto-sends-Y-to-minus-Y}。
+\end{proof}
+
+据此定义
+\begin{equation}
+\ct_{-}:=\Auto{1+2n}(\ct_P). \label{eq:def-ct-minus}
+\end{equation}
+
+\begin{corollary}
+有
+\[
+\ct_{-}\rep P(-X^k).
+\]
+\end{corollary}
+
+\begin{proof}
+由 \(\ct_P\rep P(X^k)\) 以及命题 \eqref{eq:auto-sends-Y-to-minus-Y}，再用自同构的消息语义即可：
+\[
+\ct_{-}
+=
+\Auto{1+2n}(\ct_P)
+\rep
+P\bigl(\sigma_{1+2n}(X^k)\bigr)
+=
+P(-X^k).
+\]
+\end{proof}
+
+\subsection{第二步：得到偶分支}
+
+定义
+\begin{equation}
+\cte
+:=
+\MulPt{\frac12}\!\Bigl(\Add(\ct_P,\ct_{-})\Bigr). \label{eq:def-ct-even}
+\end{equation}
+
+\begin{theorem}[偶分支的正确性]
+由 \eqref{eq:def-ct-even} 得到的密文满足
+\[
+\cte \rep P_{\mathrm{even}}(X^{2k}).
+\]
+更具体地，
+\[
+P_{\mathrm{even}}(X^{2k})=\sum_{i=0}^{n-1}p_{2i}X^{2ik}.
+\]
+\end{theorem}
+
+\begin{proof}
+由 \(\ct_P\rep P(X^k)\) 与 \(\ct_{-}\rep P(-X^k)\)，先得
+\[
+\Add(\ct_P,\ct_{-})\rep P(X^k)+P(-X^k).
+\]
+再乘上 \(1/2\)，得到
+\[
+\cte \rep \frac{P(X^k)+P(-X^k)}{2}.
+\]
+根据 \eqref{eq:even-half-sum}，把其中的 \(Y\) 替换成 \(X^k\)，即有
+\[
+\frac{P(X^k)+P(-X^k)}{2}=P_{\mathrm{even}}((X^k)^2)=P_{\mathrm{even}}(X^{2k}).
+\]
+于是
+\[
+\cte \rep P_{\mathrm{even}}(X^{2k}).
+\]
+最后由 \(P_{\mathrm{even}}(T)=\sum_{i=0}^{n-1}p_{2i}T^i\)，代入 \(T=X^{2k}\) 得
+\[
+P_{\mathrm{even}}(X^{2k})=\sum_{i=0}^{n-1}p_{2i}X^{2ik}.
+\]
+\end{proof}
+
+\subsection{第三步：得到带 \texorpdfstring{\(Y\)}{Y} 因子的奇分支}
+
+定义
+\begin{equation}
+\ctoy
+:=
+\MulPt{\frac12}\!\Bigl(\Sub(\ct_P,\ct_{-})\Bigr). \label{eq:def-ct-oddY}
+\end{equation}
+
+\begin{theorem}[带 \(Y\) 因子的奇分支的正确性]
+由 \eqref{eq:def-ct-oddY} 得到的密文满足
+\[
+\ctoy \rep X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+更具体地，
+\[
+X^k\,P_{\mathrm{odd}}(X^{2k})
+=
+\sum_{i=0}^{n-1}p_{2i+1}X^{(2i+1)k}.
+\]
+\end{theorem}
+
+\begin{proof}
+由 \(\ct_P\rep P(X^k)\) 与 \(\ct_{-}\rep P(-X^k)\)，先得
+\[
+\Sub(\ct_P,\ct_{-})\rep P(X^k)-P(-X^k).
+\]
+再乘上 \(1/2\)，得到
+\[
+\ctoy \rep \frac{P(X^k)-P(-X^k)}{2}.
+\]
+根据 \eqref{eq:odd-half-diff}，把其中的 \(Y\) 替换成 \(X^k\)，得到
+\[
+\frac{P(X^k)-P(-X^k)}{2}
+=
+X^k\,P_{\mathrm{odd}}((X^k)^2)
+=
+X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+于是
+\[
+\ctoy \rep X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+再展开 \(P_{\mathrm{odd}}(T)=\sum_{i=0}^{n-1}p_{2i+1}T^i\)，可得
+\[
+X^k\,P_{\mathrm{odd}}(X^{2k})
+=
+X^k\sum_{i=0}^{n-1}p_{2i+1}(X^{2k})^i
+=
+\sum_{i=0}^{n-1}p_{2i+1}X^{(2i+1)k}.
+\]
+\end{proof}
+
+\subsection{第四步（可选）：去掉奇分支前面的 \texorpdfstring{\(Y=X^k\)}{Y=Xk}}
+
+有时为了继续递归拆分，我们希望奇分支也写成与偶分支完全同形的形式，即直接得到
+\[
+P_{\mathrm{odd}}(X^{2k})
+\]
+而不是
+\[
+X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+
+\begin{lemma}[求 \(Y=X^k\) 的逆元]
+在 \(\Rbig=\RR[X]/(X^N+1)\) 中，
+\begin{equation}
+(X^k)^{-1}=-X^{N-k}. \label{eq:Y-inverse}
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+直接计算：
+\[
+X^k\cdot(-X^{N-k})=-X^N=1.
+\]
+故
+\[
+(X^k)^{-1}=-X^{N-k}.
+\]
+\end{proof}
+
+定义
+\begin{equation}
+\cto
+:=
+\MulPt{-X^{N-k}}(\ctoy). \label{eq:def-ct-odd}
+\end{equation}
+
+\begin{theorem}[去掉 \(Y\) 因子的奇分支的正确性]
+由 \eqref{eq:def-ct-odd} 得到的密文满足
+\[
+\cto \rep P_{\mathrm{odd}}(X^{2k}).
+\]
+更具体地，
+\[
+P_{\mathrm{odd}}(X^{2k})=\sum_{i=0}^{n-1}p_{2i+1}X^{2ik}.
+\]
+\end{theorem}
+
+\begin{proof}
+由上一节可知
+\[
+\ctoy \rep X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+再乘上 \(-X^{N-k}\)，由 \eqref{eq:Y-inverse} 可得
+\[
+\cto
+=
+\MulPt{-X^{N-k}}(\ctoy)
+\rep
+(-X^{N-k})\cdot X^k\,P_{\mathrm{odd}}(X^{2k})
+=
+P_{\mathrm{odd}}(X^{2k}).
+\]
+最后把
+\[
+P_{\mathrm{odd}}(T)=\sum_{i=0}^{n-1}p_{2i+1}T^i
+\]
+中的 \(T\) 替换成 \(X^{2k}\) 即得
+\[
+P_{\mathrm{odd}}(X^{2k})=\sum_{i=0}^{n-1}p_{2i+1}X^{2ik}.
+\]
+\end{proof}
+
+\subsection{正向方向的最终结论}
+
+\begin{theorem}[正向奇偶拆分]
+设输入密文满足
+\[
+\ct_P \rep P(X^k).
+\]
+则可通过以下密文操作得到两个分支：
+
+\begin{enumerate}[label=(\arabic*)]
+    \item 先做自同构
+    \[
+    \ct_{-}:=\Auto{1+2n}(\ct_P),
+    \]
+    其消息为 \(P(-X^k)\)；
+    
+    \item 再做
+    \[
+    \cte:=\MulPt{\frac12}\!\bigl(\Add(\ct_P,\ct_{-})\bigr),
+    \]
+    得到
+    \[
+    \cte \rep P_{\mathrm{even}}(X^{2k});
+    \]
+
+    \item 再做
+    \[
+    \ctoy:=\MulPt{\frac12}\!\bigl(\Sub(\ct_P,\ct_{-})\bigr),
+    \]
+    得到
+    \[
+    \ctoy \rep X^k\,P_{\mathrm{odd}}(X^{2k});
+    \]
+
+    \item 若需要去掉前面的 \(X^k\)，则继续做
+    \[
+    \cto:=\MulPt{-X^{N-k}}(\ctoy),
+    \]
+    得到
+    \[
+    \cto \rep P_{\mathrm{odd}}(X^{2k}).
+    \]
+\end{enumerate}
+\end{theorem}
+
+\section{反向方向：由两个分支密文恢复原始密文}
+
+本节给出与上一节完全对应的逆过程。
+
+\subsection{情形 A：奇分支保留 \texorpdfstring{\(Y\)}{Y} 因子}
+
+假设手中已有两个密文：
+\[
+\cte \rep P_{\mathrm{even}}(X^{2k}),
+\qquad
+\ctoy \rep X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+
+定义
+\begin{equation}
+\ct_P^{(A)}:=\Add(\cte,\ctoy). \label{eq:merge-case-A}
+\end{equation}
+
+\begin{theorem}[情形 A 的正确性]
+由 \eqref{eq:merge-case-A} 得到的密文满足
+\[
+\ct_P^{(A)} \rep P(X^k).
+\]
+\end{theorem}
+
+\begin{proof}
+由加法的消息语义，
+\[
+\ct_P^{(A)}
+\rep
+P_{\mathrm{even}}(X^{2k})+X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+而根据 \eqref{eq:fft-split}，把其中的 \(Y\) 替换成 \(X^k\) 后即得
+\[
+P(X^k)=P_{\mathrm{even}}(X^{2k})+X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+所以
+\[
+\ct_P^{(A)} \rep P(X^k).
+\]
+\end{proof}
+
+\subsection{情形 B：奇分支已去掉 \texorpdfstring{\(Y\)}{Y} 因子}
+
+假设手中已有
+\[
+\cte \rep P_{\mathrm{even}}(X^{2k}),
+\qquad
+\cto \rep P_{\mathrm{odd}}(X^{2k}).
+\]
+
+为了恢复 \(P(X^k)\)，需要先把奇分支乘回一个 \(X^k\)。定义
+\begin{equation}
+\ct_P^{(B)}:=\Add\!\Bigl(\cte,\MulPt{X^k}(\cto)\Bigr). \label{eq:merge-case-B}
+\end{equation}
+
+\begin{theorem}[情形 B 的正确性]
+由 \eqref{eq:merge-case-B} 得到的密文满足
+\[
+\ct_P^{(B)} \rep P(X^k).
+\]
+\end{theorem}
+
+\begin{proof}
+先由明文--密文乘法的语义得到
+\[
+\MulPt{X^k}(\cto)\rep X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+再与 \(\cte\) 相加，可得
+\[
+\ct_P^{(B)}
+\rep
+P_{\mathrm{even}}(X^{2k})+X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+由 \eqref{eq:fft-split} 在 \(Y=X^k\) 下的展开，有
+\[
+P(X^k)=P_{\mathrm{even}}(X^{2k})+X^k\,P_{\mathrm{odd}}(X^{2k}).
+\]
+因此
+\[
+\ct_P^{(B)} \rep P(X^k).
+\]
+\end{proof}
+
+\subsection{反向方向的最终结论}
+
+\begin{theorem}[反向重构]
+设 \(\cte,\ctoy,\cto\) 分别满足
+\[
+\cte \rep P_{\mathrm{even}}(X^{2k}),
+\qquad
+\ctoy \rep X^k\,P_{\mathrm{odd}}(X^{2k}),
+\qquad
+\cto \rep P_{\mathrm{odd}}(X^{2k}).
+\]
+则有两种重构方式：
+
+\begin{enumerate}[label=(\arabic*)]
+    \item 若奇分支保留 \(X^k\)，则
+    \[
+    \ct_P^{(A)}:=\Add(\cte,\ctoy)
+    \]
+    满足
+    \[
+    \ct_P^{(A)} \rep P(X^k).
+    \]
+
+    \item 若奇分支已去掉 \(X^k\)，则
+    \[
+    \ct_P^{(B)}:=\Add\!\Bigl(\cte,\MulPt{X^k}(\cto)\Bigr)
+    \]
+    满足
+    \[
+    \ct_P^{(B)} \rep P(X^k).
+    \]
+\end{enumerate}
+\end{theorem}
+
+\section{与 FFT 系数向量的对应关系}
+
+虽然本文全程采用的是\textbf{多项式密文视角}，但它与 FFT 递归中熟悉的“偶奇系数向量”完全一致。
+
+定义
+\[
+\mathbf{e}=(p_0,p_2,\dots,p_{2n-2})^\top\in\RR^n,
+\qquad
+\mathbf{o}=(p_1,p_3,\dots,p_{2n-1})^\top\in\RR^n.
+\]
+则
+\[
+P_{\mathrm{even}}(T)=\sum_{i=0}^{n-1}\mathbf{e}_i\,T^i,
+\qquad
+P_{\mathrm{odd}}(T)=\sum_{i=0}^{n-1}\mathbf{o}_i\,T^i.
+\]
+
+因此，本文正向方向得到的两个密文，本质上正是加密了 FFT 递归中对应于 \(\mathbf e\) 和 \(\mathbf o\) 的两个多项式：
+\[
+P_{\mathrm{even}}(T)
+\quad\text{与}\quad
+P_{\mathrm{odd}}(T).
+\]
+
+区别仅在于：这里它们以
+\[
+P_{\mathrm{even}}(X^{2k}),\qquad P_{\mathrm{odd}}(X^{2k})
+\]
+的形式直接存放在 CKKS 的大环里，而不是先变成槽向量。
+
+\section{结论}
+
+本文给出了一个\textbf{完整、自洽、能直接在 CKKS 密文上执行}的 FFT 式奇偶拆分与重构方案。其核心不是把系数向量显式搬到槽里，再做矩阵抽取；而是直接在多项式环中使用以下精确恒等式：
+\[
+P(Y)=P_{\mathrm{even}}(Y^2)+Y\,P_{\mathrm{odd}}(Y^2),
+\]
+\[
+P(-Y)=P_{\mathrm{even}}(Y^2)-Y\,P_{\mathrm{odd}}(Y^2).
+\]
+
+在固定嵌入
+\[
+Y=X^{N/(2n)}
+\]
+的前提下，可以通过一个具体的自同构
+\[
+\sigma_{1+2n}: X\mapsto X^{1+2n}
+\]
+实现
+\[
+Y\mapsto -Y,
+\]
+然后再通过加法、减法与明文--密文乘法直接得到偶分支与奇分支。反方向则只需做一次加法，或者做一次乘回 \(X^k\) 后再加法，即可恢复原始密文。
+
+因此，从“是否能在 CKKS 密文上严格算通”这一点来看，答案是肯定的，而且整条链条只依赖 CKKS 的标准操作：
+\[
+\text{自同构} + \text{加法/减法} + \text{明文--密文乘法}.
+\]
+
+\end{document}

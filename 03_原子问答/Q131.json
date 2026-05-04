@@ -1,0 +1,12 @@
+{
+  "qa_id": "Q131",
+  "card_id": "K044",
+  "source_id": "src_000068",
+  "question": "CoeffToSlot(C2S)和SlotToCoeff(S2C)分别做什么？",
+  "answer": "C2S (CoeffToSlot): 将系数表示(coefficient representation)同态转换为槽表示(slot representation)。在CKKS bootstrapping中，ModRaise后多项式系数m_i+qJ_i被C2S搬入加密slots，使EvalMod可slotwise执行。\n\nS2C (SlotToCoeff): C2S的逆操作。将槽表示中转回系数表示，重组为刷新后的plaintext polynomial coefficient。PaCo流程: ModRaise → CoeffToSlot → EvalMod → SlotToCoeff。\n\n⚠ 本条在2026-05-04已按PaCo统一术语修正。原旧笔记使用了反向命名(SlotToCoeff称为C2S)，但PaCo论文中的标准流程是CoeffToSlot=coeff→slot、SlotToCoeff=slot→coeff。",
+  "confidence": "high",
+  "needs_human_review": true,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02",
+  "review_reason": "C2S/S2C术语方向已按PaCo统一规范修正"
+}

@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q169",
+  "card_id": "K061",
+  "source_id": "src_000106",
+  "question": "BFV的Rescale和CKKS的Rescale有什么区别？",
+  "answer": "BFV Rescale：除以t（明文模数），恢复Δ尺度，保持精确整数（舍入误差由Δ=⌊q/t⌋吸收）。CKKS Rescale：除以p（编码缩放因子），恢复浮点精度，引入近似误差。形式上都是c'=⌊c/factor⌉，但factor含义和误差模型不同。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b1",
+  "created": "2026-05-04T16:00"
+}

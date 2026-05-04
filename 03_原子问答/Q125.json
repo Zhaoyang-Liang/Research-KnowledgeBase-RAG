@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q125",
+  "card_id": "K041",
+  "source_id": "src_000066,src_000059",
+  "question": "CKKS的complex slot和BGV/BFV的CRT slot有什么本质区别？",
+  "answer": "两个层面不同：(1)值空间：CKKS slot→复数(C)；BGV/BFV slot→有限域(F_{p^d})。(2)分解机制：CKKS→典范嵌入（单位根取值，分析结构）；BGV/BFV→CRT分解（中国剩余定理，代数结构）。(3)精确性：CKKS近似（有rounding误差）；BGV/BFV精确（无信息损失）。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "created": "2026-05-04T14:52"
+}

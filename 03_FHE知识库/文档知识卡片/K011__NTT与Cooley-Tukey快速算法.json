@@ -1,0 +1,90 @@
+{
+  "card_id": "K011",
+  "version": "v2",
+  "title": "NTT与Cooley-Tukey快速算法",
+  "source_id": "src_000017",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/变换与NTT-Cooley-Tukey.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "NTT, Cooley-Tukey, 蝴蝶, 位反转"
+  },
+  "category": "数学基础",
+  "subtopic": "NTT/FFT",
+  "chinese_summary": "NTT(数论变换)是有限域F_q上的DFT，使用本原n次单位根ω(满足ω^n=1, ω^k≠1)，运算精确无浮点误差。Cooley-Tukey算法将NTT分解为log₂n层蝴蝶操作x'=x+ω^k·y, y'=x−ω^k·y。位反转因递归分奇偶打乱输出顺序。在BGV同态NTT中位反转被吸收到索引映射中避免显式旋转。",
+  "knowledge_points": [
+    {
+      "id": "K011-1",
+      "concept": "DFT vs NTT",
+      "formula": "DFT: A_k=Σa_j·e^{2πijk/n}; NTT: A_k=Σa_j·ω^{jk} mod q",
+      "meaning": "形式同但运算域不同：DFT复数浮点误差，NTT有限域精确。要求n|(q-1)。"
+    },
+    {
+      "id": "K011-2",
+      "concept": "Cooley-Tukey蝴蝶",
+      "formula": "x'=x+ω^k·y, y'=x−ω^k·y (mod q)",
+      "meaning": "每层n/2蝴蝶，log₂n层→O(n log n)。加/减来自偶奇子问题合并。"
+    },
+    {
+      "id": "K011-3",
+      "concept": "位反转",
+      "formula": "rev(k)=Σb_i·2^{log₂n−1−i}, 索引按bits反转",
+      "meaning": "递归分奇偶→输入按位反转输出自然序。实践中在输入或输出端做一次。"
+    },
+    {
+      "id": "K011-4",
+      "concept": "NTT与多项式乘法",
+      "formula": "c=a∗b⇔NTT(c)=NTT(a)⊙NTT(b)",
+      "meaning": "卷积定理：乘法的NTT=系数的NTT逐点乘。O(n log n) vs O(n²)。"
+    },
+    {
+      "id": "K011-5",
+      "concept": "BGV同态NTT的位反转处理",
+      "formula": "bit-reversal absorbed via pre-permuted index maps",
+      "meaning": "位反转不通过显式旋转而通过预排列索引映射实现，避免昂贵同态旋转。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "A_k=Σ_{j=0}^{n-1}a_j·ω^{jk} (mod q), ω^n≡1, ω^k≠1",
+      "meaning": "NTT正变换"
+    },
+    {
+      "formula": "x'=x+ω^k·y, y'=x−ω^k·y",
+      "meaning": "Cooley-Tukey蝴蝶操作"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "NTT",
+      "en": "Number Theoretic Transform",
+      "definition": "有限域F_q上DFT"
+    },
+    {
+      "term": "蝴蝶操作",
+      "en": "butterfly operation",
+      "definition": "Cooley-Tukey基本单元，同时计算加权和与差"
+    },
+    {
+      "term": "位反转",
+      "en": "bit-reversal",
+      "definition": "按二进制位反转索引的置换"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "有限域傅里叶分析",
+    "RLWE_lattice": "RLWE多项式乘法快速实现",
+    "FHE_technique": "PaCo slot-to-coeff、BGV同态NTT",
+    "current_paper": "PaCo中Vandermonde矩阵Cooley-Tukey分解"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K011-1",
+    "QA-K011-2",
+    "QA-K011-3",
+    "QA-K011-4",
+    "QA-K011-5"
+  ],
+  "rag_ingestion_suggestion": "高优先级，Bootstrapping/NTT核心技术"
+}

@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q140",
+  "card_id": "K048",
+  "source_id": "src_000077",
+  "question": "U_ℓ矩阵为什么天然像Fourier/FFT矩阵？",
+  "answer": "U_ℓ的第(r,c)块=ζ_m^{drc}·I_d。其任务是'roots-of-unity上的值↔幂基系数'重组——这是标准的Fourier/Vandermonde类型变换。U_ℓ就是一个块级的Vandermonde矩阵，天然适合FFT-like分解。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

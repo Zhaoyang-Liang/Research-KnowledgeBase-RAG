@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q165",
+  "card_id": "K059",
+  "source_id": "src_000104",
+  "question": "重线性化和密钥切换是什么关系？",
+  "answer": "重线性化是密钥切换的一种特例：key switch from s² to s。更一般的密钥切换可以s₁→s₂（任意密钥对）。重线性化在所有FHE方案中都是乘法后必须执行的操作；而任意密钥对的切换主要用于密钥授权/代理重加密。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b1",
+  "created": "2026-05-04T16:00"
+}

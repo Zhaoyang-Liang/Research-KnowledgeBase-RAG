@@ -1,0 +1,90 @@
+{
+  "card_id": "K016",
+  "version": "v2",
+  "title": "噪声控制、重线性化、密钥切换的层次关系",
+  "source_id": "src_000015",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/噪声控制-密钥切换.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "噪声控制, 重线性化, 密钥切换, 层次"
+  },
+  "category": "FHE总论与基础方案",
+  "subtopic": "噪声管理",
+  "chinese_summary": "三者的层次关系：噪声控制是宏观目标（包含ModSwitch/Rescale/Bootstrapping）；密钥切换是底层转换工具（在不同密钥间转换密文）；重线性化是密钥切换的特例（s²→s, k=3）。典型流程：乘法→噪声增长→重线性化（密钥切换降维）→模数切换/重缩放（降噪）。理解这个层次有助于正确使用术语和设计算法。",
+  "knowledge_points": [
+    {
+      "id": "K016-1",
+      "concept": "层次1:噪声控制(宏观目标)",
+      "formula": "noise_control∈{ModSwitch,Rescale,Bootstrap}",
+      "meaning": "噪声管理的最高层概念，所有FHE方案都必须解决。"
+    },
+    {
+      "id": "K016-2",
+      "concept": "层次2:密钥切换(通用转换)",
+      "formula": "KeySwitch_{s₁→s₂}: 保持消息不变换密钥",
+      "meaning": "不直接降噪但使降噪成为可能(重线性化后密文才能继续操作)。"
+    },
+    {
+      "id": "K016-3",
+      "concept": "层次3:重线性化(特例)",
+      "formula": "KeySwitch_{s²→s}: 降维+消除s²项",
+      "meaning": "密钥切换在(k=3,s₁=s²,s₂=s)的特例。消除乘法维度膨胀。"
+    },
+    {
+      "id": "K016-4",
+      "concept": "典型流程",
+      "formula": "乘法→噪声↑→重线性化→ModSwitch/Rescale→噪声↓",
+      "meaning": "完整FHE乘法的标准流程。重线性化先于噪声控制。"
+    },
+    {
+      "id": "K016-5",
+      "concept": "为什么不是包含关系",
+      "formula": "噪声控制⊃密钥切换(ModSwitch/Rescale不是密钥切换)",
+      "meaning": "ModSwitch和Rescale是直接操作密文系数而非切换密钥。Bootstrapping包含密钥切换但不等于。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "c'₀=c₀+Σc₂^{(i)}·b_i, c'₁=c₁−Σc₂^{(i)}·a_i",
+      "meaning": "重线性化：密钥切换s²→s"
+    },
+    {
+      "formula": "η_new≈(t/q)·η_old (ModSwitch) vs η·t (Rescale noise growth)",
+      "meaning": "噪声控制后噪声大小的比较"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "噪声控制",
+      "en": "noise management",
+      "definition": "FHE中防止噪声溢出导致解密失败的所有技术"
+    },
+    {
+      "term": "密钥切换",
+      "en": "key switching",
+      "definition": "通用底层操作：在不同密钥间转换密文"
+    },
+    {
+      "term": "重线性化",
+      "en": "relinearization",
+      "definition": "密钥切换特例：s²→s消除乘法维度膨胀"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "-",
+    "RLWE_lattice": "噪声来自RLWE采样",
+    "FHE_technique": "FHE噪声管理架构",
+    "current_paper": "当前论文bootstrapping的实现层次"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K016-1",
+    "QA-K016-2",
+    "QA-K016-3",
+    "QA-K016-4",
+    "QA-K016-5"
+  ],
+  "rag_ingestion_suggestion": "高优先级，FHE架构级理解"
+}

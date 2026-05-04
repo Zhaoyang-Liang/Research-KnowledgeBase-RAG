@@ -1,0 +1,94 @@
+{
+  "card_id": "K015",
+  "version": "v2",
+  "title": "模数切换(ModSwitch)与重缩放(Rescale)的本质区别",
+  "source_id": "src_000014",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/模数切换和重缩放的区别.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "ModSwitch, Rescale, 消息尺度"
+  },
+  "category": "FHE总论与基础方案",
+  "subtopic": "噪声控制机制",
+  "chinese_summary": "ModSwitch(BGV)：c'=⌊(q'/q)·c⌉，任意q'<q，噪声等比例缩小，消息m不变（因消息在低位模t）。Rescale(BFV/CKKS)：c'=⌊(p^{-1})·c⌉，p固定=t(BFV)或编码因子(CKKS)。BFV Rescale同步恢复缩放因子保持消息尺度一致；CKKS Rescale除以Δ≈大素数，降低模数层级，消息尺度变化。核心区别：ModSwitch消息不变，Rescale消息尺度变化。",
+  "knowledge_points": [
+    {
+      "id": "K015-1",
+      "concept": "ModSwitch定义",
+      "formula": "c'=⌊(q'/q)·c⌉, 任意q'<q, m不变",
+      "meaning": "BGV专属：缩小模数→噪声缩水→消息在低位(m mod t)不变。可任意时刻执行。"
+    },
+    {
+      "id": "K015-2",
+      "concept": "BFV Rescale定义",
+      "formula": "c'=⌊(1/t)·c⌉, t固定, Δ恢复为原始值",
+      "meaning": "重缩放固定比例÷t→恢复消息尺度。scale-invariant：消息表示始终保持一致。"
+    },
+    {
+      "id": "K015-3",
+      "concept": "CKKS Rescale定义",
+      "formula": "c'=⌊(1/Δ)·c⌉, Δ≈大素数, 模数降级",
+      "meaning": "CKKS Rescale消费模数链层级。消息编码尺度变化但约等关系保持。"
+    },
+    {
+      "id": "K015-4",
+      "concept": "消息尺度变化",
+      "formula": "BGV:消息不变; BFV:消息恢复; CKKS:消息尺度改",
+      "meaning": "ModSwitch保持m不变；BFV Rescale恢复Δ倍后的消息；CKKS Rescale改变消息尺度。"
+    },
+    {
+      "id": "K015-5",
+      "concept": "⚠ 术语陷阱",
+      "formula": "BFV Rescale≠CKKS Rescale≠BGV ModSwitch",
+      "meaning": "三种操作机制不同但文献中经常混用rescale/scale-down等术语。论文写作必须明确定义。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "ModSwitch: c'=⌊(q'/q)·c⌉, m不变",
+      "meaning": "BGV模数切换"
+    },
+    {
+      "formula": "BFV Rescale: c'=⌊(1/t)·c⌉, Δ恢复",
+      "meaning": "BFV重缩放"
+    },
+    {
+      "formula": "CKKS Rescale: c'=⌊(1/Δ)·c⌉, 模数降级",
+      "meaning": "CKKS重缩放"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "模数切换",
+      "en": "Modulus Switching",
+      "definition": "BGV中缩放密文到更小模数降噪，消息不变"
+    },
+    {
+      "term": "重缩放(BFV)",
+      "en": "Rescale(BFV)",
+      "definition": "BFV中÷t恢复消息尺度"
+    },
+    {
+      "term": "重缩放(CKKS)",
+      "en": "Rescale(CKKS)",
+      "definition": "CKKS中÷Δ降低模数层级"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "-",
+    "RLWE_lattice": "噪声缩放",
+    "FHE_technique": "噪声控制的核心机制差异",
+    "current_paper": "需明确当前论文使用的噪音控制术语"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K015-1",
+    "QA-K015-2",
+    "QA-K015-3",
+    "QA-K015-4",
+    "QA-K015-5"
+  ],
+  "rag_ingestion_suggestion": "极高优先级，避免术语混淆"
+}

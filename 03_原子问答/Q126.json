@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q126",
+  "card_id": "K039",
+  "source_id": "src_000066",
+  "question": "CKKS的approximate性质在编码中如何体现？",
+  "answer": "CKKS不要求decode(encode(z))=z精确成立。编码时的round步骤引入误差→解码后得到z+ε（小误差）。在M=8的例子中：原始(3+4i,2-i)→解码(3.008+4.003i,1.992-0.997i)。误差由Δ控制：Δ越大→精度越高。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a1",
+  "created": "2026-05-04T14:52"
+}

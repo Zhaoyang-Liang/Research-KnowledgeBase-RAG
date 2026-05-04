@@ -1,0 +1,695 @@
+\documentclass[11pt,a4paper]{ctexart}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue
+}
+
+% --------------------------------------------------
+% Macros
+% --------------------------------------------------
+\newcommand{\RR}{\mathbb{R}}
+\newcommand{\ZZ}{\mathbb{Z}}
+\newcommand{\CC}{\mathbb{C}}
+
+\newcommand{\Rbig}{\mathcal{R}_N^{\RR}}
+\newcommand{\Rint}{\mathcal{R}_N^{\ZZ}}
+\newcommand{\Ssmall}{\mathcal{S}_n}
+
+\newcommand{\Enc}{\mathsf{Enc}}
+\newcommand{\Auto}[1]{\mathsf{Auto}_{#1}}
+\newcommand{\Add}{\mathsf{Add}}
+\newcommand{\Sub}{\mathsf{Sub}}
+\newcommand{\MulPt}[1]{\mathsf{MulPt}_{#1}}
+
+\newcommand{\Round}{\operatorname{Round}}
+\newcommand{\rep}{\mathrel{\vDash_{\Delta}}}
+
+\newcommand{\ctP}{\mathbf{ct}_{P}}
+\newcommand{\ctm}{\mathbf{ct}_{-}}
+\newcommand{\cte}{\mathbf{ct}_{\mathrm{even}}^{\uparrow}}
+\newcommand{\ctoy}{\mathbf{ct}_{\mathrm{odd},Y}^{\uparrow}}
+\newcommand{\cto}{\mathbf{ct}_{\mathrm{odd}}^{\uparrow}}
+
+\newcommand{\Pe}{P_{\mathrm{even}}}
+\newcommand{\Po}{P_{\mathrm{odd}}}
+
+% --------------------------------------------------
+% Theorem styles
+% --------------------------------------------------
+\newtheorem{definition}{定义}[section]
+\newtheorem{theorem}[definition]{定理}
+\newtheorem{remark}[definition]{注}
+\newtheorem{proposition}[definition]{命题}
+
+% --------------------------------------------------
+% Algorithmic style tweaks
+% --------------------------------------------------
+\algrenewcommand\algorithmicrequire{\textbf{输入:}}
+\algrenewcommand\algorithmicensure{\textbf{输出:}}
+\algrenewcommand\algorithmiccomment[1]{\hfill$\triangleright$~#1}
+
+% --------------------------------------------------
+% Title
+% --------------------------------------------------
+\title{在 CKKS 密文上实现多项式的 FFT 式奇偶拆分与重构\\
+\large 第二版：问题、主结果、正确性定理与伪代码}
+\author{}
+\date{}
+
+\begin{document}
+
+
+\maketitle
+
+
+\tableofcontents
+\newpage
+
+\begin{abstract}
+本文给出一份面向实现的第二版整理。我们固定
+\[
+P(Y)=\sum_{j=0}^{2n-1}p_jY^j \in \RR[Y]/(Y^{2n}+1),
+\]
+并研究如何在 CKKS 密文上直接完成 FFT 式奇偶拆分：
+\[
+P(Y)=P_{\mathrm{even}}(Y^2)+Y\,P_{\mathrm{odd}}(Y^2),
+\]
+以及对应的反向重构。与第一版不同，本文不再重复代数证明，而是采用
+\[
+\text{Problem} \;\to\; \text{Main Result} \;\to\; \text{Correctness Theorem} \;\to\; \text{Algorithm}
+\]
+的组织方式，给出可直接转译到程序中的伪代码。文末附上 OpenFHE、Microsoft SEAL 与 Lattigo v5 的 API 对应说明，并指出实现时必须特别注意的自同构索引、plaintext 构造、level/scale 对齐等事项。
+\end{abstract}
+
+\section{Problem}
+
+\subsection{目标}
+
+固定一个 2 的幂 \(N\ge 1\)，以及一个满足 \(n\mid N\) 且 \(n<N\) 的 2 的幂。令
+\[
+k=\frac{N}{2n}\in \ZZ_{>0},
+\qquad
+Y=X^k.
+\]
+于是
+\[
+Y^{2n}=X^{2nk}=X^N=-1.
+\]
+
+给定多项式
+\[
+P(Y)=\sum_{j=0}^{2n-1}p_jY^j\in \RR[Y]/(Y^{2n}+1),
+\]
+定义其 FFT 式奇偶分支为
+\begin{equation}
+\Pe(T)=\sum_{i=0}^{n-1}p_{2i}T^i,
+\qquad
+\Po(T)=\sum_{i=0}^{n-1}p_{2i+1}T^i.
+\label{eq:def-even-odd}
+\end{equation}
+
+本文考虑如下两个问题：
+
+\begin{enumerate}[label=\textbf{P\arabic*.}]
+    \item \textbf{正向拆分问题：} 给定一个 CKKS 密文 \(\ctP\)，其语义上表示
+    \[
+    P(X^k)\in \Rbig=\RR[X]/(X^N+1),
+    \]
+    如何同态地产生两个分支密文，分别表示
+    \[
+    \Pe(X^{2k})
+    \quad\text{和}\quad
+    \Po(X^{2k})
+    \]
+    （或者表示 \(X^k\Po(X^{2k})\) 的非归一化奇分支）？
+
+    \item \textbf{反向重构问题：} 给定上述两个分支密文，如何同态地恢复出表示 \(P(X^k)\) 的原始密文？
+\end{enumerate}
+
+\subsection{为什么选多项式域路线而不是系数向量矩阵路线}
+
+虽然在抽象线性代数层面，可以把
+\[
+(p_0,p_1,\dots,p_{2n-1})^\top
+\]
+视为一个长度 \(2n\) 的系数向量，并用抽取矩阵 \(E,O\) 去得到偶、奇系数子向量；但在标准 CKKS 的高层接口中，最自然的对象是：
+
+\begin{itemize}
+    \item \textbf{槽向量表示}（经编码后的复向量）；
+    \item \textbf{多项式明文表示}（环中的多项式）。
+\end{itemize}
+
+如果走 \(E,O\) 的路线，通常需要先做一次 CoeffToSlot，把系数信息显式搬到槽里；这会引入额外的线性变换成本。本文因此采用更直接的多项式域恒等式：
+\begin{equation}
+P(Y)=\Pe(Y^2)+Y\,\Po(Y^2), \label{eq:split}
+\end{equation}
+\begin{equation}
+P(-Y)=\Pe(Y^2)-Y\,\Po(Y^2). \label{eq:split-minus}
+\end{equation}
+
+\section{Notation and CKKS Semantics}
+
+\subsection{环与嵌入}
+
+记
+\[
+\Ssmall=\RR[Y]/(Y^{2n}+1),
+\qquad
+\Rbig=\RR[X]/(X^N+1),
+\qquad
+\Rint=\ZZ[X]/(X^N+1).
+\]
+通过 \(Y=X^k\) 把 \(\Ssmall\) 嵌入 \(\Rbig\)。
+
+\subsection{密文语义记号}
+
+我们使用如下标准化记号来表达 CKKS 密文在 scale \(\Delta\) 下所表示的消息。
+
+\begin{definition}[消息表示关系]
+若一个 CKKS 密文 \(\mathbf{ct}\) 解密后对应的明文多项式可写成
+\[
+m(X)=\Round\!\bigl(\Delta F(X)\bigr)+e(X)\in \Rint,
+\]
+其中 \(F(X)\in \Rbig\)，而 \(e(X)\) 是通常的小噪声项，则记为
+\[
+\mathbf{ct}\rep F(X).
+\]
+\end{definition}
+
+该记号只关注“被表示的实系数消息” \(F(X)\)，不显式追踪噪声、RNS 分解、模链变化、rescale 细节。若实现中需要进行 level/scale 对齐，则默认按标准 CKKS 方式处理。
+
+\subsection{本文使用的同态算子}
+
+本文只用到以下四类标准算子：
+
+\begin{enumerate}[label=(\roman*)]
+    \item \textbf{自同构：}
+    \[
+    \Auto{a}(\mathbf{ct}),
+    \qquad a \text{ 为奇数},
+    \]
+    对应
+    \[
+    \sigma_a:\Rbig\to\Rbig,\qquad f(X)\mapsto f(X^a).
+    \]
+
+    \item \textbf{加法：}
+    \[
+    \Add(\mathbf{ct}_1,\mathbf{ct}_2).
+    \]
+
+    \item \textbf{减法：}
+    \[
+    \Sub(\mathbf{ct}_1,\mathbf{ct}_2).
+    \]
+
+    \item \textbf{明文--密文乘法：}
+    \[
+    \MulPt{u(X)}(\mathbf{ct}),
+    \qquad u(X)\in \Rbig.
+    \]
+\end{enumerate}
+
+\subsection{上标 \(\uparrow\) 的含义}
+
+本文中的
+\[
+\cte,\qquad \ctoy,\qquad \cto
+\]
+都带有上标 \({}^{\uparrow}\)。这表示：对应消息虽然仍然存放在大环 \(\Rbig\) 中，但只含 \(X^{2k}\) 的幂，因此实际上来自一个更小子环的“提升表示”。
+
+\section{Main Result}
+
+\subsection{核心恒等式}
+
+由 \eqref{eq:split} 和 \eqref{eq:split-minus} 立刻得到
+\begin{equation}
+\Pe(Y^2)=\frac{P(Y)+P(-Y)}{2}, \label{eq:even-formula}
+\end{equation}
+\begin{equation}
+Y\,\Po(Y^2)=\frac{P(Y)-P(-Y)}{2}. \label{eq:odd-formula-y}
+\end{equation}
+若进一步右乘 \(Y^{-1}\)，则
+\begin{equation}
+\Po(Y^2)=Y^{-1}\cdot \frac{P(Y)-P(-Y)}{2}. \label{eq:odd-formula}
+\end{equation}
+
+在 \(Y=X^k\) 的嵌入下，上式变成
+\begin{equation}
+\Pe(X^{2k})=\frac{P(X^k)+P(-X^k)}{2}, \label{eq:even-formula-X}
+\end{equation}
+\begin{equation}
+X^k\Po(X^{2k})=\frac{P(X^k)-P(-X^k)}{2}, \label{eq:odd-formula-X-y}
+\end{equation}
+\begin{equation}
+\Po(X^{2k})=(X^k)^{-1}\cdot \frac{P(X^k)-P(-X^k)}{2}. \label{eq:odd-formula-X}
+\end{equation}
+
+\subsection{实现 \(Y\mapsto -Y\) 的特定自同构}
+
+取
+\begin{equation}
+a=1+2n. \label{eq:a-index}
+\end{equation}
+则 \(a\) 为奇数，并且对应自同构 \(\sigma_a(X)=X^a\)。它满足
+\begin{equation}
+\sigma_a(X^k)=X^{k(1+2n)}=X^{k+N}=X^kX^N=-X^k. \label{eq:auto-y}
+\end{equation}
+
+因此，若 \(\ctP\rep P(X^k)\)，则
+\[
+\ctm:=\Auto{1+2n}(\ctP)
+\]
+满足
+\[
+\ctm \rep P(-X^k).
+\]
+
+\section{Correctness Theorems (No Proofs)}
+
+本节只陈述结论，不再给证明。
+
+\begin{theorem}[正向拆分：非归一化奇分支]
+设
+\[
+\ctP\rep P(X^k).
+\]
+定义
+\[
+\ctm:=\Auto{1+2n}(\ctP),
+\]
+\[
+\cte:=\MulPt{\frac12}\!\bigl(\Add(\ctP,\ctm)\bigr),
+\]
+\[
+\ctoy:=\MulPt{\frac12}\!\bigl(\Sub(\ctP,\ctm)\bigr).
+\]
+则
+\[
+\cte \rep \Pe(X^{2k}),
+\qquad
+\ctoy \rep X^k\Po(X^{2k}).
+\]
+\end{theorem}
+
+\begin{theorem}[正向拆分：归一化奇分支]
+在上一结论的基础上，再定义
+\[
+\cto:=\MulPt{-X^{N-k}}(\ctoy).
+\]
+则
+\[
+\cto \rep \Po(X^{2k}).
+\]
+\end{theorem}
+
+\begin{theorem}[反向重构：从非归一化奇分支]
+若
+\[
+\cte \rep \Pe(X^{2k}),
+\qquad
+\ctoy \rep X^k\Po(X^{2k}),
+\]
+则
+\[
+\Add(\cte,\ctoy)\rep P(X^k).
+\]
+\end{theorem}
+
+\begin{theorem}[反向重构：从归一化奇分支]
+若
+\[
+\cte \rep \Pe(X^{2k}),
+\qquad
+\cto \rep \Po(X^{2k}),
+\]
+则
+\[
+\Add\!\bigl(\cte,\MulPt{X^k}(\cto)\bigr)\rep P(X^k).
+\]
+\end{theorem}
+
+\section{Algorithms}
+
+\subsection{约定}
+
+下列伪代码默认：
+
+\begin{itemize}
+    \item 所有密文在进入某一步前都已完成必要的 \texttt{level/scale} 对齐；
+    \item \texttt{Auto}\((1+2n)\) 所需的自同构评估密钥已预生成；
+    \item \(\frac12\)、\(X^k\)、\(-X^{N-k}\) 这些明文乘子都能被构造为可参与 plaintext--ciphertext 乘法的明文对象。
+\end{itemize}
+
+\subsection{正向拆分：保留奇分支前面的 \(X^k\)}
+
+\begin{algorithm}[H]
+\caption{ForwardSplitKeepY}
+\begin{algorithmic}[1]
+\Require
+A ciphertext \(\ctP\) such that \(\ctP \rep P(X^k)\), where
+\[
+P(Y)=\sum_{j=0}^{2n-1}p_jY^j,\qquad k=\frac{N}{2n}.
+\]
+\Ensure
+Two ciphertexts \(\cte,\ctoy\) such that
+\[
+\cte \rep \Pe(X^{2k}),\qquad \ctoy \rep X^k\Po(X^{2k}).
+\]
+\State \(a \gets 1+2n\)
+\State \(\ctm \gets \Auto{a}(\ctP)\)
+\Comment{\(\ctm \rep P(-X^k)\)}
+\State \(\mathbf{s}_{+} \gets \Add(\ctP,\ctm)\)
+\State \(\mathbf{s}_{-} \gets \Sub(\ctP,\ctm)\)
+\State \(\cte \gets \MulPt{\frac12}(\mathbf{s}_{+})\)
+\Comment{\(\cte \rep \Pe(X^{2k})\)}
+\State \(\ctoy \gets \MulPt{\frac12}(\mathbf{s}_{-})\)
+\Comment{\(\ctoy \rep X^k\Po(X^{2k})\)}
+\State \Return \((\cte,\ctoy)\)
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{正向拆分：去掉奇分支前面的 \(X^k\)}
+
+\begin{algorithm}[H]
+\caption{ForwardSplitNormalized}
+\begin{algorithmic}[1]
+\Require
+A ciphertext \(\ctP\) such that \(\ctP \rep P(X^k)\).
+\Ensure
+Two ciphertexts \(\cte,\cto\) such that
+\[
+\cte \rep \Pe(X^{2k}),\qquad \cto \rep \Po(X^{2k}).
+\]
+\State \((\cte,\ctoy) \gets \textsc{ForwardSplitKeepY}(\ctP)\)
+\State \(u(X)\gets -X^{N-k}\)
+\Comment{Since \((X^k)^{-1}=-X^{N-k}\)}
+\State \(\cto \gets \MulPt{u(X)}(\ctoy)\)
+\Comment{\(\cto \rep \Po(X^{2k})\)}
+\State \Return \((\cte,\cto)\)
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{反向重构：输入保留 \(X^k\) 的奇分支}
+
+\begin{algorithm}[H]
+\caption{MergeFromKeepY}
+\begin{algorithmic}[1]
+\Require
+Two ciphertexts \(\cte,\ctoy\) such that
+\[
+\cte \rep \Pe(X^{2k}),\qquad \ctoy \rep X^k\Po(X^{2k}).
+\]
+\Ensure
+A ciphertext \(\ctP\) such that
+\[
+\ctP \rep P(X^k).
+\]
+\State \(\ctP \gets \Add(\cte,\ctoy)\)
+\State \Return \(\ctP\)
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{反向重构：输入为归一化奇分支}
+
+\begin{algorithm}[H]
+\caption{MergeFromNormalized}
+\begin{algorithmic}[1]
+\Require
+Two ciphertexts \(\cte,\cto\) such that
+\[
+\cte \rep \Pe(X^{2k}),\qquad \cto \rep \Po(X^{2k}).
+\]
+\Ensure
+A ciphertext \(\ctP\) such that
+\[
+\ctP \rep P(X^k).
+\]
+\State \(\mathbf{t}\gets \MulPt{X^k}(\cto)\)
+\Comment{\(\mathbf{t}\rep X^k\Po(X^{2k})\)}
+\State \(\ctP \gets \Add(\cte,\mathbf{t})\)
+\State \Return \(\ctP\)
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{一个最小执行模板}
+
+如果实现中需要明确地把“生成自同构密钥”也写入流程，那么最小模板可写成：
+
+\begin{algorithm}[H]
+\caption{EndToEndSplitAndMerge}
+\begin{algorithmic}[1]
+\Require
+A ciphertext \(\ctP \rep P(X^k)\); secret-dependent evaluation-key generation is available offline.
+\Ensure
+A reconstructed ciphertext \(\widehat{\ctP}\rep P(X^k)\).
+\State \(a\gets 1+2n\)
+\State Generate / load the automorphism key for \(\Auto{a}\)
+\State \((\cte,\cto)\gets \textsc{ForwardSplitNormalized}(\ctP)\)
+\State \(\widehat{\ctP}\gets \textsc{MergeFromNormalized}(\cte,\cto)\)
+\State \Return \(\widehat{\ctP}\)
+\end{algorithmic}
+\end{algorithm}
+
+\section{Implementation Notes}
+
+\subsection{总则}
+
+虽然本文给出的算法在代数层面非常简洁，但把它落到具体库时，至少要注意四件事：
+
+\begin{enumerate}[label=(\arabic*)]
+    \item \textbf{自同构索引的表示方式：}  
+    数学上我们写的是 \(\sigma_{1+2n}\)，即
+    \[
+    X\mapsto X^{1+2n}.
+    \]
+    但不同库对 Galois 元素、rotation index、automorphism index 的表示方式不同。实现时必须确认：你传入的“索引 / Galois element”确实实现了
+    \[
+    X^k \longmapsto -X^k.
+    \]
+
+    \item \textbf{plaintext 的构造方式：}  
+    本文用到的明文乘子是
+    \[
+    \frac12,\qquad X^k,\qquad -X^{N-k}.
+    \]
+    常数 \(1/2\) 通常最容易；而单项式 \(X^k\)、\(-X^{N-k}\) 往往需要底层的 plaintext-polynomial 构造路径。如果库的高层 CKKS 接口只暴露“槽编码器”，那么实现这一步可能需要转到更底层的 plaintext 对象或自定义构造函数。
+
+    \item \textbf{level/scale 对齐：}  
+    做
+    \[
+    \ctP\pm \ctm
+    \]
+    之前，必须保证二者在同一 level、同一 scale（或者能通过库的自动机制对齐）。做 plaintext multiplication 之后，是否需要 rescale，取决于库的语义和你给 plaintext 指定的 scale。
+
+    \item \textbf{系数域语义与槽语义：}  
+    本文算法在“多项式消息语义”下描述。如果库层面默认以槽语义暴露 CKKS plaintext/ciphertext，那么你需要清楚自己是在使用高层编码接口，还是在直接操纵环里的 plaintext polynomial。
+\end{enumerate}
+
+\subsection{OpenFHE}
+
+在 OpenFHE 中，可将本文四类抽象操作大致映射为：
+
+\begin{center}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.28\textwidth} >{\raggedright\arraybackslash}p{0.62\textwidth}}
+\toprule
+抽象操作 & OpenFHE 中的对应接口 \\ \midrule
+生成 automorphism key &
+\texttt{EvalAutomorphismKeyGen(privateKey, indexList)} \\[4pt]
+应用 automorphism &
+\texttt{EvalAutomorphism(ciphertext, i, evalKeyMap)} \\[4pt]
+密文加法 / 减法 &
+\texttt{EvalAdd}, \texttt{EvalSub} \\[4pt]
+明文--密文乘法 &
+\texttt{EvalMult(ciphertext, scalar)} 或 \texttt{EvalMult(ciphertext, plaintext)} \\[4pt]
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{建议写法}
+若你已经知道目标 automorphism index 对应数学上的 \(\sigma_{1+2n}\)，那么正向拆分最接近的实现骨架是：
+\begin{align*}
+\ctm &\leftarrow \texttt{cc->EvalAutomorphism}(\ctP,\; a,\; \texttt{evalAutoKeys}),\\
+\cte &\leftarrow \texttt{cc->EvalMult}\bigl(\texttt{cc->EvalAdd}(\ctP,\ctm),\; 0.5\bigr),\\
+\ctoy &\leftarrow \texttt{cc->EvalMult}\bigl(\texttt{cc->EvalSub}(\ctP,\ctm),\; 0.5\bigr).
+\end{align*}
+
+\paragraph{注意}
+OpenFHE 的高层 CKKS 工作流通常以 packed plaintext 为中心。如果你要真正实现
+\[
+\MulPt{X^k}(\cdot),\qquad \MulPt{-X^{N-k}}(\cdot),
+\]
+需要确认你所用版本是否方便构造“系数域明文多项式”作为 \texttt{Plaintext}；否则更稳妥的办法是自己在较低层构造该明文对象，再交给 \texttt{EvalMult}。
+
+\subsection{Microsoft SEAL}
+
+在 SEAL 中，本文抽象操作可大致映射为：
+
+\begin{center}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.28\textwidth} >{\raggedright\arraybackslash}p{0.62\textwidth}}
+\toprule
+抽象操作 & Microsoft SEAL 中的对应接口 \\ \midrule
+生成 Galois keys &
+\texttt{KeyGenerator::create\_galois\_keys(...)} \\[4pt]
+应用 automorphism &
+\texttt{Evaluator::apply\_galois\_inplace(...)} \\[4pt]
+密文加法 / 减法 &
+\texttt{Evaluator::add\_inplace}, \texttt{Evaluator::sub\_inplace} \\[4pt]
+明文--密文乘法 &
+\texttt{Evaluator::multiply\_plain\_inplace(...)} \\[4pt]
+plaintext 预处理 &
+\texttt{Evaluator::transform\_to\_ntt\_inplace(...)}（若需要） \\[4pt]
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{建议写法}
+SEAL 中通常会把 \(\ctP\) 复制到临时对象，再原地修改。例如：
+\begin{align*}
+\ctm &\leftarrow \ctP;\\
+&\texttt{evaluator.apply\_galois\_inplace}(\ctm,\; \texttt{galois\_elt},\; \texttt{galois\_keys});\\
+\cte &\leftarrow \ctP;\\
+&\texttt{evaluator.add\_inplace}(\cte,\ctm);\\
+&\texttt{evaluator.multiply\_plain\_inplace}(\cte,\texttt{plain\_half});\\
+\ctoy &\leftarrow \ctP;\\
+&\texttt{evaluator.sub\_inplace}(\ctoy,\ctm);\\
+&\texttt{evaluator.multiply\_plain\_inplace}(\ctoy,\texttt{plain\_half}).
+\end{align*}
+
+\paragraph{注意}
+SEAL 对 CKKS plaintext 的 NTT 形式、\texttt{parms\_id}、scale 对齐非常严格。  
+尤其是在做
+\[
+\texttt{multiply\_plain\_inplace}
+\]
+前，往往需要确保 plaintext 已经处于正确的 level，并在必要时通过
+\[
+\texttt{mod\_switch\_to\_inplace},\qquad \texttt{transform\_to\_ntt\_inplace}
+\]
+进行预处理。若要实现单项式 \(X^k\) 或 \(-X^{N-k}\) 的明文乘法，通常也需要手工构造对应的 \texttt{Plaintext}。
+
+\subsection{Lattigo v5}
+
+Lattigo v5 把 automorphism 更明确地暴露在 RLWE 层，而 CKKS 层的 evaluator 负责常规算术。可以大致映射为：
+
+\begin{center}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.28\textwidth} >{\raggedright\arraybackslash}p{0.62\textwidth}}
+\toprule
+抽象操作 & Lattigo v5 中的对应接口 \\ \midrule
+生成 Galois key &
+\texttt{rlwe.KeyGenerator.GenGaloisKey} / \texttt{GenGaloisKeyNew} \\[4pt]
+应用 automorphism &
+\texttt{rlwe.Evaluator.Automorphism} \\[4pt]
+获取某些标准 Galois 元素 &
+\texttt{ckks.Parameters.GaloisElementForRotation(...)} \\[4pt]
+密文加法 / 减法 &
+\texttt{ckks.Evaluator.Add}, \texttt{ckks.Evaluator.Sub} \\[4pt]
+明文--密文乘法 &
+\texttt{ckks.Evaluator.Mul} \\[4pt]
+rescale &
+\texttt{ckks.Evaluator.Rescale} \\[4pt]
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{建议写法}
+如果你已知目标 Galois element \(\texttt{galEl}\) 实现了
+\[
+X^k\mapsto -X^k,
+\]
+那么可在 RLWE 层先做 automorphism，再回到 CKKS evaluator 做算术。一个自然的分层写法是：
+
+\begin{enumerate}[label=(\arabic*)]
+    \item 用 \texttt{rlwe.KeyGenerator.GenGaloisKeyNew(galEl, sk, ...)} 生成所需 Galois key；
+    \item 用 \texttt{rlwe.Evaluator.Automorphism(ctIn, galEl, ctOut)} 得到 \(\ctm\)；
+    \item 用 \texttt{ckks.Evaluator.Add/Sub/Mul} 完成
+    \[
+    \cte,\;\ctoy,\;\cto
+    \]
+    的构造；
+    \item 若 plaintext multiplication 改变了 scale，则按需要调用 \texttt{Rescale}。
+\end{enumerate}
+
+\paragraph{注意}
+Lattigo 的 \texttt{GaloisElementForRotation(k)} 是“标准槽旋转”的 helper；而本文需要的是“在多项式环中实现 \(X^k\mapsto -X^k\) 的 automorphism”。这两者不应混淆。若你不能把目标 automorphism 等价地转化为一个标准 rotation，那么更稳妥的做法是直接在 RLWE 层使用所需的 \texttt{galEl}。
+
+\section{Practical Checklist}
+
+下面给出一个真正实现时的检查清单。
+
+\begin{enumerate}[label=\textbf{C\arabic*.}]
+    \item \textbf{确认 automorphism：}  
+    你的库里传入的 index / Galois element 是否真的实现了
+    \[
+    X^k \mapsto -X^k \, ?
+    \]
+
+    \item \textbf{确认 plaintext 构造：}  
+    是否能构造
+    \[
+    \frac12,\qquad X^k,\qquad -X^{N-k}
+    \]
+    这三个明文乘子？
+
+    \item \textbf{确认 level 对齐：}  
+    \(\ctP\) 与 \(\ctm\) 在进入 \(\Add\) / \(\Sub\) 前是否处于同一 level？
+
+    \item \textbf{确认 scale 对齐：}  
+    \(\ctP\) 与 \(\ctm\) 的 scale 是否一致？  
+    明文乘法后是否需要 rescale？
+
+    \item \textbf{确认密文语义：}  
+    你当前实现处理的是“槽语义 CKKS 流程”还是“本文采用的多项式语义流程”？不要把两者混用。
+\end{enumerate}
+
+\section{Conclusion}
+
+本文第二版不再重复第一版的推导，而是将最终可用结论整理成了以下四个算法：
+
+\begin{enumerate}[label=(\arabic*)]
+    \item \textsc{ForwardSplitKeepY}：
+    \[
+    \ctP \longmapsto (\cte,\ctoy),
+    \qquad
+    \cte \rep \Pe(X^{2k}),\quad
+    \ctoy \rep X^k\Po(X^{2k});
+    \]
+
+    \item \textsc{ForwardSplitNormalized}：
+    \[
+    \ctP \longmapsto (\cte,\cto),
+    \qquad
+    \cte \rep \Pe(X^{2k}),\quad
+    \cto \rep \Po(X^{2k});
+    \]
+
+    \item \textsc{MergeFromKeepY}：
+    \[
+    (\cte,\ctoy)\longmapsto \ctP;
+    \]
+
+    \item \textsc{MergeFromNormalized}：
+    \[
+    (\cte,\cto)\longmapsto \ctP.
+    \]
+\end{enumerate}
+
+就抽象结构而言，这四个算法已经是完整的；实现时只需把
+\[
+\Auto{1+2n},\ \Add,\ \Sub,\ \MulPt{\cdot}
+\]
+分别映射到具体库的 API，并处理好 automorphism key、plaintext 构造以及 level/scale 对齐即可。
+
+\end{document}

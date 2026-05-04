@@ -1,0 +1,7 @@
+# 5的阶: n=2^k
+
+$$\operatorname{ord}_{4n}(5)=n=2^k,\quad \{5^i\bmod 4n\}_{i=0}^{n-1}=\{k\mid \gcd(k,4n)=1,\ k\equiv 1\pmod{4}\}$$
+
+5 mod 4n生成本原根的一半
+
+source: src_000049

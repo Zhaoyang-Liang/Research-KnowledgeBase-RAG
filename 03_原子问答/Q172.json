@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q172",
+  "card_id": "K062",
+  "source_id": "src_000101",
+  "question": "理解BGV/BFV机制对当前CKKS论文写作有什么用？",
+  "answer": "三个用途：(1)Related Work对比——展示FHE生态中不同方案的bootstrapping差异，突出CKKS近似计算的独特优势；(2)术语区分——避免混淆BGV的ModSwitch和CKKS的Rescale、BGV的CRT slot和CKKS的complex slot；(3)技术溯源——C2S/S2C管线结构在不同FHE方案中的共性（都是单位根求值/插值），可作为论文的framing。",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "batch": "Batch-05b1",
+  "created": "2026-05-04T16:00"
+}

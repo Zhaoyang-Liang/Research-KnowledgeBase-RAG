@@ -1,0 +1,26 @@
+{
+  "card_id": "K059",
+  "title": "密钥切换定义与三种典型场景",
+  "topic": "FHE方案/密钥切换",
+  "knowledge_points": [
+    "密钥切换定义：将密文c（加密于密钥s_old）转换为密文c'（加密于密钥s_new），满足c'_0+c'_1·s_new≈c_0+c_1·s_old，即明文不变。使用预计算的密钥切换密钥KSK=(Enc_{s_new}(s_old·g⁰), Enc_{s_new}(s_old·g¹), ...)，其中g是分解基（如2^L）。",
+    "场景1——重线性化：乘法后密文密钥变为s²，使用RLK将s²→s降维。这是最常见的密钥切换场景。FHE乘法必须配套重线性化，否则密文维度指数增长。",
+    "场景2——密钥授权/代理重加密：将加密于s₁的密文切换到s₂，使得持有s₂的第三方可解密而不暴露s₁。",
+    "场景3——模数切换后的密钥适配：模数切换改变q→q'，密钥s可能需要缩放为s'=⌊(q'/q)s⌉，然后通过密钥切换将密文从s切换到s'。",
+    "密钥切换与模数切换的本质区别：密钥切换改变密钥不改变模数（c_old→c_new with s→s'），模数切换改变模数不改变密钥（c_old→c_new with q→q'）。两者正交操作，可组合使用。",
+    "噪声影响：密钥切换引入少量额外噪声（来自KSK解密和分解近似），但远小于乘法噪声。模数切换不引入新噪声（纯缩放+舍入）。"
+  ],
+  "card_type": "concept",
+  "source_id": "src_000104",
+  "claim_source_type": "用户笔记",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b1",
+  "publish_target": "03_FHE知识库",
+  "related_cards": [
+    "K058",
+    "K060"
+  ],
+  "cross_reference": "K058(Y-X): 同态计算完整流程中重线性化环节；K060(Y-X): ModSwitch vs KeySwitch本质区别。",
+  "notes": "全库术语：C2S=coeff→slot, S2C=slot→coeff。本卡密钥切换层面，不涉及C2S/S2C。"
+}

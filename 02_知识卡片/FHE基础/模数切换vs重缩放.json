@@ -1,0 +1,44 @@
+{
+  "title": "模数切换(ModSwitch)与重缩放(Rescale)的区别",
+  "source_file": "01_源文件库/03_FHE总论与基础方案/模数切换和重缩放的区别.md",
+  "category": "03_FHE总论与基础方案",
+  "subtopic": "噪声控制机制",
+  "read_depth": "精读",
+  "ingest_decision": "core_ingest",
+  "generated_at": "2026-05-04",
+  "knowledge_points": [
+    {
+      "id": "modswitch-def",
+      "concept": "模数切换(ModSwitch)定义与效果",
+      "formula": "c' = ⌊(q'/q)·c⌉ ∈ R_{q'}², 噪声 e'≈(q'/q)·e",
+      "meaning": "BGV专用：任意缩小模数，等比例降低噪声绝对值，消息不变（因消息在低位模t）"
+    },
+    {
+      "id": "rescale-def",
+      "concept": "重缩放(Rescale)定义与效果",
+      "formula": "c' = ⌊(1/p)·c⌉, 其中q'=q/p, p=Δ=t(BFV)或p=编码因子(CKKS)",
+      "meaning": "BFV/CKKS专用：固定缩小因子p，同步恢复缩放因子，保持明文尺度一致"
+    },
+    {
+      "id": "key-difference",
+      "concept": "核心区别：消息尺度是否变化",
+      "formula": "ModSwitch: 消息不变 | Rescale: 缩放因子同步调整",
+      "meaning": "ModSwitch像换尺子（厘米→毫米），Rescale像缩小图片+标注一起缩小"
+    }
+  ],
+  "tags": [
+    "模数切换",
+    "重缩放",
+    "ModSwitch",
+    "Rescale",
+    "BGV",
+    "BFV",
+    "CKKS",
+    "噪声控制"
+  ],
+  "source_id": "src_000014",
+  "source_title": "模数切换与重缩放的区别",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/模数切换和重缩放的区别.md",
+  "source_type": "md",
+  "source_role": "canonical_source"
+}

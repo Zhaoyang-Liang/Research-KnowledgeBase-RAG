@@ -1,0 +1,1219 @@
+
+--- PAGE 1 ---
+Revisiting the Slot-to-Coefficient
+Transformation for BGV and BFV
+Robin Geelen
+COSIC, KU Leuven, Leuven, Belgium
+Abstract. Numerous applications in homomorphic encryption require an operation
+that moves the slots of a ciphertext to the coefficients of a different ciphertext.
+For the BGV and BFV schemes, the only efficient algorithms to implement this
+slot-to-coefficient transformation were proposed in the setting of non-power-of-two
+cyclotomic rings. In this paper, we devise an FFT-like method to decompose the
+slot-to-coefficient transformation (and its inverse) for power-of-two cyclotomic rings.
+The proposed method can handle both fully and sparsely packed slots. Our algorithm
+brings down the computational complexity of the slot-to-coefficient transformation
+from a linear to a logarithmic number of FHE operations, which is shown via a
+detailed complexity analysis.
+The new procedures are implemented in Microsoft SEAL for BFV. The experiments
+report a speedup of up to 44×when packing 212elements from GF(81918). We
+also study a fully packed bootstrapping operation that refreshes 215elements from
+GF(65537) and obtain an amortized speedup of 12×.
+Keywords: Homomorphic encryption ·Linear transformations ·Bootstrapping ·
+BGV·BFV
+1 Introduction
+Several fully homomorphic encryption (FHE) schemes offer the capability of encoding
+multiple numbers in a ciphertext [ SV14]. This functionality of “packing” numbers together
+is referred to as batching, and each entry in the packed vector is called a plaintext slot .
+For example, the closely related BGV [ BGV14] and BFV [ Bra12,FV12] schemes encode a
+vector of numbers defined modulo a power of a prime. Similarly, the CKKS [ CKKS17 ]
+scheme encodes a vector of complex numbers approximated up to a limited precision. A
+recent attempt was made to introduce batching in third generation schemes as well [ LW23a].
+However, those techniques remain currently only of theoretical interest and will not be
+considered in the rest of this paper.
+A very common operation in both BGV/BFV and CKKS is converting between slot and
+coefficient representation. Informally, the slot-to-coefficient transformation is defined as
+follows: given one or multiple ciphertexts encoding m0,m1,...,m N−1in the plaintext slots,
+compute a ciphertext that encrypts the polynomial m0+m1·X+...+mN−1·XN−1. The
+most important applications of the slot-to-coefficient transformation include (amortized)
+bootstrapping [ GHS12a,AP13,HS21,CH18,GV23,GIKV23,OPP23,CHK+18,LW23b],
+scheme conversion [ BGGJ20 ,LHH+21,BCK+23] and transciphering [ CHK+21]. The
+inverse operation (coefficient-to-slot transformation) also appears in these applications.
+The slot-to-coefficient transformation and its inverse are linear operations. Several
+methods exist to compute it homomorphically, each of which is useful in a particular
+setting. For the CKKS scheme, one typically takes the number of messages Nas a power
+E-mail: robin.geelen@esat.kuleuven.be (Robin Geelen)
+--- PAGE 2 ---
+2 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+of two, and efficient algorithms have been proposed to compute the slot-to-coefficient
+transformation in that setting [ CCS19,HHC19]. For the BGV and BFV schemes, there
+are two common options: one can take the number of messages Ndifferent from a power
+of two, which is the direction taken by HElib. In that case, an efficient method exists to
+compute the slot-to-coefficient transformation [ HS18,HS21]. Alternatively, one can take
+the number of messages as a power of two, in which case no efficient algorithm for the
+slot-to-coefficient transformation has been proposed to the best of our knowledge.
+The main focus of this paper is studying the slot-to-coefficient transformation for BGV
+and BFV in the power-of-two setting. Similarly to the CKKS case, we propose an FFT-like
+algorithm to decompose the transformation in multiple stages, which scales well even for a
+large number of plaintext slots. The algorithm is implemented in the Magma bootstrapping
+library [GV23] and Microsoft SEAL [SEA23].
+1.1 Related Work
+Research in the slot-to-coefficient transformation can be divided into two categories: on
+the one hand, several works bring down the computational complexity of generic linear
+transformations. Many of the techniques on this front are shared between the BGV/BFV
+and CKKS case. On the other hand, there also exist algorithms to decompose the slot-to-
+coefficient map into smaller linear transformations, each of which can then be evaluated
+with the generic approach. Below we give an extensive overview of the existing literature
+for BGV/BFV and CKKS.
+1.1.1 Linear Transformations in BGV and BFV
+Generic linear transformations. HElib contains several algorithms to evaluate generic
+homomorphic linear transformations [ HS18,CCLS19]. The following two techniques are
+used: a linear transformation, which is a sum of Dweighted “rotations”, can be rewritten
+as a double summation. By taking O(√
+D)terms in both the inner and outer sum, one can
+reduce the number of rotations to O(√
+D). This algorithm is called a baby-step/giant-step
+implementation. Moreover, the so-called hoisting technique can be used to simultaneously
+compute all inner-sum rotations, which is more efficient than computing each of them
+separately. Technical details about both techniques are given in Section 2.4.
+FFT-like decomposition. As mentioned earlier, the slot-to-coefficient transformation in
+HElib (also called the evaluation map ) employs non-power-of-two message packing [ HS21].
+More specifically, one chooses a cyclotomic index mand then packs N=φ(m)messages
+whereφ(·)denotes Euler’s totient function. The parameter mis typically chosen as a
+product of smaller prime powers for two reasons: it gives reasonably high packing capacity
+ofZpe-vectors and allows FFT-like decomposition of the slot-to-coefficient transformation.
+However, this parameter setting also has significant disadvantages compared to the power-
+of-two case, including less efficient implementations and a larger noise variance of the
+input ciphertext during bootstrapping (the exact noise variance depends on the number of
+distinct prime factors in m, following the heuristic analysis of Halevi and Shoup [HS21]).
+From the theoretical side, it is known that the slot-to-coefficient transformation can
+be evaluated in quasilinear time [ AP13]. Note that this early work employed a “ring
+switching” technique to convert between different values of the cyclotomic index m, which
+was necessary to reach an efficient decomposition of the linear transformation. However,
+subsequent implementations of bootstrapping (including the one in HElib) do not use
+ring switching anymore, because it is conjectured that ring switching would not give a
+substantial performance benefit in practice [HS21].
+Finally, we note that no FFT-like algorithm has yet been proposed for the slot-to-
+coefficient transformation in the case of power-of-two cyclotomics. To the best of our
+--- PAGE 3 ---
+Robin Geelen 3
+knowledge, the only approach is the one from SEAL [ CH18], but it does not use an efficient
+decomposition into smaller-dimensional matrices.
+1.1.2 Linear Transformations in CKKS
+Generic linear transformations. As mentioned earlier, the strategy to evaluate generic
+linear transformations in CKKS is very similar to BGV/BFV (including optimizations
+such as baby-step/giant-step implementations and hoisting). Moreover, a double-hoisting
+method was proposed to accelerate the computation of the inner-sum rotations even
+more [BMTH21 ]. Notably, the double-hoisting technique carries over to BGV/BFV when
+hybrid key switching [HK20] is used.
+FFT-like decomposition. The CKKS scheme is only used in combination with a power-
+of-two cyclotomic index m, which implies that N=φ(m) =m/2. Very similar FFT-like
+algorithms to decompose the slot-to-coefficient transformation were proposed by Chen et
+al. [CCS19] and by Han et al. [ HHC19]. Compared to the BGV/BFV case, the CKKS
+transformations resemble much more a classical FFT algorithm due to exclusive use of
+power-of-two packing. Technical details about those algorithms are discussed in Section 2.3,
+where we approach the problem from the same point of view as Han et al.
+1.2 Contributions and Outline
+This work makes the following contributions:
+•Section 3 describes new properties of the automorphism group and plaintext packing
+for BGV/BFV. For a prime-power plaintext modulus pe, we make a crucial difference
+between the situation p= 1 ( mod 4)(where the rotation group of the plaintext slots
+has rank two) and p= 3 ( mod 4)(where the rotation group of the plaintext slots
+has rank one). Sparsely packed slots are handled as a special case of fully packed
+slots by encoding messages in a subring.
+•Section 4 describes a CKKS-like method to decompose the slot-to-coefficient trans-
+formation in BGV and BFV, which scales well even for a large number of slots. The
+complexity of the new method is analyzed and compared to related work in Section 5.
+The implementation and results are discussed in Section 6.1Specifically, we compare
+a single linear transformation with the state-of-the-art, and we also demonstrate the
+advantage of our method by running a fully packed bootstrapping application.
+2 Preliminaries
+2.1 Notations
+We will use power-of-two cyclotomic indices mandm′, wherem′dividesm. Their totient
+is written as N=φ(m) =m/2andN′=φ(m′) =m′/2respectively. The involved
+homomorphic encryption schemes work over the ring R=Z[X]/(XN+ 1)and its subring
+R′=Z[XN/N′]/(XN+ 1). For an integer k≥2, we write the quotient ring of Rmodulok
+asRk=R/kRand similarly forR′. All ring elements are shown in bold lower case letters
+(e.g.,a∈R) or explicitly as polynomials (e.g., a(X)∈R). The infinity norm of a∈R
+(i.e., its largest coefficient) is denoted by ||a||∞. The unit group of integers modulo m
+is written as Z∗
+m(this is isomorphic to the automorphism group of R/Z). The subgroup
+generated by g∈Z∗
+mis denoted by⟨g⟩. Finally, we summarize commonly used symbols in
+Table 1 (some of these notations will be introduced in later sections).
+1Code is available at https://github.com/KULeuven-COSIC/Bootstrapping_BGV_BFV/tree/traces .
+--- PAGE 4 ---
+4 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+Table 1: List of commonly used symbols and their meaning
+Symbol Meaning
+m(orm′)Power-of-two cyclotomic index ( m≥m′)
+N(orN′)Totient of cyclotomic index m(orm′)
+R(orR′)Cyclotomic ring of index m(orm′)
+E(orE′)Slot algebra for m(orm′) andpe
+pePlaintext modulus for BGV/BFV
+q Ciphertext modulus for BGV/BFV
+d Multiplicative order of pinZ∗
+m
+ℓ Number of slots (equals N/d)
+2.2 BGV and BFV Encryption
+BGV and BFV encrypt plaintexts from the ring Rpefor some prime pand positive integer e.
+We will see the plaintext space Rpeas a subset ofRwhere polynomials have coefficients
+in[−pe/2,pe/2)∩Z. As mentioned above, we will only consider power-of-two-dimensional
+ringsR, although one can easily generalize encryption to arbitrary cyclotomic rings. A
+ciphertext is a pair of ring elements, i.e., it lives in R2
+q. For correctness, the ciphertext
+modulus needs to be much larger than the plaintext modulus ( q≫pe).
+A BGV ciphertext (c0,c1)∈R2
+qis said to encrypt the plaintext m∈Rpeunder secret
+keys∈Rif
+c0+c1·s=m+pee(modq)
+for some noise term e∈Rthat satisfies||e||∞<(q/pe−1)/2. Similarly, a valid BFV
+ciphertext satisfies
+c0+c1·s=⌊(q/pe)·m⌉+e(modq),
+where the bound on eis the same.
+2.2.1 Homomorphic Operations in BGV and BFV
+BGV and BFV offer the same set of homomorphic operations over the plaintext space and
+have the same asymptotic performance. Each homomorphic operation causes a certain
+amount of noise growth (the term ewill grow larger). The following operations are defined:
+•Addition: given two ciphertexts that encrypt m1andm2, compute a new ciphertext
+that encrypts m1+m2. The noise growth of addition is additive (the new noise
+is roughly equal to the sum of the noise terms). Addition is generally considered a
+cheap operation in terms of execution time.
+•Multiplication: given two ciphertexts that encrypt m1andm2, compute a new
+ciphertext that encrypts m1·m2. Roughly, one can bound the new noise after
+multiplication by c·(||e1||∞+||e2||∞), wherecis a constant that grows linearly
+inpeand quadratically in N(so larger parameters result in more noise). In terms
+of execution time, multiplication is much more expensive than addition, because it
+requires an expensive post-processing step called key switching.
+•Automorphism: given a ciphertext that encrypts a(X)and given a number j∈Z∗
+m,
+compute a new ciphertext that encrypts a(Xj)(note that reduction modulo XN+ 1
+is implicit here). The automorphism a(X)∝⇕⊣√∫⊔≀→a(Xj)will be denoted by τjhereafter.
+The noise growth of automorphism is additive (the new noise is equal to the old noise
+plus some extra constant term). In terms of execution time, the cost of automorphism
+is similar to multiplication as it also requires key switching.
+Next to the ciphertext-ciphertext addition and multiplication as defined above, one can
+also define addition and multiplication between a plaintext and a ciphertext. Plaintext-
+ciphertextmultiplicationismuchcheaperthanciphertext-ciphertextmultiplication, because
+--- PAGE 5 ---
+Robin Geelen 5
+no key switching is required. For more information about the practical performance of the
+homomorphic operations, we refer to Kim et al. [KPZ21].
+2.2.2 Plaintext Slots in BGV and BFV
+Based on the Chinese remainder theorem, Smart and Vercauteren [ SV14] proposed a
+method to pack multiple numbers in a ciphertext, and perform “single instruction, multiple
+data” operations on these numbers. The idea relies on the following lemma.
+Lemma 1. Letpbe an odd prime number and let ebe a positive integer as above. Let
+m≥2be a power-of-two cyclotomic index and N=m/2. Then the m-th cyclotomic
+polynomial factors modulo peas
+XN+ 1 =F1(X)·...·Fℓ(X) (modpe). (1)
+Each factor is of degree d, which is the multiplicative order of pmodulom, and the number
+of factors is ℓ=N/d.
+As such, using the Chinese remainder theorem, the plaintext ring is isomorphic to
+Rpe∼=Zpe[X]/(F1(X))×...×Zpe[X]/(Fℓ(X)),
+where addition and multiplication at the right-hand side correspond to component-wise
+addition and multiplication. Since all rings Zpe[X]/(Fi(X))are Galois rings of the same
+parameters, they are isomorphic to each other. Therefore, we can see the plaintext space
+asℓcopies of Zpe[X]/(F1(X)), each of which is called a plaintext slot .
+Slot permutations. Gentry et al. [ GHS12b] noticed that one can homomorphically apply
+permutations to the plaintext slots using the automorphisms from above. This is most
+easily seen as follows: first, define the slot algebra asE=Zpe[ζm]withζma formal root
+ofF1(X), and letS⊆Zbe a complete system of representatives for Z∗
+m/⟨p⟩(as done in
+HElib [HS18]). In practice, we construct the set Sas
+S={ge1
+1·...·get
+t|0≤ei<ℓi}, (2)
+whereℓ=ℓ1·...·ℓtis the number of slots. The integers giandeiare called generators and
+orders respectively.2The plaintext ring is now isomorphic to Eℓ, which can be explicitly
+computed as
+Rpe→Eℓ:a(X)∝⇕⊣√∫⊔≀→/braceleftbig
+a(ζh
+m)/bracerightbig
+h∈S. (3)
+As such, each plaintext slot corresponds to one index h∈Sor one tuple (e1,...,e t). By
+associating each plaintext slot with such a tuple, the full plaintext space corresponds to a
+t-dimensional hypercube [HS20].
+To enable permutations on a plaintext m, we take 0≤v<ℓ iand compute
+ρv
+i(m) =µ·τj(m) + (1−µ)·τk(m), (4)
+wherej=g−v
+i(modm)andk=gℓi−v
+i (modm), andµis the “mask” obtained by
+embedding ‘0’ in the plaintext slots with ei< v, and embedding ‘1’ in the other slots.
+Lettingm′=ρv
+i(m), it is easy to see that the value of m′in slot (e1,...,e′
+i,...,e t)is
+equal to the value of min slot (e1,...,e i,...,e t)withe′
+i=ei+v(modℓi). Since the
+permutation ρv
+ionly acts on a single index in the tuple (by mapping each slot vpositions
+forward), it is called a one-dimensional rotation [HS18].
+In general, computing the rotation from Equation (4) requires two automorphisms.
+However, if gℓi
+i= 1 ( modm), then the equation simplifies to ρv
+i(m) =τj(m), so we
+need only one automorphism. For 1≤i≤t, we call dimension i“good” if only one
+automorphism is required and “bad” otherwise [HS18].
+2More information about the construction of Sfor power-of-two cyclotomics will be given in Section 3.
+--- PAGE 6 ---
+6 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+The Frobenius map. The rotations from Equation (4) use two automorphisms τjandτk,
+which represent the elements of S(and thereby the quotient group Z∗
+m/⟨p⟩). However, the
+full automorphism group of R/Zconsists ofτjwithj∈Z∗
+m. The remaining automorphisms
+forj∈⟨p⟩induce automorphisms on E: they act on each plaintext slot individually as the
+mapa(ζm)∝⇕⊣√∫⊔≀→a(ζj
+m)for arbitrary a(X). This subgroup of automorphisms is generated by
+σ=τp(the so-called Frobenius map ), which acts on the slots as σE:a(ζm)∝⇕⊣√∫⊔≀→a(ζp
+m).
+2.3 The Slot-to-Coefficient Transformation in CKKS
+The slot-to-coefficient transformation is achieved by evaluating the decoding function
+homomorphically, which is a linear transformation over the plaintext slots. Similarly, the
+coefficient-to-slot transformation evaluates the encoding function, which corresponds to
+the inverse linear transformation. In the CKKS scheme, this involves multiplication by an
+m/4×m/4-matrix defined as
+Sm/4=/parenleftig
+ζ5i·revm/4(j)
+m/parenrightig
+0≤i,j<m/ 4, (5)
+whereζmis a primitive m-th root of unity, and revm/4denotes the standard bit-reversal
+permutation of m/4items (the definition of Sm/4above specifies entries in row iand
+columnj). Although CKKS defines the matrix over the complex numbers, it trivially
+extends to rings that have a primitive m-th root of unity ζm(such as the slot algebra E).
+In order to efficiently evaluate multiplication by Sm/4, Han et al. [ HHC19] show an
+FFT-like method to decompose this matrix into a product of sparse matrices. More
+specifically, they prove the following lemma.
+Lemma 2. LetSm/4be as above, and correspondingly, let Sm/8be them/8×m/8-matrix
+defined with respect to ζm/2=ζ2
+m. Then for m≥8, we have
+Sm/4=/bracketleftbiggI W m/8
+I−Wm/8/bracketrightbigg
+·/bracketleftbiggSm/8 0
+0Sm/8/bracketrightbigg
+,
+whereWm/8=diag(ζ5i
+m)0≤i<m/ 8.
+By applying the above lemma recursively on Sm/8, we can factor Sm/4into a product
+oflog2(m/4)sparse matrices (each of which contains only m/2non-zero elements). Finally,
+note that it can be useful to exploit an “incomplete” factorization of Sm/4in which multiple
+factors are merged, as this leads to less noise growth in homomorphic encryption (additional
+details will be given later).
+2.4 Baby-Step/Giant-Step Algorithm
+2.4.1 Linear Transformations on Rpe
+To implement multiplication by the matrices from Section 2.3, one can use the baby-
+step/giant-step algorithm [ HS18]. This algorithm multiplies the vector of plaintext slots
+(in one dimension of S) by a generic matrix. More specifically, one can express an E-linear
+transformation Lon a plaintext m∈Rpein dimension ias
+L(m) =ℓi−1/summationdisplay
+v=0κ(v)·ρv
+i(m),
+--- PAGE 7 ---
+Robin Geelen 7
+whereκ(v)∈Rpeare appropriate constants. Letting g=⌈√ℓi⌉andh=⌈ℓi/g⌉, the idea
+is to rewrite the linear transformation as
+L(m) =ℓi−1/summationdisplay
+v=0κ(v)·(µ(v)·τv(m) + (1−µ(v))·τv−ℓi(m))
+=h−1/summationdisplay
+k=0τgk
+g−1/summationdisplay
+j=0(κ′(j+gk)·τj(m) +κ′′(j+gk)·τj(τ−ℓi(m)))
+,(6)
+whereτ=τ−1
+giand
+κ′(j+gk) =τ−gk(µ(j+gk)·κ(j+gk)),
+κ′′(j+gk) =τ−gk((1−µ(j+gk))·κ(j+gk)).
+It is clear that Equation (6) can be computed using O(√ℓi)automorphisms and O(ℓi)
+plaintext-ciphertext multiplications. Moreover, if key switching keys are available for all j,
+then we can use well-known (double-)hoisting techniques [ HS18,BMTH21 ] to speed up
+the computation of τj(m)andτj(τ−ℓi(m)). This is possible because both are sequences
+of automorphisms on the same input (respectively mandτ−ℓi(m)).
+In a good dimension, Equation (6) collapses to
+L(m) =h−1/summationdisplay
+k=0τgk
+g−1/summationdisplay
+j=0κ′(j+gk)·τj(m)
+, (7)
+whereκ′(j+gk) =τ−gk(κ(j+gk)). This saves approximately 50% of the automorphisms
+and plaintext-ciphertext multiplications in the inner-sum computation.
+2.4.2 Linear Transformations on E
+Similarly to above, one can express a Zpe-linear transformation on a∈Eas a weighted
+sum ofσv
+E(a). As such, for a plaintext m∈Rpe, the map
+L(m) =d−1/summationdisplay
+v=0κ(v)·σv(m) (8)
+acts on each slot individually as a Zpe-linear transformation. This functionality can be
+implemented in the same manner as Equation (7) if we take τ=σ. The cost is dominated
+byO(√
+d)automorphisms and O(d)plaintext-ciphertext multiplications.
+2.4.3 Multidimensional Baby-Step/Giant-Step Algorithm
+The baby-step/giant-step algorithm (for E-linear as well as Zpe-linear transformations)
+can be generalized to a multidimensional version [ CCLS19]. More specifically, the goal is
+to compute weighted sums of automorphisms τiwithi∈I⊆Z∗
+m. We first split the index
+setIin two components J,K⊆Z∗
+msuch that each i∈Ican be written as i=jkwith
+j∈Jandk∈K. For a plaintext m∈Rpe, we can now rearrange expressions of the form
+L(m) =/summationdisplay
+i∈Iκ(i)·τi(m) =/summationdisplay
+k∈Kτk
+/summationdisplay
+j∈Jκ′(jk)·τj(m)
+, (9)
+whereκ′(jk) =τ−1
+k(κ(jk)). We note that arbitrary linear transformations can be expressed
+in the form of Equation (9), so we are neither limited to slot-wise nor one-dimensional
+linear transformations. Finally, when merging an E-linear and a Zpe-linear map, one can
+sometimes evaluate a bad dimension with the same cost as a good dimension, using the
+strategy of reassigning incomplete rotations [CCLS19].
+--- PAGE 8 ---
+8 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+3 An Alternative View of Plaintext Encoding
+The goal of this section is to introduce useful properties of power-of-two cyclotomics.
+We first discuss the algebraic structure of the automorphism group and construction of
+the representative set Swhich was defined earlier. Then we derive properties about the
+factorization of cyclotomic polynomials, which will naturally lead to a method for encoding
+plaintext vectors in a subring of Rpe.
+3.1 Structure of the Automorphism Group and Plaintext Slots
+Form≥4a power of two, it is a well-known fact that Z∗
+m=⟨5⟩×⟨− 1⟩, where 5 has
+orderm/4and−1has order 2 [ Gau86]. Consequently, this group has two generators and
+is thus not cyclic for m≥8. Another useful property is that for 1≤r≤m/4withra
+power of two, the subgroup ⟨5r⟩coincides with the set consisting of all numbers xsuch
+thatx= 1 ( mod 4r). This is because both sets are subgroups of the cyclic group ⟨5⟩, and
+both have the same order m/(4r).
+Lemma 3. Letm≥4be a power of two and consider a prime p. Ifp= 4r·k+ 1withr
+a power of two and kodd, then the number of slots is ℓ=min(2r,m/ 2). Ifp= 4r·k−1
+withra power of two and kodd, then the number of slots is ℓ= min(2r,m/ 4).
+Proof.First note that the proof is trivial if r≥m/4, becausep=±1 (modm)in that
+case. Therefore, the order of pwill be equal to 1 or 2, giving m/2orm/4slots respectively.
+We will therefore assume that 1≤r<m/ 4in the rest of the proof.
+We now prove the case p= 4r·k+ 1. Using the property from above, we know that
+p∈⟨5r⟩. On the other hand, we know that p /∈/angbracketleftbig
+52r/angbracketrightbig
+sincekis odd, sopis not in any
+strict subgroup of ⟨5r⟩. It follows that pgenerates⟨5r⟩and the order of pis equal to
+d=m/(4r). The number of slots is ℓ=m/(2d) = 2r≤m/2.
+We now prove the case p= 4r·k−1. Using a similar reasoning as above, we obtain
+that the order of −pis equal to m/(4r). Since this order is at least 2, it follows that the
+order ofpis alsod=m/(4r)and the number of slots is ℓ=m/(2d) = 2r≤m/4.
+A noteworthy corollary is that the number of slots is at most (p+ 1)/2. Hence one can
+only have a good packing density if pis large. The maximum number of N=m/2slots is
+reached when p= 1 (modm).
+3.1.1 Construction of the Representative Set
+The setSfrom Equation (2) forms a complete system of representatives for Z∗
+m/⟨p⟩and
+can therefore be constructed with one or two generators. If p= 1 ( mod 4), thenp∈⟨5⟩
+and the group Z∗
+m/⟨p⟩is not cyclic in general. Therefore, we use generators g1= 5(of
+orderℓ1=ℓ/2) andg2=−1(of orderℓ2= 2). On the other hand, if p= 3 ( mod 4), then
+p∈−⟨ 5⟩andZ∗
+m/⟨p⟩is cyclic. Therefore, we use generator g1= 5(of orderℓ1=ℓ).
+We can also reinterpret the set Sinto log2(ℓ)dimensions of size 2. This is done by
+considering Sthrough the generators 5n,5n/2,..., 52, wheren=ℓ/4ifp= 1 ( mod 4)
+andn=ℓ/2ifp= 3 ( mod 4). This interpretation is useful for decomposing the slot-
+to-coefficient transformation in multiple stages. Intermediate interpretations with fewer
+dimensions of larger size are also possible.
+3.2 Factorization of Cyclotomic Polynomials
+The following standard result can be obtained by merging the proofs from Lyubashevsky
+and Seiler [ LS18] and Okada et al. [ OPP23]. We also provide a unified and simplified proof
+for comprehensiveness below.
+--- PAGE 9 ---
+Robin Geelen 9
+Lemma 4. Letm≥4be a power of two, then each factor in Equation (1)is of the shape
+Fi(X) =Xd+ai·Xd/2+bi, whereai= 0ifp= 1 (mod 4) .
+Proof.We first prove the case p= 1 ( mod 4). Using the result from Lemma 3, we know
+thatp= 4r·k+ 1whereℓdivides 2r. Letm′=m/d, then substituting 2rbyℓin the
+previous equation gives p= 2ℓ·k′+ 1 =m′·k′+ 1, sop= 1 ( modm′). Using Lemma 1,
+them′-th cyclotomic polynomial splits modulo peinto linear factors:
+XN′+ 1 =F′
+1(X)·...·F′
+ℓ(X) (modpe).
+Then we explicitly obtain the factors of XN+ 1asFi(X) =F′
+i(XN/N′) =F′
+i(Xd).
+We now prove the case p= 3 ( mod 4). Using the result from Lemma 3, we know that
+p= 4r·k−1whereℓdivides 2r. Letm′= 2m/d, then substituting 2rbyℓin the previous
+equation gives p= 2ℓ·k′−1 = (m′/2)·k′−1, sop2= 1 ( modm′)whilep̸= 1 ( modm′).
+Using Lemma 1, the m′-th cyclotomic polynomial splits modulo peinto quadratic factors:
+XN′+ 1 =F′
+1(X)·...·F′
+ℓ(X) (modpe).
+Then we explicitly obtain the factors of XN+ 1asFi(X) =F′
+i(XN/N′) =F′
+i(Xd/2).
+3.2.1 Encoding Plaintext Vectors in a Subring
+One does not have to use the full packing capacity of Rpe, but can also encode plaintext
+vectors in a subring R′
+pe. Since the algebraic structure of R′
+pedepends on m′instead ofm,
+this will result in fewer plaintext slots (smaller ℓ) or a lower extension degree of the slot
+algebra (smaller d) or both. Packing in a subring is useful in applications where a small
+number of messages suffices.
+To take a plaintext from RpetoR′
+pe, we can homomorphically evaluate the trace of
+R/R′. This operation is commonly called coefficient selection [ CH18] or subsum [ CCS19]
+in bootstrapping. Following the definition of the trace, it results in
+N−1/summationdisplay
+i=0mi·Xi∝⇕⊣√∫⊔≀→(N/N′)·
+N′−1/summationdisplay
+i=0mi·N/N′·Xi·N/N′
+.
+Itcanbeimplementedefficientlyusingonly log2(N/N′)automorphismsbygoingthroughall
+intermediate cyclotomic rings between RandR′, and then iteratively evaluating the trace
+for all subrings [AP13]. The factor N/N′can be removed by folding (N/N′)−1(modpe)
+in any subsequent linear transformation. We omit further details.
+Example 1. We say that a plaintext is sparsely packed if each slot contains only an
+element from Zpe⊆E. According to the Chinese remainder theorem, such a plaintext is
+constructed as
+m=ℓ/summationdisplay
+i=1mi·Gi(X),whereGi(X) =XN+ 1
+Fi(X)·/bracketleftigg/parenleftbiggXN+ 1
+Fi(X)/parenrightbigg−1
+(modFi(X))/bracketrightigg
+.
+Here the polynomials Fi(X)denote the factors from Equation (1) and mi∈Zpe. Reduction
+modulopeis implicit in the equation above. Following Lemma 4, it is easy to see that
+Fi(X)∈Zpe[Xc]and therefore Gi(X)∈Zpe[Xc], wherec=difp= 1 ( mod 4)and
+c=d/2ifp= 3 (mod 4) . It follows directly that m∈R′
+pewith respect to m′=m/c.
+4 The New Transformation for BGV and BFV
+This section describes the new version of the slot-to-coefficient and coefficient-to-slot
+transformations, covering fully packed and sparsely packed slots. Our analysis distinguishes
+--- PAGE 10 ---
+10 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+the casep= 1 ( mod 4)(treated in Section 4.2) from p= 3 ( mod 4)(treated in Section 4.3).
+These require a fundamentally different linear transformation, because the first case has a
+non-cyclic and the second case has a cyclic permutation group.
+4.1 Intuition Behind the Proposed Method
+In both variants of our method, we start from a ciphertext that encodes the desired
+numbers with respect to the “power basis” of ζm,iin sloti. First, we apply a map M
+to make the encoding uniform (i.e., each slot must use the power basis of ζm). Then we
+evaluate homomorphic matrix-vector multiplication by Uℓ, which is an FFT-like linear
+transformation that evaluates in the roots of unity. Finally, we apply the inverse map M−1
+to change the encoding back to the power basis of ζm,iin sloti. Remark that the proposed
+method is equivalent to CKKS if p= 3 (mod 4) and the slot width is d= 2.
+In the case p= 3 ( mod 4), we additionally use the fourth root of unity ζ4. It can be
+interpreted as the equivalent of the imaginary unit in the complex numbers. This fourth
+root of unity is invariant under the applied transformation, thereby making it E′-linear.
+This approach is not possible in the case p= 1 (mod 4) becauseζ4∈Zpe.
+4.2 New Method for p= 1 (mod 4)
+We will identify the slots of a plaintext with a vector in Eℓ. This is done by “flattening”
+the representative set as S={1,5,..., 5ℓ1−1,−1,−5,...,−5ℓ1−1}and filling the plaintext
+in Equation (3). We also use the notation ζm,i=ζhim, wherehiis thei-th element of S.
+4.2.1 Fully Packed Slots
+In the slot-to-coefficient transformation, we start from a plaintext mthat encodes
+− →m=
+d−1/summationdisplay
+j=0mi,j·ζj
+m,i
+
+0≤i<ℓ
+in the slots. Note that the encoding is done with respect to ζj
+m,iinstead ofζj
+mso that we
+can use powers of Xas the packing constants later. The goal is to map the elements mi,j
+to the coefficients of a new plaintext m′′′. This can be done in three steps:
+1.Perform a slot-wise linear transformation Mthat mapsζj
+m,i∝⇕⊣√∫⊔≀→ζj
+mfor0≤j <din
+slotiand extends by Zpe-linearity. Note that this transformation depends on iand
+is thus different for each slot. After this step, the plaintext encodes the slot-vector
+− →m′=
+d−1/summationdisplay
+j=0mi,j·ζj
+m
+
+0≤i<ℓ.
+2. Multiply the slot-vector by (a column-permuted version of) the decoding matrix
+Uℓ=/parenleftig
+ζd·j
+m,i/parenrightig
+0≤i,j<ℓ,
+where the matrix above is specified by the entries in its i-th row and j-th column.
+Observe that ζd
+m∈Zpe, which implies Uℓ∈Zℓ×ℓ
+pe. After this step, the plaintext
+encodes the slot-vector
+− →m′′=
+ℓ−1/summationdisplay
+k=0d−1/summationdisplay
+j=0mk,j·ζj
+m·ζd·k
+m,i
+
+0≤i<ℓ.
+--- PAGE 11 ---
+Robin Geelen 11
+A column-permuted version of Uℓwill simply map the elements mi,jto a different
+order of the coefficients.
+3.Perform the linear transformation M−1that mapsζj
+m∝⇕⊣√∫⊔≀→ζj
+m,ifor0≤j <din sloti.
+After this step, the plaintext encodes the slot-vector
+− →m′′′=
+ℓ−1/summationdisplay
+k=0d−1/summationdisplay
+j=0mk,j·ζj+d·k
+m,i
+
+0≤i<ℓ,
+which corresponds to the plaintext
+m′′′=ℓ−1/summationdisplay
+k=0d−1/summationdisplay
+j=0mk,j·Xj+d·k.
+Here we used the observation that M−1does not act on the entries of Uℓ(i.e., powers
+ofζd
+m) due to Zpe-linearity.
+We emphasize that the slot-to-coefficient transformation is only Zpe-linear and not E-linear
+in general, which is why step 1 and step 3 are required (step 2 alone is E-linear). The inverse
+map (coefficient-to-slot transformation) is given by M−1U−1
+ℓMinstead ofM−1UℓM.
+Matrix decomposition. The matrix from step 2 can be decomposed into a product of
+sparse matrices. To do this, we use the column-permuted version
+Uℓ=/bracketleftbiggSℓ/2ζ4·Sℓ/2
+S′
+ℓ/2−ζ4·S′
+ℓ/2/bracketrightbigg
+=/bracketleftbiggSℓ/2 0
+0S′
+ℓ/2/bracketrightbigg
+·/bracketleftbiggI ζ 4·I
+I−ζ4·I/bracketrightbigg
+,
+whereζ4=ζm/4
+m. The submatrices Sℓ/2andS′
+ℓ/2are defined in Equation (5) and generated
+by the roots of unity ζd
+mandζ−d
+mrespectively. Observe that Sℓ/2andS′
+ℓ/2can be further
+decomposed using Lemma 2. As a result, we can write Uℓas a product of log2(ℓ)sparse
+matrices, each of which acts on only one dimension of S(in the alternative interpretation
+where each dimension has size 2). The leftmost factor of this product will act on the first
+dimension and the rightmost factor on the last dimension.
+Unpacking the slots. After the coefficient-to-slot operation, bootstrapping needs to split
+the ciphertext that encrypts mindsparsely packed ciphertexts. This can be done as
+follows: first, we homomorphically split the plaintext in two parts m1=m+σd/2(m)and
+m2=X−1·(m−σd/2(m)). The automorphism σd/2will simply map X∝⇕⊣√∫⊔≀→−Xand thus
+acts on the slots as ζm∝⇕⊣√∫⊔≀→−ζm(note that this is indeed an automorphism of Edue to the
+special shape of Fi(X)in Lemma 4). Therefore, the plaintexts will encode the slot-vectors
+− →m1=
+2·d/2−1/summationdisplay
+j=0mi,2j·ζ2j
+m,i
+
+0≤i<ℓand− →m2=
+2·d/2−1/summationdisplay
+j=0mi,2j+1·ζ2j
+m,i
+
+0≤i<ℓ.
+We emphasize that multiplication by powers of Xdoes not increase the noise as it just
+permutes coefficients negacyclicly. To obtain dsparse ciphertexts, we apply this procedure
+iteratively on the plaintexts m1andm2: in leveli= 1,..., log2(d)of the iteration, we
+computem1=m+σd/2i(m)andm2=X−2i−1·(m−σd/2i(m)), wheremloops over
+all outputs of the previous iteration. At the end of the unpacking procedure, the undesired
+factors of 2 in− →m1and− →m2will accumulate to a factor of d. It can be removed by folding a
+factor ofd−1(modpe)in the preceding linear transformation.
+--- PAGE 12 ---
+12 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+Repacking the slots. Before the slot-to-coefficient transformation, bootstrapping needs
+to recombine dsparsely packed ciphertexts into one fully packed ciphertext. This is the
+inverse of unpacking and can be computed as m=m1/2 +X2i−1·m2/2, where we loop
+overiin reverse order than during unpacking. Note that the input of repacking is indeed
+given bym1/2andm2/2rather thanm1andm2, assuming that the factor of dwas
+removed appropriately before unpacking.
+4.2.2 Sparsely Packed Slots
+According to Example 1, sparsely packed plaintexts (where the slots contain an element
+fromZpe) live in the subring R′
+pewith respect to m′=m/d. Conversely, it is easy to
+see that elements from the subring R′
+peare sparsely packed. As such, both the slot-
+encoded plaintext mand the coefficient-encoded plaintext m′′′are sparsely packed. Step 1
+and step 3 of the slot-to-coefficient transformation can now be omitted, because they
+have no effect on Zpe. Therefore, the slot-to-coefficient transformation is Uℓand the
+coefficient-to-slot transformation is U−1
+ℓ.
+In thin bootstrapping [ CH18], the input plaintext of the coefficient-to-slot transforma-
+tion is an element of Rperather thanR′
+pe. This is because it follows directly after the
+inner product, which creates an encryption of a noisy plaintext in the larger cyclotomic
+ring. Consequently, we first need to map the plaintext to R′
+pe, which is done by removing
+redundant coefficients. This can be easily achieved with the trace method from Section 3.2.1
+if we fold an additional factor of d−1(modpe)inU−1
+ℓ. In summary, the transformation
+has two steps: (1) evaluate the trace of R/R′and (2) multiplication by (d·Uℓ)−1.
+4.3 New Method for p= 3 (mod 4)
+We will identify the slots of a plaintext with a vector in Eℓ. This is done by “flattening”
+the representative set as S={1,5,..., 5ℓ1−1}and filling the plaintext in Equation (3).
+Similarly to above, we use the notation ζm,i=ζhim, wherehiis thei-th element of S. We
+also define ζ4=ζm/4
+mandE′=Zpe[ζ4].
+4.3.1 Fully Packed Slots
+In the slot-to-coefficient transformation, we start from a plaintext mthat encodes
+− →m=
+d/2−1/summationdisplay
+j=0(mi,j+ni,j·ζ4)·ζj
+m,i
+
+0≤i<ℓ
+in the slots. Note that the encoding is done with respect to ζj
+m,iinstead ofζj
+mso that we
+can use powers of Xas the packing constants later. The goal is to map the elements mi,j
+andni,jto the coefficients of a new plaintext m′′′. This can be done in three steps:
+1.Perform a slot-wise linear transformation Mthat mapsζj
+m,i∝⇕⊣√∫⊔≀→ζj
+mfor0≤j <d/ 2
+in slotiand extends by E′-linearity. Note that this transformation depends on iand
+is thus different for each slot. After this step, the plaintext encodes the slot-vector
+− →m′=
+d/2−1/summationdisplay
+j=0(mi,j+ni,j·ζ4)·ζj
+m
+
+0≤i<ℓ.
+2. Multiply the slot-vector by (a column-permuted version of) the decoding matrix
+Uℓ=/parenleftig
+ζd·j/2
+m,i/parenrightig
+0≤i,j<ℓ,
+--- PAGE 13 ---
+Robin Geelen 13
+where the matrix above is specified by the entries in its i-th row and j-th column.
+Observe that ζd/2
+m∈E′, which implies Uℓ∈(E′)ℓ×ℓ. After this step, the plaintext
+encodes the slot-vector
+− →m′′=
+ℓ−1/summationdisplay
+k=0d/2−1/summationdisplay
+j=0(mk,j+nk,j·ζ4)·ζj
+m·ζd·k/2
+m,i
+
+0≤i<ℓ.
+A column-permuted version of Uℓwill simply map the elements mi,jandni,jto a
+different order of the coefficients.
+3.Perform the linear transformation M−1that maps ζj
+m∝⇕⊣√∫⊔≀→ζj
+m,ifor0≤j < d/ 2in
+sloti. After this step, the plaintext encodes the slot-vector
+− →m′′′=
+ℓ−1/summationdisplay
+k=0d/2−1/summationdisplay
+j=0(mk,j+nk,j·ζ4)·ζj+d·k/2
+m,i
+
+0≤i<ℓ,
+which corresponds to the plaintext
+m′′′=ℓ−1/summationdisplay
+k=0d/2−1/summationdisplay
+j=0(mk,j+nk,j·Xm/4)·Xj+d·k/2.
+Here we used the observation that M−1does not act on the entries of Uℓ(i.e., powers
+ofζd/2
+m) due toE′-linearity.
+We emphasize that the slot-to-coefficient transformation is only E′-linear and not E-linear
+in general, which is why step 1 and step 3 are required (step 2 alone is E-linear). The inverse
+map (coefficient-to-slot transformation) is given by M−1U−1
+ℓMinstead ofM−1UℓM.
+Matrix decomposition. The matrix from step 2 can be decomposed into a product of
+sparse matrices. To do this, we use the column-permuted version Uℓ=Sℓ, which is defined
+in Equation (5) and generated by the root of unity ζd/2
+m. Observe that Sℓcan be further
+decomposed using Lemma 2. As a result, we can write it as a product of log2(ℓ)sparse
+matrices, each of which acts on only one dimension of S(in the alternative interpretation
+where each dimension has size 2). The leftmost factor of this product will act on the first
+dimension and the rightmost factor on the last dimension.
+Unpacking the slots. The unpacking procedure is similar to the case p= 1 ( mod 4).
+First, we iteratively split the ciphertext in d/2ciphertexts, each one encoding elements
+fromE′in the slots. This is done by homomorphically computing m1=m+σd/2i(m)
+andm2=X−2i−1·(m−σd/2i(m))in leveli= 1,..., log2(d/2)of the iteration, where m
+loops over all outputs of the previous iteration. Note that multiplication by powers of X
+does not increase the noise.
+After obtaining d/2ciphertexts that encode elements from E′, we split each one in two
+ciphertexts that encode elements from Zpe. This is done by homomorphically computing
+m1=m+σ(m)andm2=X−m/4·(m−σ(m)), wheremloops over all outputs of the
+previous step. Again, we can remove the undesired factor of dby merging d−1(modpe)
+in the preceding linear transformation.
+Repacking the slots. This operation is the inverse of unpacking and can be computed
+iteratively as m=m1/2 +X2i−1·m2/2, wherei=log2(m/2),log2(d/2),..., 1. Note
+that the input of repacking is indeed given by m1/2andm2/2rather thanm1andm2,
+assuming that the factor of dwas removed appropriately before unpacking.
+--- PAGE 14 ---
+14 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+4.3.2 Sparsely Packed Slots
+According to Example 1, sparsely packed plaintexts (where the slots contain an element
+fromZpe) live in the subring R′
+pewith respect to m′= 2m/d. This result can even be
+extended to slots encoding values in E′. Conversely, it is easy to see that the subring R′
+pe
+packs elements from E′. As such, both the slot-encoded plaintext mand the coefficient-
+encoded plaintext m′′′pack elements from E′. Step 1 and step 3 of the slot-to-coefficient
+transformation can now be omitted, because they have no effect on E′. Therefore, the
+slot-to-coefficient transformation is Uℓand the coefficient-to-slot transformation is U−1
+ℓ.
+In thin bootstrapping [ CH18], the input plaintext of the coefficient-to-slot transforma-
+tion is an element of Rperather thanR′
+pe. Consequently, we first need to map the plaintext
+toR′
+pe, which is done by removing redundant coefficients. This can be easily achieved with
+the trace method from Section 3.2.1. However, using the trace is not sufficient in this case,
+because the slots can still encode elements from E′rather than Zpeafter multiplication
+byU−1
+ℓ(the trace cannot remove all coefficients ni,j). Therefore, we need to post-process
+the output of the coefficient-to-slot transformation by computing the trace of E′/Zpein
+each slot (which is done as m∝⇕⊣√∫⊔≀→m+σ(m)). Again, we fold an additional factor of
+d−1(modpe)inU−1
+ℓto remove undesired factors of 2, which were introduced during
+pre-processing and post-processing with the trace. In summary, the transformation has
+three steps: (1) evaluate the trace of R/R′, (2) multiplication by (d·Uℓ)−1and (3) evaluate
+the trace of E′/Zpeslot-wise.
+5 Complexity Analysis and Comparison to Related Work
+This section performs an in-depth complexity analysis of the proposed algorithm, assuming
+a baby-step/giant-step implementation. Then we explain how the concurrent work due to
+Ma et al. [ MHWW24b ], and the prior works due to Halevi and Shoup [ HS21] and Chen
+and Han [ CH18] achieve the slot-to-coefficient transformation. Finally, we compare our
+asymptotic complexity to these related works.
+5.1 Complexity Analysis
+5.1.1 Fully Packed Slots
+We first analyze the cost of evaluating the fully packed slot-to-coefficient transformation
+(the cost of the inverse map is identical). We break it down in two components:
+•Baby-step/giant-step evaluations of size nin a good dimension. These need roughly
+2√nautomorphisms and nplaintext-ciphertext multiplications.
+•Baby-step/giant-step evaluations of size nin a bad dimension. These need roughly
+3√nautomorphisms and 2nplaintext-ciphertext multiplications.
+First, we consider the maps MandM−1, which can be expressed as a sum of dterms
+using Equation (8). In the case p= 3 ( mod 4), both maps are E′-linear and we only
+need the automorphisms for even v(those correspond to the automorphism group of
+E/E′), so we have d/2non-zero terms in Equation (8). To simplify notation, we define
+c=difp= 1 ( mod 4)andc=d/2ifp= 3 ( mod 4). The complexity corresponds to a
+baby-step/giant-step evaluation of size cin a good dimension, so it roughly requires 2√c
+automorphisms and cplaintext-ciphertext multiplications. In terms of noise growth, it
+uses one level of plaintext-ciphertext multiplications.
+To implement homomorphic matrix-vector multiplication by Uℓ, we decompose it as
+Uℓ=Uℓ,1·...·Uℓ,T. If we denote the number of non-zero entries in every row/column
+ofUℓ,ibyLi, then this decomposition is done under the constraint ℓ=L1·...·LT. In
+other words, the sizes Liof the matrices should multiply to the number of slots. Such a
+--- PAGE 15 ---
+Robin Geelen 15
+factorization of Uℓcan be obtained by merging multiple factors of the decomposition – a
+technique referred to as level collapsing in CKKS [CCS19].
+For small values of c, it is advantageous to merge the map M(resp.M−1) with the last
+(resp. first) factor of Uℓto save multiplicative levels. In that case, the slot-to-coefficient
+transformation is given by
+(M−1Uℓ,1)·Uℓ,2·...·Uℓ,T−1·(Uℓ,TM).
+Each factor can be implemented with the multidimensional baby-step/giant-step algorithm:
+the rightmost factor Uℓ,TMcorresponds to a baby-step/giant-step evaluation of size cLT
+in a bad dimension, so it roughly requires 3√cLTautomorphisms and 2cLTplaintext-
+ciphertext multiplications; the intermediate factors Uℓ,icorrespond to a baby-step/giant-
+step evaluation of size Liin a bad dimension, so they roughly require 3√Liautomorphisms
+and2Liplaintext-ciphertext multiplications; and the leftmost factor M−1Uℓ,1corresponds
+to a baby-step/giant-step evaluation of size c·L1in a good dimension, so it roughly
+requires 2√cL1automorphisms and cL1plaintext-ciphertext multiplications. In terms of
+noise growth, the algorithm uses Tlevels of plaintext-ciphertext multiplications. However,
+a larger number of factors Treduces the size Liof the factors since the product is fixed.
+Therefore, there is a convenient trade-off between computational cost and multiplicative
+depth. We summarize the number of operations and levels in the top half of Table 2.
+Unpacking and repacking. The cost of unpacking is dominated by d−1automorphisms;
+it also requires d−1plaintext-ciphertext multiplications and 2(d−1)additions. The
+cost of repacking is given by d−1plaintext-ciphertext multiplications and equally many
+additions. Repacking requires no key switching and is therefore cheaper than unpacking.
+Unpacking and repacking use no multiplicative levels, because all constants are powers
+ofX. We summarize the number of operations and levels in the top half of Table 2.
+5.1.2 Sparsely Packed Slots
+The mapsMandM−1can be omitted for sparsely packed slots, so we only need to evaluate
+Uℓ=Uℓ,1·...·Uℓ,T. Each factor can again be implemented with the multidimensional
+baby-step/giant-step algorithm: the factors Uℓ,ifori≥2correspond to a baby-step/giant-
+step evaluation of size Liin a bad dimension, so they roughly require 3√Liautomorphisms
+and2Liplaintext-ciphertext multiplications; and the leftmost factor Uℓ,1corresponds to a
+baby-step/giant-step evaluation of size L1in a good dimension, so it roughly requires 2√L1
+automorphisms and L1plaintext-ciphertext multiplications. In terms of noise growth,
+the algorithm uses Tlevels of plaintext-ciphertext multiplications, which brings the same
+trade-off between computational cost and multiplicative levels as previously. Evaluating the
+trace(s) for the coefficient-to-slot transformation can be done with log2(d)automorphisms
+and additions, and no multiplicative levels. We summarize the number of operations and
+levels in the bottom half of Table 2.
+5.1.3 Asymptotic Analysis
+If we optimize the linear transformations for efficiency and decompose to the maximum
+number of stages, then it has log2(ℓ)stages of size 2. In the fully packed variant, there are 2
+additional stages of size c. Therefore, the total number of FHE operations is asymptotically
+O(c+ log2(ℓ))for fully packed slots and O(log2(ℓ))for sparsely packed slots.
+Note that the number of FHE operations is asymptotically linear in c(and hence in
+the slot width d), which appears inherent to the problem. In any case, the unpacking
+procedure splits the ciphertext in dcomponents; as such, there is not much to gain by
+further reducing the complexity of the linear transformations to a sublinear function of d.
+As a result of this limitation, one needs to consider parameter sets with small dwhen
+--- PAGE 16 ---
+16 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+Table 2: Algorithmic complexity of the proposed algorithms
+# multiplications # automorphisms # levels
+SlotToCoeffM−1Uℓ,1Uℓ,iUℓ,TMM−1Uℓ,1Uℓ,iUℓ,TMTcL1 2Li2cLT 2√cL1 3√Li3√cLT
+Unpacking d−1 d−1 0
+Repacking d−1 0 0
+SlotToCoeffUℓ,1Uℓ,i Uℓ,1 Uℓ,iTL1 2Li 2√L1 3√Li
+Trace 0 log2(d) 0
+Table 3: Algorithmic complexity of Ma et al. (using Bruun-style FFT if p= 3 (mod 4) )
+# multiplications # automorphisms # levels
+SlotToCoeffM−1Uℓ,1Uℓ,iM−1Uℓ,1Uℓ,iTdL1 2dLi/c 2√dL1 3/radicalbig
+dLi/c
+Unpacking d2d−1 1
+Repacking d 0 1
+SlotToCoeffUℓ,1Uℓ,iUℓ,1Uℓ,iTdL1/c 2dLi/c 2/radicalbig
+dL1/c 3/radicalbig
+dLi/c
+Trace 0 log2(d) 0
+optimizing for fast execution time. This choice is often preferred at the application level
+as well, because it corresponds to a large number of small-domain plaintext slots.
+5.2 Comparison to Concurrent Work
+Independently from this work, Ma et al. [ MHWW24b ] developed a similar technique to
+evaluate the slot-to-coefficient transformation. Table 3 summarizes their complexity in a
+format comparable to Table 2. Our technique has a couple of advantages over theirs:
+•In the slot representation, they use the normal element encoding from Halevi and
+Shoup. As such, their method cannot integrate the multiplicative level of unpacking
+and repacking in the linear transformations.
+•Forp= 3 ( mod 4), their stages are Zpe-linear and not E′-linear, so the cost truly
+depends on drather than c=d/2. There are two different algorithms for this case:
+1.Their Bruun-style decomposition uses a more complicated FFT butterfly, which
+is roughly twice the size of a standard FFT butterfly. Each stage is therefore
+two times more costly than our method.
+2.Their radix-2 decomposition uses a Zpe-linear transformation in each stage.
+This results in an asymptotic cost of O(d·log2(ℓ))FHE operations for fully
+packed slots, compared to O(c+ log2(ℓ))for our routine.
+5.3 Comparison to Prior Work
+5.3.1 Method of Halevi and Shoup
+Halevi and Shoup [ HS21] implement the slot-to-coefficient transformation for non-power-
+of-two cyclotomic rings. Their procedure takes a cyclotomic index mthat splits into
+pairwise coprime factors as m=m1·...·mt. Then they represent the collection of
+plaintext slots as a t-dimensional hypercube by algebraically decomposing the quotient
+group as Z∗
+m/⟨p⟩=Z∗
+m1/⟨p⟩×Zm2×...×Zmt. They show that the transformation can
+--- PAGE 17 ---
+Robin Geelen 17
+be implemented by evaluating one subtransformation in each of the tdimensions. The
+sizes of these transformations correspond to the values of φ(mi)(note thatm1induces a
+Zpe-linear transformation and the other factors induce an E-linear transformation). Thus
+the cost is minimized by splitting minto many smaller factors.
+There are a few noteworthy differences between Halevi/Shoup and our method:
+•Their method is not applicable to power-of-two cyclotomics for two reasons: (1) the
+factorization of mneeds to be pairwise coprime, which means that there can only be
+one factor if mis a power of two; (2) they require that each group in the composition
+is cyclic, which is not guaranteed if mis a power of two.
+•In the coefficient representation, they encode their numbers in the so-called “powerful
+basis” of the cyclotomic ring [ LPR13]. This basis naturally arises from tensoring
+cyclotomic rings of pairwise coprime indices. For power-of-two cyclotomics, the
+powerful basis coincides with the standard “power basis” used in our method, so we
+can ignore this extra level of complexity.
+•In the slot representation, they encode their numbers in the so-called “normal basis”
+generated by a normal element θ∈E. This is done so that they only need to
+precompute and store dconstants for the unpacking procedure instead of d2. In our
+method, the unpacking constants are given by powers of X, so they do not need
+to be precomputed at all. Moreover, the complexity analysis below shows that the
+performance of our unpacking method is superior to Halevi and Shoup.
+Unpacking and repacking. The unpacking routine of Halevi/Shoup computes d−1
+automorphisms of the input and then takes dweighted linear combinations of the results.
+It therefore requires dautomorphisms and d2plaintext-ciphertext multiplications. Our
+method needs only d−1automorphisms and d−1plaintext-ciphertext multiplications.
+Moreover, we do not use any multiplicative levels, whereas Halevi and Shoup use one level.
+Our cheaper version of the slot unpacking procedure does not come completely for
+free. It necessitates the extra map Min the slot-to-coefficient transformation, which is an
+original contribution of this work. However, this can be implemented with dplaintext-
+ciphertext multiplications, which is cheaper than d2plaintext-ciphertext multiplications in
+Halevi and Shoup’s procedure. Moreover, our method allows more freedom in parameter
+selection since we can integrate the maps in UℓandU−1
+ℓto save multiplicative levels.
+5.3.2 Method of Chen and Han
+Chen and Han [ CH18] implement the slot-to-coefficient transformation for power-of-two
+cyclotomic rings. However, they use the trivial method which does not decompose the
+transformation in smaller-dimensional stages. As a result, it involves homomorphic
+multiplication by a full N×N-matrix (in the fully packed case) or an ℓ×ℓ-matrix (in the
+sparsely packed case). The asymptotic number of FHE operations is linear in the lattice
+dimensionNor the number of slots ℓ.
+6 Implementation and Results
+This section discusses the implementation and experimental results based on BFV. Our
+implementation is built on the framework provided by Okada et al. [ OPP23]. All experi-
+ments were run with Microsoft SEAL version 4.1 [ SEA23] on an Intel®Xeon®E5-2630 v2
+CPU with 128 GB memory and Ubuntu 18.04.6 LTS, in a single thread. For all parameter
+sets, we took lattice dimension N= 215and ciphertext modulus q≈21080. This gives
+slightly more than 100 bits of security according to the lattice estimator [APS15].
+Section 6.1 gives results for the individual linear transformations and studies the trade-
+off between execution time and multiplicative depth. Section 6.2 studies the performance of
+--- PAGE 18 ---
+18 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+a fully packed bootstrapping operation for 215elements of GF(216+ 1). In all experiments,
+the leftmost column of the table is considered the baseline, because no decomposition is
+applied. The baseline numbers were estimated by carefully timing the individual building
+blocks and multiplying by the number of operations. This is done because an enormous
+amount of precomputed constants is required, which do not even fit in the 128 GB physical
+memory of our machine. Computing those constants on the fly or loading them from disk
+comes with a performance penalty, and would therefore make the comparison unfair.
+6.1 Performance of the Linear Transformations
+Table 4 and Table 5 show experimental results for fully packed and sparsely packed
+slots respectively. Both tables use N= 215,p= 213−1ande= 1, resulting in d= 8.
+The leftmost column in both tables represents the baseline algorithm (it has the same
+complexity as Chen/Han). This means that no decomposition is applied, and unpacking
+and repacking are done with respect to the normal element encoding. Recall that the first
+stage and last stage of the fully packed transformation are ctimes larger than the regular
+ones. As such, the decomposition sizes were chosen differently in Table 4 and Table 5 in
+order to balance the execution time of the stages.
+As predicted by the theoretical analysis, the tables indicate a trade-off between runtime
+and multiplicative depth: decomposing in more stages is faster, but also increases the
+consumed noise budget. For example, the SlotToCoeff row in the last column of Table 4 is
+roughly 44×fasterthanthebaseline, buthas 3×morenoisegrowth. Inpractice, theoptimal
+number of stages is application-dependent and can best be found via experimentation.
+Observe that the first column and the second column of Table 4 use equally many levels:
+the first column uses one level for SlotToCoeff and one level for unpacking/repacking;
+the second column uses two levels for SlotToCoeff. Yet the second column reports 16×
+faster runtime than the first one. This is because we integrated the multiplicative level of
+unpacking/repacking into SlotToCoeff and CoeffToSlot, which gives us more freedom to
+choose optimal decomposition parameters.
+Table 4: Results for fully packed slots using N= 215,p= 213−1ande= 1
+L1·...·LTBaseline 26·2624·25·2322·24·24·22
+Noise (bits)SlotToCoeff 25 43 60 76
+Unpacking 20 2 2 2
+Repacking 20 1 1 1
+Execution
+time (sec)SlotToCoeff 730 45.1 22.8 16.6
+Unpacking 3.0 2.2 2.2 2.2
+Repacking 0.1 0.1 0.1 0.1
+Table 5: Results for sparsely packed slots using N= 215,p= 213−1ande= 1
+L1·...·LTBaseline 26·2624·24·2423·23·23·23
+Noise (bits)SlotToCoeff 24 42 58 74
+Trace 2 2 2 2
+Execution
+time (sec)SlotToCoeff 123 14.5 9.2 8.6
+Trace 1.2 1.2 1.2 1.2
+6.2 Fully Packed Bootstrapping Application
+The goal of this section is to demonstrate the benefits of our linear transformations by
+means of a fully packed bootstrapping application. Our implementation uses the standard
+--- PAGE 19 ---
+Robin Geelen 19
+workflow of BFV bootstrapping (see for example Fig. 1 by Chen and Han [ CH18] or Fig. 3
+by Geelen and Vercauteren [ GV23]). Next to the linear transformations, bootstrapping also
+involves a digit extraction procedure. In our implementation, digit extraction is done with
+the improved method for large values of pdue to Ma et al. [ MHWW24a ]. Furthermore,
+we describe an efficient way to construct the digit removal polynomials defined by Ma et
+al. in Appendix A. The noise cut-off parameter from the appendix is set to B= 255.
+The large-pdigit extraction procedure from Ma et al. requires that the input ciphertext
+has some remaining noise budget before the next bootstrapping is applied. Since SEAL
+does not cope with this, we manually subtracted 15 bits from the initial and remaining
+noise budget in Table 6. As such, the input noise of bootstrapping is at most 1 bit, and
+the performance of bootstrapping is dominated by modulus switching noise.
+Our method can be further optimized with the sparse secret encapsulation technique
+from Bossuat et al. [ BTH22]. However, the current version of SEAL only supports ternary
+uniform secret keys. As such, it is impossible to implement sparse secret encapsulation.
+Table 6 shows experimental results for N= 215andp= 216+ 1. This parameter set
+corresponds to d= 1, so we pack 215elements from GF(216+ 1). Note that the fully and
+sparsely packed transformations coincide for d= 1, which implies that unpacking and
+repacking are not required for this benchmark. The leftmost column is again the baseline
+and has the same complexity as Chen/Han. Finally, we note that the coefficient-to-slot
+transformation uses e= 2, whereas the slot-to-coefficient transformation uses e= 1.
+The amortized improvements (i.e., taking into account both remaining noise budget
+and execution time) are equal to
+1325.7·347
+105·400≈11×and1325.7·294
+82.9·400≈12×
+for the second and third column respectively. This can be fully contributed to the faster
+coefficient-to-slot and slot-to-coefficient transformations. Note that the remaining noise
+budget of our procedure is slightly less than the baseline. This is because we consume
+one additional multiplicative level per transformation for the second column, and two
+additional levels for the third column.
+Table 6: Results for fully packed bootstrapping using N= 215andp= 216+ 1
+L1·...·LTBaseline 28·2725·25·25
+Noise (bits)Initial 942 942 942
+CoeffToSlot 44 79 114
+Digit extract 468 468 468
+SlotToCoeff 30 48 66
+Remaining 400 347 294
+Execution
+time (sec)Inner product 0.2 0.2 0.2
+CoeffToSlot 637 26.2 15.1
+Digit extract 52.5 52.5 52.5
+SlotToCoeff 636 26.1 15.1
+Total 1325.7 105 82.9
+7 Conclusion
+This paper derived explicit FFT-based formulas to implement the slot-to-coefficient and
+coefficient-to-slot transformations in BGV and BFV. The major application of the linear
+transformations is inarguably the bootstrapping procedure, for which we obtained 12×
+faster results than prior work. Interesting future work would be to apply the proposed
+techniques to other applications as well.
+--- PAGE 20 ---
+20 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+Acknowledgements
+This work was supported by CyberSecurity Research Flanders with reference number
+VR20192203. In addition, this work is supported in part by the European Commission
+through the Horizon 2020 research and innovation program Belfort ERC Advanced Grant
+101020005 and by the Defence Advanced Research Projects Agency (DARPA) under
+contract No. HR001120S0032 DARPA DPRIVE BASALISC. Robin Geelen is funded by
+Research Foundation – Flanders (FWO) under a PhD Fellowship fundamental research
+(project number 1162123N). Any opinions, findings and conclusions or recommendations
+expressed in this material are those of the author and do not necessarily reflect the views
+of the ERC, DARPA, the U.S. Government, the European Union, CyberSecurity Research
+Flanders or the FWO. The U.S. Government is authorized to reproduce and distribute
+reprints for governmental purposes notwithstanding any copyright annotation therein. The
+author would also like to thank Jiayi Kang and Frederik Vercauteren for useful discussions.
+References
+[AP13] Jacob Alperin-Sheriff and Chris Peikert. Practical bootstrapping in quasi-
+linear time. In CRYPTO (1) , volume 8042 of Lecture Notes in Computer
+Science, pages 1–20. Springer, 2013.
+[APS15] Martin R. Albrecht, Rachel Player, and Sam Scott. On the concrete hardness
+of learning with errors. J. Math. Cryptol. , 9(3):169–203, 2015.
+[BCK+23]Youngjin Bae, Jung Hee Cheon, Jaehyung Kim, Jai Hyun Park, and Damien
+Stehlé. HERMES: efficient ring packing using MLWE ciphertexts and
+application to transciphering. In CRYPTO (4) , volume 14084 of Lecture
+Notes in Computer Science , pages 37–69. Springer, 2023.
+[BGGJ20] Christina Boura, Nicolas Gama, Mariya Georgieva, and Dimitar Jetchev.
+CHIMERA: combining ring-lwe-based fully homomorphic encryption
+schemes. J. Math. Cryptol. , 14(1):316–338, 2020.
+[BGV14] Zvika Brakerski, Craig Gentry, and Vinod Vaikuntanathan. (leveled) fully
+homomorphic encryption without bootstrapping. ACM Trans. Comput.
+Theory, 6(3):13:1–13:36, 2014.
+[BLZ23] Matvey Borodin, Ethan Liu, and Justin Zhang. Results on vanishing polyno-
+mials and polynomial root counting with relevant technological applications.
+In2023 IEEE MIT Undergraduate Research Technology Conference (URTC) ,
+pages 1–5. IEEE, 2023.
+[BMTH21] Jean-Philippe Bossuat, Christian Mouchet, Juan Ramón Troncoso-Pastoriza,
+and Jean-Pierre Hubaux. Efficient bootstrapping for approximate homo-
+morphic encryption with non-sparse keys. In EUROCRYPT (1) , volume
+12696 of Lecture Notes in Computer Science , pages 587–617. Springer, 2021.
+[Bra12] Zvika Brakerski. Fully homomorphic encryption without modulus switching
+from classical gapsvp. In CRYPTO , volume 7417 of Lecture Notes in
+Computer Science , pages 868–886. Springer, 2012.
+[BTH22] Jean-Philippe Bossuat, Juan Ramón Troncoso-Pastoriza, and Jean-Pierre
+Hubaux. Bootstrapping for approximate homomorphic encryption with
+negligible failure-probability by using sparse-secret encapsulation. In ACNS,
+volume13269of Lecture Notes in Computer Science , pages521–541.Springer,
+2022.
+--- PAGE 21 ---
+Robin Geelen 21
+[CCLS19] Jung Hee Cheon, Hyeongmin Choe, Donghwan Lee, and Yongha Son. Faster
+linear transformations in HElib, revisited. IEEE Access , 7:50595–50604,
+2019.
+[CCS19] Hao Chen, Ilaria Chillotti, and Yongsoo Song. Improved bootstrapping for
+approximate homomorphic encryption. In EUROCRYPT (2) , volume 11477
+ofLecture Notes in Computer Science , pages 34–54. Springer, 2019.
+[CH18] Hao Chen and Kyoohyung Han. Homomorphic lower digits removal and
+improved FHE bootstrapping. In EUROCRYPT (1) , volume 10820 of
+Lecture Notes in Computer Science , pages 315–337. Springer, 2018.
+[CHK+18]Jung Hee Cheon, Kyoohyung Han, Andrey Kim, Miran Kim, and Yongsoo
+Song. Bootstrapping for approximate homomorphic encryption. In EURO-
+CRYPT (1) , volume 10820 of Lecture Notes in Computer Science , pages
+360–384. Springer, 2018.
+[CHK+21]Jihoon Cho, Jincheol Ha, Seongkwang Kim, ByeongHak Lee, Joohee Lee,
+Jooyoung Lee, Dukjae Moon, and Hyojin Yoon. Transciphering framework
+for approximate homomorphic encryption. In ASIACRYPT (3) , volume
+13092 of Lecture Notes in Computer Science , pages 640–669. Springer, 2021.
+[CKKS17] Jung Hee Cheon, Andrey Kim, Miran Kim, and Yong Soo Song. Homomor-
+phic encryption for arithmetic of approximate numbers. In ASIACRYPT
+(1), volume 10624 of Lecture Notes in Computer Science , pages 409–437.
+Springer, 2017.
+[FV12] Junfeng Fan and Frederik Vercauteren. Somewhat practical fully homomor-
+phic encryption. Cryptology ePrint Archive, Paper 2012/144, 2012. URL:
+https://eprint.iacr.org/2012/144 .
+[Gau86] Carl Friedrich. Gauss. Disquisitiones arithmeticae . Springer, Berlin, 1986.
+[GHS12a] Craig Gentry, Shai Halevi, and Nigel P. Smart. Better bootstrapping in
+fully homomorphic encryption. In Public Key Cryptography , volume 7293 of
+Lecture Notes in Computer Science , pages 1–16. Springer, 2012.
+[GHS12b] Craig Gentry, Shai Halevi, and Nigel P. Smart. Fully homomorphic encryp-
+tion with polylog overhead. In EUROCRYPT , volume 7237 of Lecture Notes
+in Computer Science , pages 465–482. Springer, 2012.
+[GIKV23] Robin Geelen, Ilia Iliashenko, Jiayi Kang, and Frederik Vercauteren. On
+polynomial functions modulo peand faster bootstrapping for homomor-
+phic encryption. In EUROCRYPT (3) , volume 14006 of Lecture Notes in
+Computer Science , pages 257–286. Springer, 2023.
+[GV23] Robin Geelen and Frederik Vercauteren. Bootstrapping for BGV and BFV
+revisited. J. Cryptol. , 36(2):12, 2023.
+[HHC19] Kyoohyung Han, Minki Hhan, and Jung Hee Cheon. Improved homomorphic
+discrete fourier transforms and FHE bootstrapping. IEEE Access , 7:57361–
+57370, 2019.
+[HK20] Kyoohyung Han and Dohyeong Ki. Better bootstrapping for approximate
+homomorphic encryption. In CT-RSA , volume 12006 of Lecture Notes in
+Computer Science , pages 364–390. Springer, 2020.
+--- PAGE 22 ---
+22 Revisiting the Slot-to-Coefficient Transformation for BGV and BFV
+[HS18] Shai Halevi and Victor Shoup. Faster homomorphic linear transformations
+in helib. In CRYPTO (1) , volume 10991 of Lecture Notes in Computer
+Science, pages 93–120. Springer, 2018.
+[HS20] Shai Halevi and Victor Shoup. Design and implementation of HElib: a ho-
+momorphic encryption library. Cryptology ePrint Archive, Paper 2020/1481,
+2020. URL: https://eprint.iacr.org/2020/1481 .
+[HS21] Shai Halevi and Victor Shoup. Bootstrapping for helib. J. Cryptol. , 34(1):7,
+2021.
+[KPZ21] Andrey Kim, Yuriy Polyakov, and Vincent Zucca. Revisiting homomorphic
+encryption schemes for finite fields. In ASIACRYPT (3) , volume 13092 of
+Lecture Notes in Computer Science , pages 608–639. Springer, 2021.
+[LHH+21]Wen-jie Lu, Zhicong Huang, Cheng Hong, Yiping Ma, and Hunter Qu.
+PEGASUS: bridging polynomial and non-polynomial evaluations in homo-
+morphic encryption. In SP, pages 1057–1073. IEEE, 2021.
+[LPR13] Vadim Lyubashevsky, Chris Peikert, and Oded Regev. A toolkit for ring-lwe
+cryptography. In EUROCRYPT , volume 7881 of Lecture Notes in Computer
+Science, pages 35–54. Springer, 2013.
+[LS18] Vadim Lyubashevsky and Gregor Seiler. Short, invertible elements in
+partially splitting cyclotomic rings and applications to lattice-based zero-
+knowledge proofs. In EUROCRYPT (1) , volume 10820 of Lecture Notes in
+Computer Science , pages 204–224. Springer, 2018.
+[LW23a] Feng-Hao Liu and Han Wang. Batch bootstrapping I: - A new framework for
+SIMD bootstrapping in polynomial modulus. In EUROCRYPT (3) , volume
+14006 of Lecture Notes in Computer Science , pages 321–352. Springer, 2023.
+[LW23b] ZeyuLiuandYunhaoWang. Amortizedfunctionalbootstrappinginlessthan
+7 ms, with ˜O(1)polynomial multiplications. In ASIACRYPT (6) , volume
+14443 of Lecture Notes in Computer Science , pages 101–132. Springer, 2023.
+[MHWW24a] Shihe Ma, Tairong Huang, Anyu Wang, and Xiaoyun Wang. Accelerating
+BGV bootstrapping for large pusing null polynomials over Zpe. InEURO-
+CRYPT (2) , volume 14652 of Lecture Notes in Computer Science , pages
+403–432. Springer, 2024.
+[MHWW24b] Shihe Ma, Tairong Huang, Anyu Wang, and Xiaoyun Wang. Faster BGV
+bootstrapping for power-of-two cyclotomics through homomorphic NTT.
+Cryptology ePrint Archive, Paper 2024/164, 2024. URL: https://eprint.
+iacr.org/2024/164 .
+[OPP23] Hiroki Okada, Rachel Player, and Simon Pohmann. Homomorphic polyno-
+mialevaluationusinggaloisstructureandapplicationstoBFVbootstrapping.
+InASIACRYPT (6) , volume 14443 of Lecture Notes in Computer Science ,
+pages 69–100. Springer, 2023.
+[SEA23] Microsoft SEAL (release 4.1). https://github.com/Microsoft/SEAL , Jan-
+uary 2023. Microsoft Research, Redmond, WA.
+[SV14] Nigel P. Smart and Frederik Vercauteren. Fully homomorphic SIMD opera-
+tions.Des. Codes Cryptogr. , 71(1):57–81, 2014.
+--- PAGE 23 ---
+Robin Geelen 23
+AEfficient Computation of the Digit Removal Polynomial
+This appendix describes a conceptually simpler and more efficient way to construct the
+polynomials defined by Ma et al. [ MHWW24a ]. In the bootstrapping application – where p
+is an odd prime and e= 2– digit extraction boils down to a single evaluation of the lowest
+digit removal polynomial H(X). This polynomial satisfies
+H(a) =p·/floorleftbigga
+p/ceilingrightbigg
+(modp2) (10)
+for alla∈Swhere
+S={c·p+b|b,c∈Zand−B≤b≤B}.
+The original construction starts by computing a polynomial that satisfies Equation (10)
+for alla∈Z, and then it performs reduction modulo a null polynomial . However, the
+computational cost of obtaining H(X)in this method scales poorly for larger psince the
+intermediate polynomial has degree p.
+In our implementation, we precompute the lowest digit removal polynomial in a different
+way. We first define
+P(X) =B/productdisplay
+i=−B(X−i).
+Then we consider the ideal I= (P(X)2,pP(X),p2). Note that each O(X)∈Isatisfies
+O(a) = 0 ( modp2)for alla∈S. In the literature, such polynomials have been called null
+polynomials over S[GIKV23] or local null polynomials [ MHWW24a ]. Since we are only
+interested in the set S, we can compute H(X)overZ[X]/I(in fact, this ring is isomorphic
+to the ring of polyfunctions modulo p2overS[GIKV23, BLZ23]).
+We now observe that the so-called digit extraction function
+g:Zp2→Zp2:a∝⇕⊣√∫⊔≀→a−p·/floorleftbigga
+p/ceilingrightbigg
+(11)
+has periodp. Following Equation (13) by Geelen et al. [ GIKV23], a representation of this
+function is obtained analytically as
+G(X) =r/summationdisplay
+i=−ri·(1−(X−i)p·(p−1)),
+wherer= (p−1)/2. Since we are only interested in the set S, the polynomial H(X)is
+computed by subtracting G(X)fromXand cutting off the summation at Binstead ofr:
+H(X) =X−B/summationdisplay
+i=−Bi·(1−(X−i)p·(p−1)).
+This expression is computed over the ring Z[X]/I. As such, raising elements to the power
+ofp·(p−1)can be done efficiently with square-and-multiply in that ring. Finally, we note
+that the function from Equation (11) is odd. Therefore, the obtained polynomial has only
+odd-exponent terms after reduction modulo I[GIKV23].

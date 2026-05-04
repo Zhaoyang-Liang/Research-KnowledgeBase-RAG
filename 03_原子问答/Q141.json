@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q141",
+  "card_id": "K048",
+  "source_id": "src_000077,src_000078",
+  "question": "U_ℓ的ω^{rc}是什么？ω=ζ_m^d如何理解？",
+  "answer": "ω=ζ_m^d是外层块混合的root-of-unity。第(r,c)块的权重=ω^{rc}=ζ_m^{drc}。意义：每个槽块长度是d，外层ℓ个块之间的Fourier mixing用的根是'每隔d步'取一次ζ_m的幂，即ζ_m^d。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

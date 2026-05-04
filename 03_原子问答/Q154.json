@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q154",
+  "card_id": "K053",
+  "source_id": "src_000092",
+  "question": "NTT和DFT是什么关系？为什么密码学用NTT？",
+  "answer": "DFT在复数域C上，涉及浮点运算和精度误差。NTT把DFT搬至有限域F_q，所有运算在模整数中进行——精确无误差。对密码学（尤其是FHE中的多项式乘法加速）至关重要。数学上：将DFT中的ω=e^{2πi/n}换成F_q中的n次本原单位根（满足n|(q-1)）。",
+  "confidence": "low",
+  "needs_human_review": true,
+  "batch": "Batch-05a3",
+  "created": "2026-05-04T15:40"
+}

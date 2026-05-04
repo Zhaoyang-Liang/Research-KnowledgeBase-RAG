@@ -1,0 +1,12 @@
+{
+  "qa_id": "Q101",
+  "question": "CKKS中τ_n^{-1}(z)的完整计算步骤是什么？",
+  "answer": "(1)定义Vandermonde矩阵U_n[i,j]=ζ_{n,i}^j，解U_n·w=z得w∈C^n；(2)将w拆为实部p_0和虚部p_1；(3)组装多项式p(Y)=Σp_0_j·Y^j+Σp_1_j·Y^{j+n}。这是\"IDFT→拆分虚实部→组装\"的三步过程。",
+  "card_id": "K030",
+  "source_id": "src_000050",
+  "source_type": "translation_note",
+  "confidence": "medium",
+  "needs_human_review": true,
+  "batch": "Batch-03",
+  "created": "2026-05-04T13:54:56"
+}

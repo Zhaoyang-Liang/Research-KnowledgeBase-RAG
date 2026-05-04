@@ -1,0 +1,34 @@
+{
+  "title": "噪声控制、重线性化、密钥切换三者关系",
+  "source_file": "01_源文件库/03_FHE总论与基础方案/噪声控制-密钥切换.md",
+  "category": "03_FHE总论与基础方案",
+  "subtopic": "噪声管理",
+  "read_depth": "精读",
+  "ingest_decision": "core_ingest",
+  "knowledge_points": [
+    {
+      "id": "noise-control-hierarchy",
+      "concept": "三层架构: 噪声控制(目标) > 密钥切换(工具) > 重线性化(特例)",
+      "formula": "噪声控制{ModSwitch, Rescale, Bootstrapping} ⊃ 密钥切换 ⊃ 重线性化(s²→s)",
+      "meaning": "噪声控制是宏观目标；密钥切换是底层转换工具；重线性化=密钥切换在s₁=s²,s₂=s的特例"
+    },
+    {
+      "id": "relinearization-noise",
+      "concept": "重线性化引入可控噪声",
+      "formula": "e_switch=Σc_j^{(i)}·e_{i,j}, 远小于乘法噪声",
+      "meaning": "重线性化通过数字分解和预计算密钥实现，引入的切换噪声可控且通常远小于乘法噪声"
+    }
+  ],
+  "tags": [
+    "噪声控制",
+    "密钥切换",
+    "重线性化",
+    "模数切换",
+    "噪声管理"
+  ],
+  "source_id": "src_000015",
+  "source_title": "噪声控制/重线性化/密钥切换关系",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/噪声控制-密钥切换.md",
+  "source_type": "md",
+  "source_role": "canonical_source"
+}

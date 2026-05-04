@@ -1,0 +1,28 @@
+{
+  "card_id": "K056",
+  "title": "FHE方案总览：Gentry09 / BGV / BFV / CKKS 定义、公式与对比",
+  "topic": "FHE方案/总览",
+  "knowledge_points": [
+    "Gentry09（2009）：第一个FHE方案，基于理想格。密文为理想格元素，加密c=m+2e+r·f，解密m=c mod 2。核心创新：Bootstrapping（同态解密）+ Squashing（压低解密电路深度）。仅比特运算，效率极低，无实用实现。",
+    "BGV（2012）：基于RLWE。密文c=(c₀,c₁)=(a·s+t·e+m, -a)∈R_q²，解密m=[c₀+c₁·s]_q mod t。消息放在系数低位。噪声控制=模数切换（ModSwitch）：c'=⌊(q'/q)c⌉使噪声绝对值等比例缩小。支持SIMD（CRT分解）。",
+    "BFV（2012/2013）：基于RLWE。密文c=(a·s+Δ·m+e, -a)，Δ=⌊q/t⌋。消息放在系数高位（乘以Δ）。解密m=⌊(t/q)·(c₀+c₁·s)_q⌉。噪声控制=重缩放（Rescaling）：c'=⌊(1/t)c⌉，固定比例，保持Δ一致。",
+    "CKKS（2017）：基于RLWE。密文c=(a·s+m+e, -a)，m已含编码缩放。消息是复数向量（经典范嵌入σ编码为多项式）。解密z=Decode(c₀+c₁·s)。噪声控制=重缩放：c'=⌊(1/p)c⌉（p为编码缩放因子）。近似计算（可容忍误差）。",
+    "方案分类维度：(1)精确vs近似——BGV/BFV精确整数，CKKS近似复数；(2)消息位置——BGV低位，BFV高位；(3)噪声控制——BGV任意比例ModSwitch，BFV/CKKS固定比例Rescale；(4)编码方式——BGV/BFV系数映射，CKKS典范嵌入。",
+    "⚠️ 本卡为用户笔记对多篇外部论文的总结，非原文直接引用。公式和对比来自用户理解，建议与原文交叉验证。与当前论文的关系见K062。"
+  ],
+  "card_type": "concept",
+  "source_id": "src_000101",
+  "claim_source_type": "用户笔记总结外部论文",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b1",
+  "publish_target": "03_FHE知识库",
+  "related_cards": [
+    "K008",
+    "K057",
+    "K058",
+    "K061"
+  ],
+  "cross_reference": "K008(Y-X): Batch-01 FHE方案对比知识卡片（更早版本）；K057(Y-X): BGV vs BFV高低位详解；K058(Y-X): 同态计算完整流程；K061(Y-X): ModSwitch vs Rescale区别。",
+  "notes": "全库术语：C2S=coeff→slot, S2C=slot→coeff。本卡为FHE方案层，不涉及特定bootstrapping细节。"
+}

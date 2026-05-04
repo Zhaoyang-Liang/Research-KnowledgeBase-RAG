@@ -1,0 +1,1253 @@
+\documentclass[11pt]{article}
+\usepackage{ctex}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{tikz}
+\usepackage{tikz-cd}
+\usetikzlibrary{positioning,arrows.meta,calc,fit}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\geometry{a3paper}
+
+% ============================================================
+% 常用宏
+% ============================================================
+\newcommand{\RR}{\mathbb R}
+\newcommand{\ZZ}{\mathbb Z}
+\newcommand{\Rbig}{\mathcal R_N}
+\newcommand{\Rsmall}{\mathcal R_n}
+\newcommand{\Sn}{\mathcal S_n}
+\newcommand{\Snh}{\mathcal S_{n/2}}
+\newcommand{\Pe}{P_{\mathrm{even}}}
+\newcommand{\Po}{P_{\mathrm{odd}}}
+\newcommand{\ct}{\mathbf{ct}}
+\newcommand{\ctP}{\mathbf{ct}_P}
+\newcommand{\cte}{\mathbf{ct}_{\mathrm{even}}}
+\newcommand{\cto}{\mathbf{ct}_{\mathrm{odd}}}
+\newcommand{\ctoy}{\mathbf{ct}_{\mathrm{odd},Y}}
+\newcommand{\KSK}{\mathsf{KSK}}
+\newcommand{\KS}{\mathsf{KeySwitch}}
+\newcommand{\Comp}{\mathsf{Compress}}
+\newcommand{\Split}{\mathsf{Split}}
+\newcommand{\Merge}{\mathsf{Merge}}
+\newcommand{\Auto}{\mathsf{Auto}}
+\newcommand{\MulPt}{\mathsf{MulPt}}
+\newcommand{\Add}{\mathsf{Add}}
+\newcommand{\Sub}{\mathsf{Sub}}
+\newcommand{\Enc}{\mathsf{Enc}}
+\newcommand{\Dec}{\mathsf{Dec}}
+\newcommand{\Level}{\mathsf{Level}}
+\newcommand{\ksnoise}{\eta_{\mathrm{ks}}}
+\newcommand{\rep}{\mathrel{\dashv\vdash}}
+
+\title{CKKS 中的同态 FFT 奇偶拆分与大环到小环压缩：图解笔记}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+\newpage
+
+
+\section*{阅读指南}
+
+本文把两个推导放在同一套图景里理解。
+
+\begin{itemize}
+  \item \textbf{文档 1} 解决的是：如何在密文状态下对多项式做 FFT 式奇偶拆分。
+  \item \textbf{文档 2} 解决的是：当拆出来的结果形如 $f(X^2)$ 时，如何把它从大环密文压缩成小环密文 $f(Y)$。
+\end{itemize}
+
+一句话概括二者关系：
+\[
+\boxed{\text{文档 1：拆出 } f(X^2)}
+\qquad
+\boxed{\text{文档 2：把 } f(X^2) \text{ 压成 } f(Y)}.
+\]
+
+\section{总览：两个文档如何连接}
+
+先看整体流程。文档 1 先把一个大环密文拆成偶分支和奇分支；文档 2 再把每个形如 $f(X^2)$ 的分支压到小环。
+
+\[
+\begin{tikzcd}[column sep=large,row sep=large]
+\text{大环密文 } \ctP
+  \arrow[r,"\text{文档 1：同态奇偶拆分}"]
+&
+\begin{matrix}
+\cte \text{ encrypts } \Pe(X^2) \\
+\cto \text{ encrypts } \Po(X^2)
+\end{matrix}
+  \arrow[r,"\text{文档 2：大环到小环压缩}"]
+&
+\begin{matrix}
+\ct'_e \text{ encrypts } \Pe(Y) \\
+\ct'_o \text{ encrypts } \Po(Y)
+\end{matrix}
+\end{tikzcd}
+\]
+
+这里的核心点是：文档 1 只让明文语义变成半长度结构，结果仍然存放在大环里；文档 2 则进一步把密文结构也降到小环。
+
+\newpage
+
+
+\section{符号说明}
+
+本节集中列出本文使用的主要符号。整体上，本文涉及两类操作：
+一类是文档 1 中的同态 FFT 式奇偶拆分；
+另一类是文档 2 中的大环密文到小环密文压缩。
+
+\subsection{环与变量}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+符号 & 含义 & 说明 \\
+\midrule
+\(X\) & 大环变量 & CKKS 大环中的变量 \\
+\(Y\) & 小环变量 & 压缩后小环中的变量 \\
+\(T\) & 分支多项式变量 & 用于表示偶分支、奇分支的抽象变量 \\
+\(N\) & 大环维度 & 通常为 \(2\) 的幂 \\
+\(n\) & 半长度参数 & 通常满足 \(n\mid N\) \\
+\(k\) & 嵌入步长 & \(k=\frac{N}{2n}\) \\
+\(\Rbig\) & 大环 & \(\mathcal R_N=\mathbb R[X]/(X^N+1)\) 或 \(\mathbb Z_q[X]/(X^N+1)\) \\
+\(\Rsmall\) & 小环 & \(\mathcal R_n=\mathbb R[Y]/(Y^n+1)\) 或 \(\mathbb Z_q[Y]/(Y^n+1)\) \\
+\(\Sn\) & 文档 1 中的源环 & \(\mathcal S_n=\mathbb R[Y]/(Y^{2n}+1)\) \\
+\(\Snh\) & 文档 1 中的半长度环 & \(\mathcal S_{n/2}=\mathbb R[T]/(T^n+1)\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{多项式与奇偶分支}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+符号 & 含义 & 说明 \\
+\midrule
+\(P(Y)\) & 原始多项式 & \(P(Y)=\sum_{j=0}^{2n-1}p_jY^j\) \\
+\(\Pe(T)\) & 偶分支多项式 & \(\Pe(T)=\sum_{i=0}^{n-1}p_{2i}T^i\) \\
+\(\Po(T)\) & 奇分支多项式 & \(\Po(T)=\sum_{i=0}^{n-1}p_{2i+1}T^i\) \\
+\(\Pe(Y^2)\) & 偶部嵌回原变量 & 由 \(P(Y)\) 的偶数次系数组成 \\
+\(Y\Po(Y^2)\) & 带 \(Y\) 因子的奇部 & 由 \(P(Y)\) 的奇数次系数组成 \\
+\(\Pe(X^{2k})\) & 大环中的偶分支 & 将 \(Y=X^k\) 后得到 \\
+\(\Po(X^{2k})\) & 大环中的归一化奇分支 & 去掉前面的 \(X^k\) 因子后得到 \\
+\(X^k\Po(X^{2k})\) & 大环中的带因子奇分支 & 尚未去掉 \(X^k\) 的奇分支 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+核心恒等式为
+\[
+P(Y)=\Pe(Y^2)+Y\Po(Y^2),
+\]
+\[
+P(-Y)=\Pe(Y^2)-Y\Po(Y^2).
+\]
+因此
+\[
+\Pe(Y^2)=\frac{P(Y)+P(-Y)}{2},
+\qquad
+Y\Po(Y^2)=\frac{P(Y)-P(-Y)}{2}.
+\]
+
+\subsection{嵌入、自同构与公开映射}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+符号 & 含义 & 说明 \\
+\midrule
+\(\eta_k\) & 嵌入映射 & \(\eta_k(P(Y))=P(X^k)\) \\
+\(\eta_{2k}\) & 半长度分支嵌入 & \(A(T)\mapsto A(X^{2k})\) \\
+\(\iota_n\) & 取负变量映射 & \(\iota_n(P(Y))=P(-Y)\) \\
+\(\sigma_a\) & 大环自同构 & \(\sigma_a(F(X))=F(X^a)\)，其中 \(a\) 为奇数 \\
+\(\sigma_{1+2n}\) & 实现 \(X^k\mapsto -X^k\) 的自同构 & 因为 \(\sigma_{1+2n}(X^k)=X^{k+N}=-X^k\) \\
+\(\tau\) & 偶次系数提取映射 & \(\tau(F)(Y)=\sum_{i=0}^{n-1}f_{2i}Y^i\) \\
+\(X^{-1}\) & 大环中 \(X\) 的逆元 & 当 \(N=2n\) 时，\(X^{-1}=-X^{2n-1}\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+其中，若
+\[
+F(X)=\sum_{j=0}^{2n-1}f_jX^j,
+\]
+则
+\[
+\tau(F)(Y)=\sum_{i=0}^{n-1}f_{2i}Y^i.
+\]
+即 \(\tau\) 是“取偶数下标系数并重新编号”的公开线性映射。
+
+\subsection{CKKS 密文与基本操作}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+符号 & 含义 & 说明 \\
+\midrule
+\(\ct\) & 一般密文 & 通常写作 \(\ct=(c_0,c_1)\) \\
+\(\ctP\) & 加密 \(P(X^k)\) 的密文 & 文档 1 的输入密文 \\
+\(\ct_-\) & 加密 \(P(-X^k)\) 的密文 & \(\ct_-=\Auto_{1+2n}(\ctP)\) \\
+\(\cte\) & 偶分支密文 & 加密 \(\Pe(X^{2k})\) \\
+\(\ctoy\) & 带因子奇分支密文 & 加密 \(X^k\Po(X^{2k})\) \\
+\(\cto\) & 归一化奇分支密文 & 加密 \(\Po(X^{2k})\) \\
+\(\Auto_a\) & 密文自同构操作 & 对应明文层 \(X\mapsto X^a\) \\
+\(\Add\) & 密文加法 & 明文语义为相加 \\
+\(\Sub\) & 密文减法 & 明文语义为相减 \\
+\(\MulPt{u}\) & 明文--密文乘法 & 将密文消息乘以公开明文 \(u\) \\
+\(\rep\) & 密文语义记号 & \(\ct\rep F\) 表示密文 \(\ct\) 解密后语义上为 \(F\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+文档 1 中常用操作为
+\[
+\ct_-:=\Auto_{1+2n}(\ctP),
+\]
+\[
+\cte:=\frac{1}{2}(\ctP+\ct_-),
+\]
+\[
+\ctoy:=\frac{1}{2}(\ctP-\ct_-),
+\]
+\[
+\cto:=(-X^{N-k})\ctoy.
+\]
+
+对应语义为
+\[
+\cte\rep \Pe(X^{2k}),
+\qquad
+\ctoy\rep X^k\Po(X^{2k}),
+\qquad
+\cto\rep \Po(X^{2k}).
+\]
+
+\subsection{文档 2 中的大环到小环压缩符号}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+符号 & 含义 & 说明 \\
+\midrule
+\(c_0(X),c_1(X)\) & 大环密文分量 & 输入密文 \(\ct=(c_0,c_1)\) 的两个公开多项式 \\
+\(s(X)\) & 大环私钥 & 解密时满足 \(c_0+s c_1\approx \Delta m(X^2)\) \\
+\(m(Y)\) & 小环消息多项式 & 目标消息 \\
+\(m(X^2)\) & 大环中的嵌入消息 & 只含 \(X\) 的偶次幂 \\
+\(\Delta\) & CKKS 缩放因子 & 明文缩放比例 \\
+\(e(X)\) & 原始大环噪声 & 输入密文的解密误差 \\
+\(A\) & \(c_0\) 的偶部 & \(A=\tau(c_0)\) \\
+\(B\) & \(c_1\) 的偶部 & \(B=\tau(c_1)\) \\
+\(C\) & \(c_0\) 的奇部重编号 & \(C=\tau(X^{-1}c_0)\) \\
+\(D\) & \(c_1\) 的奇部重编号 & \(D=\tau(X^{-1}c_1)\) \\
+\(s_0(Y)\) & 私钥偶部 & \(s(X)=s_0(X^2)+Xs_1(X^2)\) \\
+\(s_1(Y)\) & 私钥奇部 & 同上 \\
+\(s'(Y)\) & 目标小环私钥 & key switching 后绑定的普通小环私钥 \\
+\(\nu_0\) & 偶部噪声 & 来自 \(e_{\mathrm{even}}\) \\
+\(\nu_1\) & 奇部噪声 & 来自 \(e_{\mathrm{odd}}\) \\
+\(\eta_{\mathrm{ks}}\) & key switching 噪声 & 密钥切换新增误差 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+文档 2 中有
+\[
+c_0(X)=A(X^2)+XC(X^2),
+\]
+\[
+c_1(X)=B(X^2)+XD(X^2),
+\]
+\[
+s(X)=s_0(X^2)+Xs_1(X^2).
+\]
+
+代入解密关系
+\[
+c_0+s c_1=\Delta m(X^2)+e(X)
+\]
+后，得到小环中的两个方程：
+\[
+A+s_0B+Y s_1D=\Delta m(Y)+\nu_0,
+\]
+\[
+C+s_0D+s_1B=\nu_1.
+\]
+
+第一行携带目标消息，第二行是近似零关系。
+
+\subsection{模块密文与 key switching 符号}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+符号 & 含义 & 说明 \\
+\midrule
+\((t,u,v)\) & 三元素模块密文 & 满足 \(t+s_0u+s_1v\approx \mathrm{msg}\) \\
+\((A,B,YD)\) & 本文主模块密文 & 满足 \(A+s_0B+s_1(YD)\approx \Delta m(Y)\) \\
+\(G\) & gadget 基 & 用于 gadget 分解 \\
+\(L\) & gadget 分解长度 & 分解层数 \\
+\(u_\ell,v_\ell\) & gadget digits & \(u=\sum_\ell u_\ell G^\ell,\ v=\sum_\ell v_\ell G^\ell\) \\
+\(a_{0,\ell},a_{1,\ell}\) & key switching 随机项 & 公开切换密钥的一部分 \\
+\(b_{0,\ell},b_{1,\ell}\) & key switching 加密项 & 公开切换密钥的一部分 \\
+\(\epsilon_{0,\ell},\epsilon_{1,\ell}\) & 切换密钥噪声 & key switching key 中的小误差 \\
+\(d_0,d_1\) & 输出小环密文分量 & 满足 \(d_0+s'd_1\approx \mathrm{msg}\) \\
+\(\KS\) & key switching 操作 & 将私钥从 \((s_0,s_1)\) 切到 \(s'\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+本文采用解密约定
+\[
+d_0+s'd_1.
+\]
+因此正确的切换密钥形式为
+\[
+b_{0,\ell}=G^\ell s_0-a_{0,\ell}s'+\epsilon_{0,\ell},
+\]
+\[
+b_{1,\ell}=G^\ell s_1-a_{1,\ell}s'+\epsilon_{1,\ell}.
+\]
+
+若
+\[
+u=\sum_{\ell=0}^{L-1}u_\ell G^\ell,
+\qquad
+v=\sum_{\ell=0}^{L-1}v_\ell G^\ell,
+\]
+则 key switching 后的新增噪声为
+\[
+\eta_{\mathrm{ks}}
+=
+\sum_{\ell=0}^{L-1}u_\ell\epsilon_{0,\ell}
++
+\sum_{\ell=0}^{L-1}v_\ell\epsilon_{1,\ell}.
+\]
+
+对于文档 2 的主输出，
+\[
+(t,u,v)=(A,B,YD),
+\]
+因此最终小环密文满足
+\[
+d_0+s'd_1
+=
+\Delta m(Y)+\nu_0+\eta_{\mathrm{ks}}.
+\]
+
+\subsection{噪声与层数符号}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+符号 & 含义 & 说明 \\
+\midrule
+\(e(X)\) & 输入大环噪声 & 可拆为偶部和奇部 \\
+\(e_{\mathrm{even}}(X^2)\) & 原噪声偶部 & 会进入输出噪声 \\
+\(Xe_{\mathrm{odd}}(X^2)\) & 原噪声奇部 & 不进入主输出第一行 \\
+\(\nu_0\) & 小环偶部噪声 & \(\nu_0=\tau(e_{\mathrm{even}})\) \\
+\(\nu_1\) & 小环奇部噪声 | 对应近似零关系 \\
+\(\eta_{\mathrm{ks}}\) & key switching 噪声 & 压缩时新增 \\
+\(e_{\mathrm{out}}\) & 最终输出噪声 & \(e_{\mathrm{out}}=\nu_0+\eta_{\mathrm{ks}}\) \\
+\(\ell\) & 模数链层数索引 & level \(\ell\) \\
+\(q_\ell\) & 当前模数 & 当前 level 下的密文模数 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+噪声流向可概括为
+\[
+e(X)=e_{\mathrm{even}}(X^2)+Xe_{\mathrm{odd}}(X^2),
+\]
+\[
+e_{\mathrm{out}}=\nu_0+\eta_{\mathrm{ks}}.
+\]
+
+也就是说，大环到小环压缩保留原噪声的偶部，丢掉不承载目标消息的奇部噪声，同时新增 key switching 噪声。
+
+\subsection{常用操作的层数消耗}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+操作 & 作用 & 默认层数消耗 & 说明 \\
+\midrule
+\(\Auto_a\) & 自同构 / rotation & 0 & 增噪声，需要 automorphism key \\
+\(\Add,\Sub\) & 加法 / 减法 & 0 & 要求输入在同一 level \\
+乘 \(1/2\) & 精确常数乘法 & 0 & 若作为 scale 1 plaintext 处理 \\
+乘 \(X^k\) 或 \(X^{-1}\) & 单项式移位 & 0 & 循环移位加符号变化 \\
+\(\tau\) & 公开系数提取 & 0 & 不属于同态运算 \\
+gadget decomposition & 系数分解 & 0 & 不改变密文 level \\
+key switching & 切换绑定私钥 & 0 & 通常不掉层，但增加噪声 \\
+rescale / mod-down & 降模或缩放调整 & 1 或更多 & 主动降几层就消耗几层 \\
+密文--密文乘法 & 同态乘法 & 通常 1 & 本文主流程中没有该操作 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+
+\section{文档 1：同态 FFT 奇偶拆分}
+
+\subsection{明文层的奇偶拆分}
+
+设
+\[
+P(Y)=\sum_{j=0}^{2n-1}p_jY^j.
+\]
+定义
+\[
+\Pe(T)=\sum_{i=0}^{n-1}p_{2i}T^i,
+\qquad
+\Po(T)=\sum_{i=0}^{n-1}p_{2i+1}T^i.
+\]
+那么有精确恒等式
+\[
+P(Y)=\Pe(Y^2)+Y\Po(Y^2),
+\]
+以及
+\[
+P(-Y)=\Pe(Y^2)-Y\Po(Y^2).
+\]
+因此
+\[
+\Pe(Y^2)=\frac{P(Y)+P(-Y)}{2},
+\qquad
+Y\Po(Y^2)=\frac{P(Y)-P(-Y)}{2}.
+\]
+
+下面这张图表达了：只要能得到 $P(-Y)$，就能通过半和、半差得到偶分支和奇分支。
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+P(Y)
+  \arrow[r,"Y\mapsto -Y"]
+  \arrow[d,"\frac{1}{2}(P(Y)+P(-Y))"']
+  \arrow[dd,"\frac{1}{2}(P(Y)-P(-Y))"', bend right=55]
+&
+P(-Y)
+\\
+\Pe(Y^2)
+\\
+Y\Po(Y^2)
+\end{tikzcd}
+\]
+
+\subsection{嵌入到 CKKS 大环中}
+
+令
+\[
+\Sn=\frac{\RR[Y]}{(Y^{2n}+1)},
+\qquad
+\Rbig=\frac{\RR[X]}{(X^N+1)},
+\qquad
+k=\frac{N}{2n}.
+\]
+通过
+\[
+Y=X^k
+\]
+把 $\Sn$ 嵌入到 $\Rbig$。因为
+\[
+(X^k)^{2n}=X^N=-1,
+\]
+所以这个嵌入是良定义的。
+
+文档 1 的关键是用大环自同构实现
+\[
+X^k\mapsto -X^k.
+\]
+取
+\[
+\sigma_{1+2n}:X\mapsto X^{1+2n}.
+\]
+则
+\[
+\sigma_{1+2n}(X^k)=X^{k(1+2n)}=X^{k+N}=-X^k.
+\]
+
+图示如下：
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+\ctP
+  \arrow[r,"\Auto_{1+2n}"]
+  \arrow[d,dashed,"\text{decrypts to}"']
+&
+\ct_{-}
+  \arrow[d,dashed,"\text{decrypts to}"]
+\\
+P(X^k)
+  \arrow[r,"X^k\mapsto -X^k"']
+&
+P(-X^k)
+\end{tikzcd}
+\]
+
+\subsection{密文层正向拆分}
+
+输入密文满足
+\[
+\ctP \rep P(X^k).
+\]
+先做自同构：
+\[
+\ct_-:=\Auto_{1+2n}(\ctP),
+\qquad
+\ct_-\rep P(-X^k).
+\]
+然后计算
+\[
+\cte:=\frac{1}{2}(\ctP+\ct_-),
+\]
+\[
+\ctoy:=\frac{1}{2}(\ctP-\ct_-).
+\]
+于是
+\[
+\cte\rep \Pe(X^{2k}),
+\qquad
+\ctoy\rep X^k\Po(X^{2k}).
+\]
+如果希望去掉奇分支前面的 $X^k$，继续乘
+\[
+(X^k)^{-1}=-X^{N-k},
+\]
+得到
+\[
+\cto:=(-X^{N-k})\ctoy,
+\qquad
+\cto\rep \Po(X^{2k}).
+\]
+
+流程图如下：
+
+```latex
+\[
+\begin{tikzcd}[column sep=large,row sep=large]
+& \ctP
+  \arrow[dl, "\mathrm{id}"']
+  \arrow[dr, "\Auto_{1+2n}"]
+&
+\\
+\ctP
+  \arrow[dr, "+"']
+  \arrow[ddr, "-"', bend right=20]
+&
+&
+\ct_{-}
+  \arrow[dl, "+"]
+  \arrow[ddl, "-", bend left=20]
+\\
+&
+\frac{1}{2}(\ctP+\ct_{-})
+  \arrow[d, dashed, "\Pe(X^{2k})"]
+&
+\\
+&
+\frac{1}{2}(\ctP-\ct_{-})
+  \arrow[d, dashed, "X^k\Po(X^{2k})"]
+&
+\\
+&
+(-X^{N-k})\cdot \frac{1}{2}(\ctP-\ct_{-})
+  \arrow[d, dashed, "\Po(X^{2k})"]
+&
+\\
+& {} &
+\end{tikzcd}
+\]
+```
+
+\subsection{密文层重构}
+
+如果没有做小环压缩，重构非常直接。
+
+若已有
+\[
+\cte\rep \Pe(X^{2k}),
+\qquad
+\cto\rep \Po(X^{2k}),
+\]
+则
+\[
+\Merge(\cte,\cto)=\cte+X^k\cto,
+\]
+满足
+\[
+\Merge(\cte,\cto)\rep \Pe(X^{2k})+X^k\Po(X^{2k})=P(X^k).
+\]
+
+若奇分支保留了 $X^k$ 因子，即
+\[
+\ctoy\rep X^k\Po(X^{2k}),
+\]
+则直接相加：
+\[
+\Merge(\cte,\ctoy)=\cte+\ctoy.
+\]
+
+图示如下：
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+(\cte,\cto)
+  \arrow[r,"\cte+X^k\cto"]
+  \arrow[d,dashed,"\rep"']
+&
+\ct'_P
+  \arrow[d,dashed,"\rep"]
+\\
+\bigl(\Pe(X^{2k}),\Po(X^{2k})\bigr)
+  \arrow[r,"A+B\mapsto A+X^kB"']
+&
+P(X^k)
+\end{tikzcd}
+\]
+
+\section{文档 2：大环密文到小环密文}
+
+\subsection{问题是什么}
+
+文档 2 的输入是一个大环密文
+\[
+\ct=(c_0(X),c_1(X))\in \Rbig^2
+\]
+满足
+\[
+ c_0(X)+s(X)c_1(X)=\Delta m(X^2)+e(X).
+\]
+这里 $m(X^2)$ 只含偶次幂。
+
+目标是构造小环密文
+\[
+\ct'=(d_0(Y),d_1(Y))\in \Rsmall^2
+\]
+使得
+\[
+ d_0(Y)+s'(Y)d_1(Y)=\Delta m(Y)+e'(Y).
+\]
+
+也就是说，目标是把加密 $m(X^2)$ 的大环密文，转换成加密 $m(Y)$ 的小环密文。
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+\text{大环密文 } \ct=(c_0(X),c_1(X))
+  \arrow[d,dashed,"\text{decrypt under }s(X)"']
+  \arrow[r,"\Comp"]
+&
+\text{小环密文 } \ct'=(d_0(Y),d_1(Y))
+  \arrow[d,dashed,"\text{decrypt under }s'(Y)"]
+\\
+\Delta m(X^2)+e(X)
+  \arrow[r,"X^2\mapsto Y"']
+&
+\Delta m(Y)+e'(Y)
+\end{tikzcd}
+\]
+
+\subsection{$\tau$ 映射是什么}
+
+定义
+\[
+\tau:\Rbig\to \Rsmall.
+\]
+对任意
+\[
+F(X)=\sum_{j=0}^{2n-1}f_jX^j,
+\]
+令
+\[
+\tau(F)(Y)=\sum_{i=0}^{n-1}f_{2i}Y^i.
+\]
+也就是说，$\tau$ 做的是：取偶数下标系数，然后重新编号。
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+F(X)=f_0+f_1X+f_2X^2+f_3X^3+\cdots+f_{2n-1}X^{2n-1}
+  \arrow[d,"\tau"']
+\\
+\tau(F)(Y)=f_0+f_2Y+f_4Y^2+\cdots+f_{2n-2}Y^{n-1}
+\end{tikzcd}
+\]
+
+数组形式如下：
+
+\[
+\begin{tikzpicture}[>=Latex, node distance=1.1cm]
+\node (top) {
+\(\bigl[f_0,\ f_1,\ f_2,\ f_3,\ f_4,\ f_5,\ \cdots,\ f_{2n-2},\ f_{2n-1}\bigr]\)
+};
+\node[below=of top] (bottom) {
+\(\bigl[f_0,\ f_2,\ f_4,\ \cdots,\ f_{2n-2}\bigr]\)
+};
+\draw[->] (top) -- node[right] {\(\tau\)：取偶数下标并重新编号} (bottom);
+\end{tikzpicture}
+\]
+
+注意：文档 2 中 $\tau$ 作用在 $c_0,c_1$ 上时，并不是解密。$c_0,c_1$ 是密文分量，但它们本身是公开多项式数组，所以可以直接读系数并取偶数位置。
+
+\subsection{公开拆分密文分量}
+
+计算
+\[
+A=\tau(c_0),
+\qquad
+B=\tau(c_1),
+\]
+\[
+C=\tau(X^{-1}c_0),
+\qquad
+D=\tau(X^{-1}c_1).
+\]
+因为在 $\Rbig=\ZZ_q[X]/(X^{2n}+1)$ 中
+\[
+X^{-1}=-X^{2n-1},
+\]
+所以乘以 $X^{-1}$ 只是公开的循环移位和变号。
+
+图示如下：
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+c_0(X)
+  \arrow[r,"\tau"]
+  \arrow[d,"X^{-1}\cdot"']
+&
+A(Y)=\tau(c_0)
+\\
+X^{-1}c_0(X)
+  \arrow[r,"\tau"']
+&
+C(Y)=\tau(X^{-1}c_0)
+\end{tikzcd}
+\qquad
+\begin{tikzcd}[column sep=huge,row sep=large]
+c_1(X)
+  \arrow[r,"\tau"]
+  \arrow[d,"X^{-1}\cdot"']
+&
+B(Y)=\tau(c_1)
+\\
+X^{-1}c_1(X)
+  \arrow[r,"\tau"']
+&
+D(Y)=\tau(X^{-1}c_1)
+\end{tikzcd}
+\]
+
+于是有恒等式
+\[
+c_0(X)=A(X^2)+XC(X^2),
+\]
+\[
+c_1(X)=B(X^2)+XD(X^2).
+\]
+这里 $A,B$ 是偶部，$C,D$ 是奇部重新编号后的结果。
+
+\subsection{同时拆分私钥}
+
+由于解密关系里有 $s(X)c_1(X)$，所以私钥也必须拆成偶部和奇部：
+\[
+s(X)=s_0(X^2)+Xs_1(X^2).
+\]
+
+\[
+\begin{tikzcd}[column sep=large,row sep=large]
+c_0(X)
+  \arrow[r,"\text{拆成偶部/奇部}"]
+&
+A(X^2)+XC(X^2)
+\\
+c_1(X)
+  \arrow[r,"\text{拆成偶部/奇部}"]
+&
+B(X^2)+XD(X^2)
+\\
+s(X)
+  \arrow[r,"\text{拆成偶部/奇部}"]
+&
+s_0(X^2)+Xs_1(X^2)
+\end{tikzcd}
+\]
+
+这一步是文档 2 的关键：不是只压缩明文形式，还要把整个解密关系改写到小环中。
+
+\subsection{重写解密方程}
+
+原始解密式为
+\[
+c_0+s c_1=\Delta m(X^2)+e(X).
+\]
+代入
+\[
+c_0=A+XC,
+\qquad
+c_1=B+XD,
+\qquad
+s=s_0+Xs_1,
+\]
+这里为了简洁省略 $A(X^2),B(X^2)$ 等记号。
+
+展开：
+\[
+\begin{aligned}
+c_0+s c_1
+&=A+XC+(s_0+Xs_1)(B+XD)\\
+&=A+XC+s_0B+Xs_0D+Xs_1B+X^2s_1D.
+\end{aligned}
+\]
+按偶部和奇部分组：
+\[
+\text{偶部：}\quad A+s_0B+X^2s_1D,
+\]
+\[
+\text{奇部：}\quad X(C+s_0D+s_1B).
+\]
+
+图示如下：
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+c_0+s c_1
+  \arrow[r,"\substack{c_0=A+XC\\ c_1=B+XD\\ s=s_0+Xs_1}"]
+&
+A+XC+(s_0+Xs_1)(B+XD)
+  \arrow[d,"\text{展开}"]
+\\
+&
+A+XC+s_0B+Xs_0D+Xs_1B+X^2s_1D
+  \arrow[d,"\text{分离偶部和奇部}"]
+\\
+&
+\begin{cases}
+A+s_0B+X^2s_1D,\\
+X(C+s_0D+s_1B).
+\end{cases}
+\end{tikzcd}
+\]
+
+由于 $\Delta m(X^2)$ 没有奇次项，若写
+\[
+e(X)=e_{\mathrm{even}}(X^2)+Xe_{\mathrm{odd}}(X^2),
+\]
+则比较偶部、奇部得到
+\[
+A+s_0B+Y s_1D=\Delta m(Y)+\nu_0,
+\]
+\[
+C+s_0D+s_1B=\nu_1.
+\]
+其中 $\nu_0$ 来自原噪声的偶部，$\nu_1$ 来自原噪声的奇部。
+
+\subsection{模块密文}
+
+上面的两个方程可以写成矩阵形式：
+\[
+\begin{pmatrix}
+A\\ C
+\end{pmatrix}
++
+\begin{pmatrix}
+B & YD\\
+D & B
+\end{pmatrix}
+\begin{pmatrix}
+s_0\\ s_1
+\end{pmatrix}
+=
+\begin{pmatrix}
+\Delta m(Y)+\nu_0\\
+\nu_1
+\end{pmatrix}.
+\]
+
+图示如下：
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+\begin{pmatrix}
+A\\
+C
+\end{pmatrix}
++
+\begin{pmatrix}
+B & YD\\
+D & B
+\end{pmatrix}
+\begin{pmatrix}
+s_0\\
+s_1
+\end{pmatrix}
+  \arrow[r,"\text{decrypts to}"]
+&
+\begin{pmatrix}
+\Delta m(Y)+\nu_0\\
+\nu_1
+\end{pmatrix}
+\end{tikzcd}
+\]
+
+第一行
+\[
+A+s_0B+s_1(YD)=\Delta m(Y)+\nu_0
+\]
+携带目标消息。因此
+\[
+(t,u,v)=(A,B,YD)
+\]
+可以看成一个绑定向量私钥 $(s_0,s_1)$ 的三元素模块密文。
+
+第二行
+\[
+C+s_0D+s_1B=\nu_1
+\]
+只对应近似零关系，通常不作为最终输出。
+
+\subsection{正确的 key switching}
+
+现在要把三元素模块密文
+\[
+(t,u,v)
+\]
+从向量私钥 $(s_0,s_1)$ 切换到普通小环私钥 $s'$。
+
+也就是说，从
+\[
+t+s_0u+s_1v\approx \Delta m(Y)
+\]
+转换到
+\[
+d_0+s'd_1\approx \Delta m(Y).
+\]
+
+图示如下：
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+(t,u,v)=(A,B,YD)
+  \arrow[d,dashed,"t+s_0u+s_1v"']
+  \arrow[r,"\KS_{(s_0,s_1)\to s'}"]
+&
+(d_0,d_1)
+  \arrow[d,dashed,"d_0+s'd_1"]
+\\
+\Delta m(Y)+\nu_0
+  \arrow[r,"+\ \eta_{\mathrm{ks}}"']
+&
+\Delta m(Y)+\nu_0+\eta_{\mathrm{ks}}
+\end{tikzcd}
+\]
+
+为了和解密约定
+\[
+d_0+s'd_1
+\]
+一致，切换密钥应满足
+\[
+b_{0,\ell}=G^\ell s_0-a_{0,\ell}s'+\epsilon_{0,\ell},
+\]
+\[
+b_{1,\ell}=G^\ell s_1-a_{1,\ell}s'+\epsilon_{1,\ell}.
+\]
+
+把 $u,v$ 做 gadget 分解：
+\[
+u=\sum_{\ell=0}^{L-1}u_\ell G^\ell,
+\qquad
+v=\sum_{\ell=0}^{L-1}v_\ell G^\ell.
+\]
+初始化
+\[
+d_0=t,
+\qquad
+d_1=0.
+\]
+然后对每个 $\ell$ 更新
+\[
+d_0\leftarrow d_0+u_\ell b_{0,\ell}+v_\ell b_{1,\ell},
+\]
+\[
+d_1\leftarrow d_1+u_\ell a_{0,\ell}+v_\ell a_{1,\ell}.
+\]
+最后输出
+\[
+\ct'=(d_0,d_1).
+\]
+
+正确性为
+\[
+\begin{aligned}
+d_0+s'd_1
+&=t+\sum_\ell u_\ell(b_{0,\ell}+s'a_{0,\ell})
+     +\sum_\ell v_\ell(b_{1,\ell}+s'a_{1,\ell})\\
+&=t+\sum_\ell u_\ell(G^\ell s_0+\epsilon_{0,\ell})
+     +\sum_\ell v_\ell(G^\ell s_1+\epsilon_{1,\ell})\\
+&=t+s_0u+s_1v+\eta_{\mathrm{ks}}.
+\end{aligned}
+\]
+其中
+\[
+\eta_{\mathrm{ks}}
+=
+\sum_\ell u_\ell\epsilon_{0,\ell}
++
+\sum_\ell v_\ell\epsilon_{1,\ell}.
+\]
+
+因此最终
+\[
+d_0+s'd_1=\Delta m(Y)+\nu_0+\eta_{\mathrm{ks}}.
+\]
+
+\subsection{噪声流向}
+
+原始噪声分解为
+\[
+e(X)=e_{\mathrm{even}}(X^2)+Xe_{\mathrm{odd}}(X^2).
+\]
+输出噪声为
+\[
+e_{\mathrm{out}}=\nu_0+\eta_{\mathrm{ks}}.
+\]
+也就是说，原噪声的奇部不进入最终第一行输出；但是 key switching 会引入新噪声。
+
+\[
+\begin{tikzcd}[column sep=large,row sep=large]
+\Delta m(X^2)+e(X)
+  \arrow[r,"e=e_{\mathrm{even}}(X^2)+Xe_{\mathrm{odd}}(X^2)"]
+&
+\Delta m(X^2)+e_{\mathrm{even}}(X^2)+Xe_{\mathrm{odd}}(X^2)
+  \arrow[d,"\text{投影到偶子环}"]
+\\
+&
+\Delta m(Y)+\nu_0
+  \arrow[d,"\text{key switching}"]
+\\
+&
+\Delta m(Y)+\nu_0+\eta_{\mathrm{ks}}
+\end{tikzcd}
+\]
+
+因此压缩操作不是免费消噪。它丢掉了与目标消息无关的奇部噪声，但又新增了 key switching 噪声。
+
+\section{两个过程如何组合}
+
+\subsection{一层递归}
+
+把文档 1 和文档 2 连起来，一层递归可以画成：
+
+\[
+\begin{tikzcd}[column sep=large,row sep=large]
+\ctP \text{ encrypts } P(X)
+  \arrow[r,"\text{文档 1：Split}"]
+&
+\begin{matrix}
+\cte \text{ encrypts } \Pe(X^2)\\
+\cto \text{ encrypts } \Po(X^2)
+\end{matrix}
+  \arrow[r,"\text{文档 2：Compress each branch}"]
+&
+\begin{matrix}
+\ct'_e \text{ encrypts } \Pe(Y)\\
+\ct'_o \text{ encrypts } \Po(Y)
+\end{matrix}
+  \arrow[r,"\text{继续递归}"]
+&
+\cdots
+\end{tikzcd}
+\]
+
+文档 1 完成
+\[
+P(X)\mapsto \Pe(X^2),\Po(X^2),
+\]
+文档 2 完成
+\[
+f(X^2)\mapsto f(Y).
+\]
+所以文档 2 可以接在文档 1 后面，让下一层递归真正发生在小环中。
+
+\subsection{是否需要合并回去}
+
+如果后续算法仍然在小环中进行，则不需要马上合并回去。
+
+如果最终需要恢复父层大环密文，则需要先升环：
+\[
+\Pe(Y)\mapsto \Pe(X^2),
+\qquad
+\Po(Y)\mapsto \Po(X^2),
+\]
+再合并：
+\[
+P(X)=\Pe(X^2)+X\Po(X^2).
+\]
+
+图示如下：
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+\bigl(\ct'_e,\ct'_o\bigr)
+  \arrow[r,"\text{升环 }Y\mapsto X^2"]
+&
+\bigl(\widehat{\ct}_e,\widehat{\ct}_o\bigr)
+  \arrow[r,"\widehat{\ct}_e+X\widehat{\ct}_o"]
+&
+\ct_{\mathrm{merge}}
+\\
+\bigl(\Pe(Y),\Po(Y)\bigr)
+  \arrow[r,"Y\mapsto X^2"']
+&
+\bigl(\Pe(X^2),\Po(X^2)\bigr)
+  \arrow[r,"A+XB"']
+&
+P(X)
+\end{tikzcd}
+\]
+
+注意：合并回去通常只能恢复语义等价的新密文，不会恢复原来的密文本身。压缩时已经经过 key switching，并且奇部噪声没有携带到主输出。
+
+\section{层数消耗与复杂度}
+
+\subsection{模数链层数消耗}
+
+在典型 CKKS/RNS 实现中，层数消耗通常来自 rescale 或主动 modulus switching。自同构、加减法、key switching、单项式乘法、公开系数重排通常不消耗层数，但会增加噪声或计算成本。
+
+\[
+\begin{tikzcd}[column sep=large,row sep=large]
+\text{输入 level } \ell
+  \arrow[r,"\text{文档 1：Auto/Add/Sub/Mul by }1/2"]
+&
+\text{通常仍在 level } \ell
+  \arrow[r,"\text{文档 2：}\tau+\text{KeySwitch}"]
+&
+\text{通常仍在 level } \ell
+  \arrow[r,"\text{可选 ModDown/Rescale}"]
+&
+\text{level } \ell-1
+\end{tikzcd}
+\]
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+模块 & 操作 & 默认层数消耗 & 说明 \\
+\midrule
+文档 1 & 自同构 $\Auto_{1+2n}$ & 0 & 增噪声，需要 automorphism key \\
+文档 1 & 加法/减法 & 0 & 需同 level \\
+文档 1 & 乘精确常数 $1/2$ & 0 & 若用 scale 1 plaintext \\
+文档 1 & 乘单项式 $-X^{N-k}$ & 0 & 移位加变号 \\
+文档 2 & $\tau(c_0),\tau(c_1)$ & 0 & 公开系数操作 \\
+文档 2 & $X^{-1}c_0,X^{-1}c_1$ & 0 & 公开移位加变号 \\
+文档 2 & $\tau(X^{-1}c_0),\tau(X^{-1}c_1)$ & 0 & 公开系数操作 \\
+文档 2 & $YD$ & 0 & 小环单项式移位 \\
+文档 2 & gadget decomposition & 0 & 系数分解 \\
+文档 2 & key switching $(s_0,s_1)\to s'$ & 0 & 默认不掉层，但增噪声 \\
+任意阶段 & rescale / mod-down & 1 或更多 & 主动降几层就消耗几层 \\
+任意阶段 & ciphertext-ciphertext multiplication & 通常 1 & 当前主流程没有此操作 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+因此，该组合流程在理想实现口径下可以做到
+\[
+\boxed{0\text{ 层消耗}},
+\]
+真正的代价主要是 key switching 的噪声与计算量。
+
+\subsection{复杂度概览}
+
+设大环维度为 $N=2n$，小环维度为 $n$，gadget 分解长度为 $L$。
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+步骤 & 复杂度 & 说明 \\
+\midrule
+提取 $A,B,C,D$ & $O(N)$ & 公开数组重排 \\
+计算 $YD$ & $O(n)$ & 小环单项式移位 \\
+gadget 分解 $B,YD$ & $O(Ln)$ & 对两个小环多项式分解 \\
+key switching & $O(Ln\log n)$ & 主导成本，小环 NTT 乘法 \\
+输出密文大小 & 从 $R_N^2$ 到 $R_n^2$ & 大约减半 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+所以文档 2 的压缩可以理解为：
+\[
+\boxed{\text{用一次小环 key switching 的代价，换来后续计算在半维度小环上进行。}}
+\]
+如果后续还有很多递归或同态计算，这通常是值得的；如果压缩后马上结束，则未必划算。
+
+\section{完整主流程大图}
+
+最后把两个文档的完整一层操作放在一张图中。
+
+\[
+\begin{tikzcd}[column sep=large,row sep=large]
+\ctP \text{ in } \Rbig
+  \arrow[r,"\Auto_{1+2n}"]
+&
+\ct_- \text{ in } \Rbig
+\\
+\ctP,\ct_-
+  \arrow[r,"\frac{1}{2}(\ctP+\ct_-)"]
+  \arrow[d,"\frac{1}{2}(\ctP-\ct_-)"']
+&
+\cte \text{ encrypts } \Pe(X^2)
+  \arrow[r,"\Comp"]
+&
+\ct'_e \text{ in } \Rsmall \text{ encrypts } \Pe(Y)
+\\
+\ctoy \text{ encrypts } X\Po(X^2)
+  \arrow[r,"\cdot X^{-1}"]
+&
+\cto \text{ encrypts } \Po(X^2)
+  \arrow[r,"\Comp"]
+&
+\ct'_o \text{ in } \Rsmall \text{ encrypts } \Po(Y)
+\end{tikzcd}
+\]
+
+这张图的读法是：
+\begin{enumerate}
+  \item 通过自同构得到 $P(-X)$ 的密文；
+  \item 半和得到偶分支；
+  \item 半差得到带 $X$ 因子的奇分支；
+  \item 乘 $X^{-1}$ 得到归一化奇分支；
+  \item 对两个形如 $f(X^2)$ 的分支分别执行文档 2 的压缩；
+  \item 得到真正的小环密文 $f(Y)$，可以继续递归。
+\end{enumerate}
+
+\section*{最后总结}
+
+文档 1 的核心是：
+\[
+\boxed{
+P(X)=\Pe(X^2)+X\Po(X^2),
+\qquad
+P(-X)=\Pe(X^2)-X\Po(X^2).
+}
+\]
+它通过自同构、半和、半差在密文上得到奇偶分支。
+
+文档 2 的核心是：
+\[
+\boxed{
+\text{若 } c_0+s c_1=\Delta m(X^2)+e,
+\text{ 则可构造 } d_0+s'd_1=\Delta m(Y)+e'.
+}
+\]
+它通过公开的 $\tau$ 拆密文分量、拆私钥、构造模块密文，再通过 key switching 得到普通小环密文。
+
+两者合起来，就是：
+\[
+\boxed{
+\text{先在密文上做 FFT 式拆分，再把每个半长度分支真正压到小环继续递归。}
+}
+\]
+
+\end{document}

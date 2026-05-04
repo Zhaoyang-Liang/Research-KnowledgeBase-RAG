@@ -1,0 +1,13 @@
+{
+  "qa_id": "Q113",
+  "question": "当前论文需要补哪些proof？",
+  "answer": "(1)Lemma 1: 环分解R_{q,N}≃⊕R_{q,n}·X_N^r；(2)Lemma 3: C2S compatibility Split∘C2S_N≈(⊕C2S_n)∘Split；(3)Lemma 4: EvalMod coordinate-wise穿过Split（因为EvalMod是逐坐标非线性）；(4)Lemma 5: S2C+Merger compatibility；(5)γ_impl推导（C2S/S2C scaling因子之比）；(6)安全分析（leaf vs top安全参数表）。",
+  "card_id": "N/A",
+  "source_id": "src_000052",
+  "source_type": "paper_planning",
+  "confidence": "low",
+  "needs_human_review": true,
+  "batch": "Batch-03",
+  "notes": "来自作者代办清单，标记为candidate_knowledge",
+  "created": "2026-05-04T13:54:56"
+}

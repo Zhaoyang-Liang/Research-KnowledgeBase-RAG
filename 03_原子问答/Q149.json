@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q149",
+  "card_id": "K051",
+  "source_id": "src_000081,src_000082",
+  "question": "每个槽对应一个本原m次单位根还是多个？",
+  "answer": "不是一个，是一整条Frobenius轨道{ζ_m^h,ζ_m^{hp},...,ζ_m^{hp^{d-1}}}。虽然论文公式常写a(ζ_m^h)，但那是取轨道中的一个代表元做求值。槽内的所有单位根都是\"同一个槽\"的根。不同槽之间有严格区分：不同槽=不同Frobenius等价类=不同陪集h⟨p⟩。",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05a3",
+  "created": "2026-05-04T15:40"
+}

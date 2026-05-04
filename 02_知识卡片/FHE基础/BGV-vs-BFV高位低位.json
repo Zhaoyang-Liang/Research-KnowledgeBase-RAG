@@ -1,0 +1,41 @@
+{
+  "title": "BGV与BFV的核心区别：消息位置与噪声控制",
+  "source_file": "01_源文件库/03_FHE总论与基础方案/BFV与BGV的高低位明文.md",
+  "category": "03_FHE总论与基础方案",
+  "subtopic": "BGV vs BFV对比",
+  "read_depth": "精读",
+  "ingest_decision": "core_ingest",
+  "knowledge_points": [
+    {
+      "id": "BGV-low-bits",
+      "concept": "BGV: 消息在低位，模数切换任意比例降噪",
+      "formula": "c=(a·s+t·e+m, -a), ModSwitch: c'=⌊(q'/q)·c⌉(任意q'<q)",
+      "meaning": "消息m在低位(模t取出)，噪声随q'=>减小，模数链灵活但管理复杂"
+    },
+    {
+      "id": "BFV-high-bits",
+      "concept": "BFV: 消息在高位(×Δ)，重缩放固定比例降噪",
+      "formula": "c=(a·s+Δ·m+e, -a), Δ=⌊q/t⌋, Rescale: c'=⌊(1/t)·c⌉(固定缩小t倍)",
+      "meaning": "消息在Δ倍高位，尺度不变(Scale-Invariant)，实现更简单"
+    },
+    {
+      "id": "BGV-vs-BFV-summary",
+      "concept": "BGV vs BFV一句话对比",
+      "formula": "BGV=低位+任意ModSwitch | BFV=高位+固定Rescale",
+      "meaning": "BGV参数灵活但复杂(HElib); BFV尺度不变实现简单(SEAL); 性能相近"
+    }
+  ],
+  "tags": [
+    "BGV",
+    "BFV",
+    "模数切换",
+    "重缩放",
+    "消息编码",
+    "高位低位"
+  ],
+  "source_id": "src_000016",
+  "source_title": "BGV与BFV的核心区别",
+  "source_relative_path": "01_源文件库/03_FHE总论与基础方案/BFV与BGV的高低位明文.md",
+  "source_type": "md",
+  "source_role": "canonical_source"
+}

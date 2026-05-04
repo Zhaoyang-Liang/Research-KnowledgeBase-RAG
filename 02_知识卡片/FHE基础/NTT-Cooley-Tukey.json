@@ -1,0 +1,48 @@
+{
+  "title": "NTT与Cooley-Tukey快速算法",
+  "source_file": "01_源文件库/01_抽象代数与代数数论/变换与NTT-Cooley-Tukey.md",
+  "category": "01_数学与代数基础",
+  "subtopic": "NTT/FFT",
+  "read_depth": "精读",
+  "ingest_decision": "core_ingest",
+  "knowledge_points": [
+    {
+      "id": "NTT-def",
+      "concept": "NTT=有限域上的DFT",
+      "formula": "A_k=Σa_i·ω^{ik}在F_q中, ω^n=1且需n|(q-1)",
+      "meaning": "DFT在复数域(有误差)，NTT在有限域(精确整数)，形式相同但运算域不同"
+    },
+    {
+      "id": "Cooley-Tukey",
+      "concept": "Cooley-Tukey分奇偶算法",
+      "formula": "A_k=E_k+ω^k·O_k, A_{k+n/2}=E_k-ω^k·O_k (蝴蝶操作)",
+      "meaning": "将长度为n的NTT拆为两个n/2的NTT，递归O(n log n)"
+    },
+    {
+      "id": "bit-reversal",
+      "concept": "位反转(Bit-reversal)作用",
+      "formula": "br_n(i)=反转i的log n位二进制，如br_8(1)=4",
+      "meaning": "Cooley-Tukey输出为位反转顺序，需在输入或输出端重排"
+    },
+    {
+      "id": "butterfly",
+      "concept": "蝴蝶操作: x'=x+ω^k·y, y'=x-ω^k·y",
+      "formula": "每次蝴蝶: 1乘(乘ω^k)+2加/减，n/2次蝴蝶×log n层=O(n log n)",
+      "meaning": "NTT的核心计算单元，在BGV同态中可加载多项式中高效实现"
+    }
+  ],
+  "tags": [
+    "NTT",
+    "Cooley-Tukey",
+    "蝴蝶操作",
+    "位反转",
+    "DFT",
+    "有限域",
+    "分奇偶"
+  ],
+  "source_id": "src_000017",
+  "source_title": "NTT与Cooley-Tukey快速算法",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/变换与NTT-Cooley-Tukey.md",
+  "source_type": "md",
+  "source_role": "canonical_source"
+}

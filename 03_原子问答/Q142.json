@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q142",
+  "card_id": "K048",
+  "source_id": "src_000079",
+  "question": "U_ℓ和CKKS的U_n有什么关系？",
+  "answer": "U_ℓ是BGV/BFV中C2S的跨槽混合矩阵（ℓ×ℓ块，每块d×d），U_n是CKKS中τ_n的Vandermonde矩阵（N×N）。两者都是Vandermonde/Fourier型矩阵，均适合Cooley-Tukey分解。上下文不同：U_ℓ处理CRT slot，U_n处理complex slot。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

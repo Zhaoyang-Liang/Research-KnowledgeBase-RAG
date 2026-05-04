@@ -1,0 +1,90 @@
+{
+  "card_id": "K009",
+  "version": "v2",
+  "title": "分圆多项式在F_p上的分解与槽结构",
+  "source_id": "src_000009",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/分圆多项式的F_p分解.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "分圆多项式, F_p分解, Frobenius, ord_m(p)"
+  },
+  "category": "数学基础",
+  "subtopic": "代数数论/分圆多项式分解",
+  "chinese_summary": "Φ_m(X)在F_p上的分解由d=ord_m(p)决定：分解为L=φ(m)/d个d次不可约因子。d=1(p≡1(mod m))→完全分解为一次因子→L=φ(m)最大→BGV/BFV槽数最大。每个不可约因子对应一条Frobenius轨道。这是FHE参数选择的代数基础：d控制槽数与每槽容量之间的trade-off。",
+  "knowledge_points": [
+    {
+      "id": "K009-1",
+      "concept": "d=ord_m(p)的确定",
+      "formula": "d=min{k≥1:p^k≡1(mod m)}",
+      "meaning": "p模m乘法阶。例：p=2,m=7:2³=8≡1(mod 7), d=3。"
+    },
+    {
+      "id": "K009-2",
+      "concept": "完全分裂条件",
+      "formula": "d=1⇔p≡1(mod m)",
+      "meaning": "p≡1(mod m)时Φ_m完全分解→槽数L=φ(m)最大。"
+    },
+    {
+      "id": "K009-3",
+      "concept": "d>1时的槽结构",
+      "formula": "L=φ(m)/d, 每槽=F_{p^d}",
+      "meaning": "槽数减少但每槽容量增大(p^d范围)。需平衡并行度与容量。"
+    },
+    {
+      "id": "K009-4",
+      "concept": "不可约因子与Frobenius轨道",
+      "formula": "f_j(X)=∏_{α∈Orb_j}(X−α), Orb_j=Frobenius轨道",
+      "meaning": "每个不可约因子是其Frobenius轨道上所有根的最小多项式。次数=轨道长=d。"
+    },
+    {
+      "id": "K009-5",
+      "concept": "参数选择影响",
+      "formula": "与安全性和效率的trade-off: d太小→槽少但编码简单, d大→槽多但复杂",
+      "meaning": "log₂(p)≈60, m=2^16时d如何选择？这是FHE参数选择的重要课题。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "Φ_m(X)≡∏_{j=1}^{L}f_j(X)(mod p), deg(f_j)=d",
+      "meaning": "分圆多项式在F_p上分解"
+    },
+    {
+      "formula": "L=φ(m)/d, d=ord_m(p)",
+      "meaning": "因子数=φ(m)/d, 因子次数=d"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "分圆多项式",
+      "en": "cyclotomic polynomial",
+      "definition": "以所有m次本原单位根为根的首一多项式"
+    },
+    {
+      "term": "ord_m(p)",
+      "en": "multiplicative order",
+      "definition": "p^k≡1(mod m)的最小k"
+    },
+    {
+      "term": "完全分裂",
+      "en": "split completely",
+      "definition": "多项式完全分解为一次因子"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "有限域不可约分解",
+    "RLWE_lattice": "R_p=F_p[X]/(Φ_m)的CRT分解",
+    "FHE_technique": "所有方案SIMD编码参数基础",
+    "current_paper": "当前论文环结构参数选择"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K009-1",
+    "QA-K009-2",
+    "QA-K009-3",
+    "QA-K009-4",
+    "QA-K009-5"
+  ],
+  "rag_ingestion_suggestion": "极高优先级，FHE环结构理论基础"
+}

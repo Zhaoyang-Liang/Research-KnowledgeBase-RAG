@@ -1,0 +1,16 @@
+{
+  "knowledge_id": "cand_001",
+  "paper_id": "paper_2027_eurocrypt_fhe",
+  "idea_id": "idea_001",
+  "title": "split-compatible sandwich-circuit criterion",
+  "description": "任何L^(2)∘Φ∘L^(1)结构的同态电路（Φ逐坐标非线性），若前后线性变换满足split-compatible条件，则可因子分解为leaf级联。",
+  "source_ref": "可能的尝试写法.md",
+  "source_id": "src_000053",
+  "knowledge_type": "construction_idea",
+  "status": "candidate_knowledge",
+  "needs_validation": true,
+  "needs_human_review": true,
+  "published_to_kb": false,
+  "reverse_link": "04_论文协作区/01_当前论文项目/Eurocrypt2027/",
+  "created": "2026-05-04T13:56:34"
+}

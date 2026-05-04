@@ -1,0 +1,92 @@
+{
+  "card_id": "K010",
+  "version": "v2",
+  "title": "选择分圆多项式的十大优势",
+  "source_id": "src_000010",
+  "source_relative_path": "01_源文件库/01_抽象代数与代数数论/为什么选择分圆多项式-好处汇总.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "分圆多项式, x^n+1, NTT, Eisenstein"
+  },
+  "category": "数学基础",
+  "subtopic": "代数数论/分圆域优势",
+  "chinese_summary": "X^N+1(N=2^k)是FHE中RLWE环的标准选择，十大优势横跨代数/计算/编码/安全：(1)不可约(Eisenstein)→环是域；(2)稀疏表示→O(N)模约化；(3)Galois扩张→丰富自同构；(4)NTT友好→O(N log N)乘法；(5)CRT→SIMD；(6)可调F_p分解参数d；(7)理想格→RLWE安全；(8)分圆单位→整数环结构良好；(9)迹/范数易计算；(10)广泛研究→理论成熟。",
+  "knowledge_points": [
+    {
+      "id": "K010-1",
+      "concept": "不可约性(Eisenstein)",
+      "formula": "X^N+1=Φ_{2N}(X), N=2^k时不可约",
+      "meaning": "Eisenstein判别法：令X=Y+1展开，取p=2验证。"
+    },
+    {
+      "id": "K010-2",
+      "concept": "稀疏模约化优势",
+      "formula": "X^N≡−1(mod X^N+1)",
+      "meaning": "模约化仅需X^N→−1，复杂度O(N)而非一般O(N²)。"
+    },
+    {
+      "id": "K010-3",
+      "concept": "NTT友好",
+      "formula": "若p≡1(mod 2N), 则在F_p上有2N次本原单位根",
+      "meaning": "N=2^k使NTT O(N log N)完成乘法。p≡1(mod 2N)保证存在单位根。"
+    },
+    {
+      "id": "K010-4",
+      "concept": "Galois群大=自同构丰富",
+      "formula": "Gal(Q(ζ_{2N})/Q)≅Z_{2N}^×, |Z_{2N}^×|=N",
+      "meaning": "丰富自同构→大量rotation操作→trace/field switching可行。"
+    },
+    {
+      "id": "K010-5",
+      "concept": "安全性：理想格",
+      "formula": "RLWE在R=Z[X]/(X^N+1)上归约到理想格SVP",
+      "meaning": "X^N+1生成分式格(parity lattice)，SVP困难性被广泛研究。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "X^N≡−1(mod X^N+1)",
+      "meaning": "稀疏分圆多项式快速模约化",
+      "source": "多项式环"
+    },
+    {
+      "formula": "NTT: a∗b=NTT^{-1}(NTT(a)⊙NTT(b))",
+      "meaning": "利用单位根快速乘法，O(N log N)",
+      "source": "NTT/FFT"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "分圆多项式",
+      "en": "cyclotomic polynomial",
+      "definition": "以所有本原m次单位根为根的不可约多项式"
+    },
+    {
+      "term": "NTT",
+      "en": "Number Theoretic Transform",
+      "definition": "有限域上DFT，加速多项式乘法"
+    },
+    {
+      "term": "Eisenstein判别法",
+      "en": "Eisenstein criterion",
+      "definition": "Q上不可约的充分条件"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "不可约判定与Galois理论",
+    "RLWE_lattice": "X^N+1生成的理想格是安全基础",
+    "FHE_technique": "NTT/自同构/CRT/SIMD基于此环",
+    "current_paper": "当前论文环结构基于X^N+1"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K010-1",
+    "QA-K010-2",
+    "QA-K010-3",
+    "QA-K010-4",
+    "QA-K010-5"
+  ],
+  "rag_ingestion_suggestion": "极高优先级，FHE环选择奠基性卡片"
+}

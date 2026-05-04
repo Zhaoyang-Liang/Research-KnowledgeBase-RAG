@@ -1,0 +1,28 @@
+{
+  "card_id": "K046",
+  "title": "M→U_ℓ→M^{-1}三步分解管线：C2S/S2C的层次化实现",
+  "topic": "C2S/S2C/三分步管线",
+  "knowledge_points": [
+    "C2S完整管线：M→U_ℓ→M^{-1}。(M)槽内局部换基，(U_ℓ)跨槽全局混合，(M^{-1})收尾还原。",
+    "M（第一步）：将每个槽内的局部基{ζ_{m,i}}统一为公共基{ζ_m}。纯槽内操作(slot-wise)，不跨槽。数学上是d×d基变换矩阵；实现上展开为Frobenius幂σ^v的线性组合。",
+    "U_ℓ（第二步）：所有槽统一坐标系后，执行跨槽重排/混合。将各槽的d维数据块拼接成系数多项式。本质是ℓ×ℓ块Fourier/Vandermonde矩阵，可FFT-like递归分解。",
+    "M^{-1}（第三步）：将结果切回目标需要的表示。",
+    "不做M的后果（反例验证）：跳过M直接乘U_ℓ会导致ζ_{m,0}^2·ζ_{m,1}这样的跨槽根混合项，无法按单槽幂基解释结果。M是必须的预处理。",
+    "三步分解的意义：将原本一个dense ℓd×ℓd矩阵，分解为三个结构化的子步骤，每步可高效同态实现。"
+  ],
+  "card_type": "algorithm_pipeline",
+  "source_id": "src_000079, src_000080",
+  "claim_source_type": "用户笔记",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "publish_target": "03_FHE知识库",
+  "notes": "C2S实现的核心管线。读者可先理解三步分层次再深入各自细节。",
+  "related_cards": [
+    "K044",
+    "K045",
+    "K047",
+    "K048"
+  ],
+  "cross_reference": "K047(Y-X): M的详细机制；K048(Y-X): U_ℓ的FFT-like结构。",
+  "confidence": "medium"
+}

@@ -1,0 +1,32 @@
+{
+  "card_id": "K063",
+  "title": "CKKS噪声来源总览：加密/乘法/重缩放/KeySwitch/Bootstrapping",
+  "topic": "FHE方案/CKKS噪声分析",
+  "knowledge_points": [
+    "1. 加密噪声（Encryption noise）：e_enc ~ D_{σ}（离散高斯/近似高斯）。解密后 m_enc = m + e_enc，|e_enc| ≤ B_0。这是所有后续噪声的起点，tail bound: Pr[|e_enc|_∞ > B_0] ≤ 2N exp(-B_0²/(2σ²))。",
+    "2. 乘法噪声（Multiplication noise）：同态乘法 c_mult = (c₀d₀, c₀d₁+c₁d₀, c₁d₁) 产生近似平方级别的噪声增长。Mul 后密文维度从 2→3，有效密钥从 s→s²。噪声来源：(a) 密文噪声项交叉乘积 (e·e'), (b) 舍入误差。增长远快于加法（加法仅线性叠加），是触发后续噪声控制的主要原因。",
+    "3. 重缩放误差（Rescaling error）：CKKS Rescale = c' = ⌊(1/p)c⌉。引入 rounding error e_rescale。每次乘法和 Rescale 成对出现：Mul→Rescale 组合后噪声 ≈ (1/p)·e_mul + e_rescale。p 是编码缩放因子，p 越大→rescale 比例越大→精度损失越大。",
+    "4. KeySwitch 噪声：SwitchKey(c, KSK) 引入噪声。来源：(a) KSK 解密（KSK 本身是密文，含加密噪声）, (b) digit decomposition 近似（g-进制分解的逼近误差）。给定分解基 g 和分解长度 β = ⌈log_g(qp)⌉，KS 噪声 ≈ β·B_ksk（保守上界）或 √β·B_ksk（subgaussian）。每次乘法后的重线性化（Relinearize = KS of s²→s）引入一次 KS 噪声。",
+    "5. Bootstrapping 误差（Bootstrapping error）：CKKS bootstrapping = ScaleDown→ModUp→coeff2slot→EvalMod→slot2coeff。误差组分：(a) ScaleDown rescale error, (b) ModUp 舍入, (c) C2S linear transform 噪声（含 rotations+KS）, (d) EvalMod polynomial approximation error = max_{x∈[-K,K]} |p_d(x) - f(x)|, (e) EvalMod arithmetic error（内部乘法/rescale/relin）, (f) S2C linear transform 噪声。Bootstrapping后噪声 ≈ 新鲜密文水平的数倍。",
+    "6. 噪声控制时机表：Addition 后→可选（噪声线性增长，不急）。Multiplication 后→必须立即 Relinearize（s²→s，降维）。Relinearize后→立即 Rescale（降噪声+保持scale）。模数链耗尽→Bootstrapping（重置噪声和模数）。",
+    "7. CKKS vs BGV/BFV 噪声特点：(a) CKKS 噪声含精度管理（p缩放因子），误差在复数域 \n⚠️ Caveat：本卡噪声分类基于 CKKS 2017 原文和用户笔记，但噪声界的具体常数（B_0, B_KS, ε_poly等）依赖参数选择。不包含当前论文的 Split/Merge 特定噪声。"
+  ],
+  "card_type": "concept",
+  "source_id": "src_000015, src_000106, src_000014",
+  "claim_source_type": "用户笔记总结标准CKKS知识",
+  "confidence": "medium",
+  "needs_human_review": false,
+  "batch": "Batch-05b2-pre",
+  "publish_target": "03_FHE知识库",
+  "related_cards": [
+    "K058",
+    "K059",
+    "K060",
+    "K061",
+    "K062"
+  ],
+  "cross_reference": "K058(Y-X): 同态计算流程中噪声控制时机；K059(Y-X): KeySwitch三场景（噪声引入点）；K060(Y-X): ModSwitch vs KeySwitch噪声区分；K061(Y-X): ModSwitch vs Rescale误差区分；K062(Y-X): 方案层噪声差异（CKKS vs BGV/BFV）。",
+  "notes": "⚠️ 本卡为通用CKKS噪声知识。噪声界的具体常数依赖参数（σ, N, q, p, d, K），不在本卡给出。当前论文专属的Split/Merge/leaf噪声参见论文协作区。",
+  "source_status": "source_preserved",
+  "review_policy": "review_when_used_for_paper"
+}

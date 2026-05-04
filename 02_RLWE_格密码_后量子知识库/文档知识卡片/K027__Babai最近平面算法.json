@@ -1,0 +1,90 @@
+{
+  "card_id": "K027",
+  "version": "v2",
+  "title": "Babai最近平面算法",
+  "source_id": "src_000025",
+  "source_relative_path": "01_源文件库/02_RLWE_格密码_后量子/Babai.md",
+  "source_anchor": {
+    "section": "全文",
+    "keyword": "Babai, CVP, Gram-Schmidt, 最近平面"
+  },
+  "category": "格密码/后量子",
+  "subtopic": "CVP算法",
+  "chinese_summary": "Babai最近平面算法是解决格上最近向量问题(CVP)的近似算法。利用Gram-Schmidt正交化将格基分层：目标向量s投影到各层平面，逐层选择最近的偏移c·b̃_n（c=⌊⟨s,b̃_n⟩/|b̃_n|²⌉取整），递归降维。在FHE中Babai算法用于解密时的噪声估计和格归约攻击分析。尽管非核心FHE技术，理解它有助于理解RLWE的安全性。",
+  "knowledge_points": [
+    {
+      "id": "K027-1",
+      "concept": "Gram-Schmidt分层",
+      "formula": "b̃_i=b_i−Σ_{j<i}μ_{ij}·b̃_j, μ_{ij}=⟨b_i,b̃_j⟩/|b̃_j|²",
+      "meaning": "将格基正交化，得到正交基b̃_i→定义各层平面P_n=span(b₁,…,b_{n-1})。"
+    },
+    {
+      "id": "K027-2",
+      "concept": "α=⟨s,b̃_n⟩/|b̃_n|²的含义",
+      "formula": "α是将s投影到b̃_n方向的坐标",
+      "meaning": "s可写为α·b̃_n+(span(b₁,…,b_{n-1})中的分量)。取整c=⌊α⌉最小化距离。"
+    },
+    {
+      "id": "K027-3",
+      "concept": "c=⌊α⌉的原因",
+      "formula": "|α−c|·|b̃_n|最小化c为整数时",
+      "meaning": "各层平面在b̃_n方向间隔|b̃_n|，选c=⌊α⌉使s距第c层平面最近。"
+    },
+    {
+      "id": "K027-4",
+      "concept": "递归降维",
+      "formula": "s'=s−c·b_n, 继续在n−1维格上",
+      "meaning": "选定c后投影到低维格→递归→复杂度O(n³)（含Gram-Schmidt）。"
+    },
+    {
+      "id": "K027-5",
+      "concept": "FHE中的关联",
+      "formula": "RLWE解密→CVP→Babai可近似求解但非多项式(精确CVP是NP-hard)",
+      "meaning": "Babai给的是近似解。RLWE安全性基于CVP的难度。在FHE中Babai用于格攻击分析而非构造。"
+    }
+  ],
+  "important_formulas": [
+    {
+      "formula": "c=⌊⟨s,b̃_n⟩/|b̃_n|²⌉",
+      "meaning": "Babai最近平面选择规则"
+    },
+    {
+      "formula": "s'=s−c·b_n, 递归至dim=1",
+      "meaning": "降维递归"
+    }
+  ],
+  "terminology": [
+    {
+      "term": "最近向量问题",
+      "en": "Closest Vector Problem (CVP)",
+      "definition": "给定格和目标向量，求格中最接近的向量"
+    },
+    {
+      "term": "Gram-Schmidt正交化",
+      "en": "Gram-Schmidt orthogonalization",
+      "definition": "将线性无关向量组转化为正交向量组"
+    },
+    {
+      "term": "Babai算法",
+      "en": "Babai's nearest plane algorithm",
+      "definition": "CVP的近似算法，通过分层投影求解"
+    }
+  ],
+  "relations": {
+    "abstract_algebra": "线性代数/格",
+    "RLWE_lattice": "CVP→RLWE安全性",
+    "FHE_technique": "噪声估计与攻击分析",
+    "current_paper": "间接相关（安全性分析）"
+  },
+  "claim_source_type": "我的笔记",
+  "confidence": "high",
+  "needs_human_review": false,
+  "atomic_questions": [
+    "QA-K027-1",
+    "QA-K027-2",
+    "QA-K027-3",
+    "QA-K027-4",
+    "QA-K027-5"
+  ],
+  "rag_ingestion_suggestion": "中优先级，格密码安全性"
+}

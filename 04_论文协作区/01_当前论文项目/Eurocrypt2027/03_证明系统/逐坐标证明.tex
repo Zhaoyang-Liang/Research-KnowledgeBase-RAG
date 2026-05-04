@@ -1,0 +1,2573 @@
+\documentclass[UTF8,11pt]{ctexart}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+\usepackage{bbm}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{tikz-cd}
+
+\title{Coefficient-Split 视角下 CKKS Bootstrapping Core 的子环分解}
+\author{}
+\date{}
+
+% theorem environments
+\newtheorem{theorem}{定理}
+\newtheorem{lemma}{引理}
+\newtheorem{proposition}{命题}
+\newtheorem{corollary}{推论}
+\theoremstyle{definition}
+\newtheorem{definition}{定义}
+\newtheorem{remark}{注记}
+\newtheorem{example}{例子}
+
+% commands
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\RN}{R_N}
+\newcommand{\Rn}{R_n}
+\newcommand{\Eval}{\operatorname{Eval}}
+\newcommand{\CtwoS}{\operatorname{C2S}}
+\newcommand{\StwoC}{\operatorname{S2C}}
+\newcommand{\BTS}{\operatorname{BTS}}
+\newcommand{\Split}{\operatorname{Split}}
+\newcommand{\Merge}{\operatorname{Merge}}
+\newcommand{\EvalMod}{\operatorname{EvalMod}}
+\newcommand{\Diag}{\operatorname{diag}}
+\newcommand{\Id}{\operatorname{Id}}
+\newcommand{\BlockSplit}{\operatorname{BlockSplit}}
+\newcommand{\Red}{\operatorname{Red}}
+\newcommand{\op}{\operatorname}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+本文研究 CKKS bootstrapping core
+\[
+\CtwoS_N \longrightarrow \EvalMod_N \longrightarrow \StwoC_N
+\]
+是否可以沿 coefficient-domain subring split 分解为多个小环上的 leaf bootstrapping core。
+我们关注的分解形式是
+\[
+\Split
+\longrightarrow
+\bigoplus_{r=0}^{k-1}\CtwoS_n
+\longrightarrow
+\bigoplus_{r=0}^{k-1}\EvalMod_n
+\longrightarrow
+\bigoplus_{r=0}^{k-1}\StwoC_n
+\longrightarrow
+\Merge,
+\]
+其中 \(N=kn\)。核心观点是：当前路线使用的是 coefficient split，而不是 slot-preserving split。
+虽然 coefficient split 在 slot 视角下会把大环 slot 做成局部线性组合，但它与 leaf C2S 组合后，恰好等价于先做大环 C2S 再按 coefficient residue class 分组。
+因此，如果 EvalMod 是同一个逐坐标标量函数，则 leaf EvalMod 可以独立作用于每个 coefficient 子序列，从而得到 no-\(B_k\) 的 subring bootstrapping decomposition。
+\end{abstract}
+
+\tableofcontents
+
+\section{研究问题}
+
+标准 CKKS bootstrapping 通常可以分成如下几步：
+\[
+\operatorname{ScaleDown}
+\longrightarrow
+\operatorname{ModUp}
+\longrightarrow
+\CtwoS_N
+\longrightarrow
+\EvalMod_N
+\longrightarrow
+\StwoC_N.
+\]
+本文暂时聚焦其中的 core：
+\[
+\BTS_N
+:=
+\StwoC_N\circ \EvalMod_N\circ \CtwoS_N.
+\]
+
+我们希望理解如下分解是否在理论上成立：
+\[
+\BTS_N
+\stackrel{?}{\approx}
+\gamma_k^{-1}
+\Merge
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\BTS_n
+\right)
+\circ
+\Split,
+\]
+其中 \(N=kn\)，\(\gamma_k\) 是可能由实现 convention 引入的全局 normalization factor。
+
+等价地，我们想研究大环 bootstrapping core
+\[
+\CtwoS_N
+\longrightarrow
+\EvalMod_N
+\longrightarrow
+\StwoC_N
+\]
+是否可以替换为
+\[
+\Split
+\longrightarrow
+\bigoplus_{r=0}^{k-1}\CtwoS_n
+\longrightarrow
+\bigoplus_{r=0}^{k-1}\EvalMod_n
+\longrightarrow
+\bigoplus_{r=0}^{k-1}\StwoC_n
+\longrightarrow
+\Merge.
+\]
+
+这个问题并不显然，因为：
+\begin{enumerate}[label=(\arabic*)]
+    \item \(\Split\) 是 coefficient-domain split；
+    \item CKKS bootstrapping core 中的 \(\CtwoS\)、\(\EvalMod\)、\(\StwoC\) 是通过 slot/canonical embedding 实现；
+    \item coefficient split 后的小环 slots 并不是大环 slots 的简单子集；
+    \item \(\EvalMod\) 是非线性操作，一般不能任意穿过线性变换。
+\end{enumerate}
+
+因此本文的理论路线是：
+\begin{enumerate}[label=(\roman*)]
+    \item 先澄清 coefficient split 在 slot 视角下的语义；
+    \item 证明 \(\Split\) 与 \(\CtwoS\) 的交换图；
+    \item 分析 \(\EvalMod\) 作为逐坐标标量函数时与 coefficient 分组的交换性；
+    \item 合成 no-\(B_k\) 的 bootstrapping decomposition 主定理；
+    \item 最后解释 \(B_k\) 的含义，以及为什么当前路线不需要显式 \(B_k\)。
+\end{enumerate}
+
+\section{大环、小环与 canonical embedding}
+
+设
+\[
+R_N=\C[X]/(X^N+1),
+\]
+其中 \(N=kn\)。定义小环
+\[
+R_n=\C[Y]/(Y^n+1),
+\]
+并令
+\[
+Y=X^k.
+\]
+
+大环的 roots 满足
+\[
+\alpha^N=-1.
+\]
+小环的 roots 满足
+\[
+\theta^n=-1.
+\]
+如果 \(\alpha^N=-1\)，则
+\[
+(\alpha^k)^n=\alpha^{kn}=\alpha^N=-1,
+\]
+所以
+\[
+\theta=\alpha^k
+\]
+是小环的 root。
+
+设
+\[
+R_N=\mathbb{C}[X]/(X^N+1).
+\]
+令 \(\alpha_0,\ldots,\alpha_{N-1}\) 为 \(X^N+1\) 的全部复根，即
+\[
+\alpha_j^N+1=0,
+\]
+等价地，
+\[
+\alpha_j^N=-1.
+\]
+
+由于如果 \(P(X)\equiv Q(X)\pmod{X^N+1}\)，则对任意根 \(\alpha_j\) 都有
+\[
+P(\alpha_j)=Q(\alpha_j),
+\]
+所以在这些根上求值给出了商环上的良定义映射。该映射称为 canonical embedding：
+\[
+\sigma_N:R_N\to \mathbb{C}^N,
+\qquad
+\sigma_N(P)
+=
+\bigl(P(\alpha_0),P(\alpha_1),\ldots,P(\alpha_{N-1})\bigr).
+\]
+
+也可以简写为
+\[
+\sigma_N(P)=\left(P(\alpha)\right)_{\alpha^N=-1}.
+\]
+
+在 CKKS 中，由于共轭对坐标冗余，实际可独立编码的 complex slots 通常为 \(N/2\) 个；但为了推导线性关系，本文先使用 full canonical embedding。
+
+类似地，对于小环多项式
+\[
+Q(Y)=\sum_{j=0}^{n-1}q_jY^j,
+\]
+其小环 slot vector 为
+\[
+\sigma_n(Q)
+=
+\left(Q(\theta)\right)_{\theta^n=-1}.
+\]
+
+\begin{remark}
+真实 CKKS 中通常只使用 conjugate-invariant 的一半 complex slots，并且实现中还会出现 bit-reversal、slot permutation、real/imag split、scale convention 等工程细节。
+本文先在 full complex embedding 的理想模型下推导核心结构。真实实现中的 permutation 和 scale 可以视为在该理想图上额外复合的可逆线性 convention。
+\end{remark}
+
+\section{Coefficient split 与 slot-preserving split}
+
+本节说明两种不同的“拆分”：
+
+\begin{enumerate}[label=(\arabic*)]
+    \item coefficient split：按多项式系数的 residue class 拆分；
+    \item slot-preserving split：希望小环 slots 原样保存某些大环 slots。
+\end{enumerate}
+
+这两者不是同一个操作。当前 no-\(B_k\) 路线使用的是 coefficient split。
+
+\subsection{\(k=2\) 的 coefficient split}
+
+先考虑 \(k=2\)，即 \(N=2n\)。任意
+\[
+P(X)=a_0+a_1X+a_2X^2+\cdots+a_{N-1}X^{N-1}
+\]
+都可以唯一写为
+\[
+P(X)=A(X^2)+XB(X^2),
+\]
+其中
+\[
+A(Y)=a_0+a_2Y+a_4Y^2+\cdots,
+\]
+\[
+B(Y)=a_1+a_3Y+a_5Y^2+\cdots.
+\]
+
+用系数向量表示，令
+\[
+p=(a_0,a_1,a_2,a_3,\ldots,a_{N-1})^T.
+\]
+定义偶数系数选择矩阵 \(E\) 与奇数系数选择矩阵 \(O\)：
+\[
+Ep=(a_0,a_2,a_4,\ldots)^T,
+\]
+\[
+Op=(a_1,a_3,a_5,\ldots)^T.
+\]
+则 coefficient split 是
+\[
+p\longmapsto (Ep,Op).
+\]
+
+\subsection{Coefficient split 在 slot 视角下的作用}
+
+令 \(\alpha\) 是大环 root，\(\alpha^N=-1\)。当 \(N=2n\) 时，令
+\[
+\theta=\alpha^2.
+\]
+则
+\[
+\theta^n=(\alpha^2)^n=\alpha^N=-1,
+\]
+所以 \(\theta\) 是小环 root。
+
+大环的一对 roots 可以取为
+\[
+\alpha,\quad -\alpha,
+\]
+它们都映射到同一个小环 root：
+\[
+\alpha^2=(-\alpha)^2=\theta.
+\]
+
+由
+\[
+P(X)=A(X^2)+XB(X^2)
+\]
+可得
+\[
+P(\alpha)=A(\theta)+\alpha B(\theta),
+\]
+以及
+\[
+P(-\alpha)=A(\theta)-\alpha B(\theta).
+\]
+
+记
+\[
+z^+=P(\alpha),\qquad z^-=P(-\alpha),
+\]
+\[
+u=A(\theta),\qquad v=B(\theta).
+\]
+则
+\[
+z^+=u+\alpha v,
+\]
+\[
+z^-=u-\alpha v.
+\]
+反过来，
+\[
+u=\frac{z^++z^-}{2},
+\]
+\[
+v=\frac{z^+-z^-}{2\alpha}.
+\]
+
+因此 coefficient split 在 slot 视角下不是简单保留大环 slots，而是
+\[
+(P(\alpha),P(-\alpha))
+\longmapsto
+\left(
+\frac{P(\alpha)+P(-\alpha)}{2},
+\frac{P(\alpha)-P(-\alpha)}{2\alpha}
+\right).
+\]
+
+\begin{remark}
+这说明：coefficient split 后的小环 slots
+\[
+A(\theta),\quad B(\theta)
+\]
+不是原始大环 slots
+\[
+P(\alpha),\quad P(-\alpha)
+\]
+的子集，而是它们的局部线性组合。
+\end{remark}
+
+\subsection{Slot-preserving split}
+
+如果目标不是 coefficient split，而是希望构造两个小环多项式
+\[
+Q^+(Y),\quad Q^-(Y)
+\]
+使得
+\[
+Q^+(\theta)=P(\alpha),
+\]
+\[
+Q^-(\theta)=P(-\alpha),
+\]
+那么仅仅输出 \(A(Y),B(Y)\) 不够。
+
+由前面的关系，
+\[
+P(\alpha)=A(\theta)+\alpha B(\theta).
+\]
+如果存在小环多项式 \(h(Y)\)，满足
+\[
+h(\theta)=\alpha,\qquad \alpha^2=\theta,
+\]
+那么可定义
+\[
+Q^+(Y)=A(Y)+h(Y)B(Y),
+\]
+\[
+Q^-(Y)=A(Y)-h(Y)B(Y).
+\]
+于是
+\[
+Q^+(\theta)
+=
+A(\theta)+h(\theta)B(\theta)
+=
+A(\theta)+\alpha B(\theta)
+=
+P(\alpha),
+\]
+同理
+\[
+Q^-(\theta)=P(-\alpha).
+\]
+
+由于
+\[
+h(\theta)^2=\alpha^2=\theta,
+\]
+所以在商环意义下
+\[
+h(Y)^2\equiv Y\pmod{Y^n+1}.
+\]
+因此 \(h(Y)\) 可以理解为小环上 \(Y\) 的某个平方根选择多项式。
+\subsection{Slot-preserving split 的矩阵形式}
+
+上一节中我们已经看到，普通的 coefficient split 给出
+\[
+P(X)=A(X^2)+XB(X^2),
+\]
+其中
+\[
+A(Y)=a_0+a_2Y+a_4Y^2+\cdots,
+\]
+\[
+B(Y)=a_1+a_3Y+a_5Y^2+\cdots.
+\]
+
+也就是说，如果
+\[
+p=(a_0,a_1,a_2,a_3,\ldots,a_{N-1})^T
+\]
+是 \(P(X)\) 的系数向量，那么 \(A(Y)\) 和 \(B(Y)\) 的系数向量分别是
+\[
+Ep=(a_0,a_2,a_4,\ldots)^T,
+\]
+\[
+Op=(a_1,a_3,a_5,\ldots)^T.
+\]
+
+这里 \(E\) 表示取偶数下标系数的选择矩阵，\(O\) 表示取奇数下标系数的选择矩阵。
+
+因此，coefficient split 在系数向量上的形式就是
+\[
+p\longmapsto (Ep,Op).
+\]
+
+但是 coefficient split 并不是 slot-preserving split。它输出的小环多项式是
+\[
+A(Y),\quad B(Y),
+\]
+它们的小环 slots 是
+\[
+A(\theta_j),\quad B(\theta_j).
+\]
+
+而如果我们希望两个小环多项式直接保存原来的大环 slot pair：
+\[
+P(\alpha_j),\quad P(-\alpha_j),
+\]
+那么需要构造两个新的小环多项式
+\[
+Q^+(Y),\quad Q^-(Y),
+\]
+满足
+\[
+Q^+(\theta_j)=P(\alpha_j),
+\]
+\[
+Q^-(\theta_j)=P(-\alpha_j).
+\]
+
+由前面的关系
+\[
+P(\alpha_j)=A(\theta_j)+\alpha_jB(\theta_j),
+\]
+\[
+P(-\alpha_j)=A(\theta_j)-\alpha_jB(\theta_j),
+\]
+我们知道，只要存在一个小环多项式 \(h(Y)\)，使得
+\[
+h(\theta_j)=\alpha_j,
+\]
+就可以定义
+\[
+Q^+(Y)=A(Y)+h(Y)B(Y),
+\]
+\[
+Q^-(Y)=A(Y)-h(Y)B(Y).
+\]
+
+这样就有
+\[
+Q^+(\theta_j)
+=
+A(\theta_j)+h(\theta_j)B(\theta_j)
+=
+A(\theta_j)+\alpha_jB(\theta_j)
+=
+P(\alpha_j),
+\]
+以及
+\[
+Q^-(\theta_j)
+=
+A(\theta_j)-h(\theta_j)B(\theta_j)
+=
+A(\theta_j)-\alpha_jB(\theta_j)
+=
+P(-\alpha_j).
+\]
+
+下面我们把这个构造写成矩阵形式。
+
+设小环 \(R_n=\mathbb{C}[Y]/(Y^n+1)\) 的 roots 为
+\[
+\theta_0,\theta_1,\ldots,\theta_{n-1}.
+\]
+
+定义小环 evaluation matrix \(F_n\)。如果
+\[
+q=(q_0,q_1,\ldots,q_{n-1})^T
+\]
+是某个小环多项式
+\[
+Q(Y)=q_0+q_1Y+\cdots+q_{n-1}Y^{n-1}
+\]
+的系数向量，那么
+\[
+F_n q
+=
+\begin{pmatrix}
+Q(\theta_0)\\
+Q(\theta_1)\\
+\vdots\\
+Q(\theta_{n-1})
+\end{pmatrix}.
+\]
+
+换句话说，\(F_n\) 把小环多项式的系数向量变成它的小环 slot 向量。
+
+现在令
+\[
+D=\operatorname{Diag}(\alpha_0,\alpha_1,\ldots,\alpha_{n-1}).
+\]
+
+这个矩阵 \(D\) 是 slot 坐标中的逐坐标乘法矩阵。也就是说，如果
+\[
+v=
+\begin{pmatrix}
+B(\theta_0)\\
+B(\theta_1)\\
+\vdots\\
+B(\theta_{n-1})
+\end{pmatrix}
+\]
+是 \(B(Y)\) 的 slot 向量，那么
+\[
+Dv
+=
+\begin{pmatrix}
+\alpha_0B(\theta_0)\\
+\alpha_1B(\theta_1)\\
+\vdots\\
+\alpha_{n-1}B(\theta_{n-1})
+\end{pmatrix}.
+\]
+
+由于 \(h(\theta_j)=\alpha_j\)，所以在 slot 坐标中，乘以多项式 \(h(Y)\) 的效果正是
+\[
+B(\theta_j)\longmapsto h(\theta_j)B(\theta_j)=\alpha_jB(\theta_j).
+\]
+
+因此，乘以 \(h(Y)\) 在 slot 坐标中对应矩阵 \(D\)。
+
+但是我们现在想要的是它在系数坐标中的矩阵形式。设 \(b\) 是 \(B(Y)\) 的系数向量：
+\[
+b=Op.
+\]
+那么 \(B(Y)\) 的 slot 向量是
+\[
+F_n b.
+\]
+
+在 slot 坐标中乘以 \(h(Y)\)，得到
+\[
+D F_n b.
+\]
+
+再把结果从 slot 坐标变回系数坐标，需要乘以 \(F_n^{-1}\)。因此，系数坐标中的操作是
+\[
+b\longmapsto F_n^{-1}D F_n b.
+\]
+
+我们定义
+\[
+H:=F_n^{-1}DF_n.
+\]
+
+于是 \(H\) 就是“乘以 \(h(Y)\)”这个操作在小环系数坐标中的矩阵。
+
+也就是说，如果 \(b=Op\) 是 \(B(Y)\) 的系数向量，那么
+\[
+HOp
+\]
+就是 \(h(Y)B(Y)\) 的系数向量。
+
+另一方面，\(A(Y)\) 的系数向量是
+\[
+Ep.
+\]
+
+因此
+\[
+Q^+(Y)=A(Y)+h(Y)B(Y)
+\]
+的系数向量是
+\[
+q^+=Ep+HOp.
+\]
+
+同理，
+\[
+Q^-(Y)=A(Y)-h(Y)B(Y)
+\]
+的系数向量是
+\[
+q^-=Ep-HOp.
+\]
+
+所以 slot-preserving split 在系数向量上的形式为
+\[
+p\longmapsto(q^+,q^-)
+=
+(Ep+HOp,\;Ep-HOp).
+\]
+
+这和 coefficient split
+\[
+p\longmapsto(Ep,Op)
+\]
+完全不同。
+
+\begin{remark}
+Coefficient split 只是把 \(P(X)\) 的偶数系数和奇数系数分开：
+\[
+p\mapsto(Ep,Op).
+\]
+
+而 slot-preserving split 的目标是让两个小环多项式的 slots 分别等于原来的大环 slot pair：
+\[
+Q^+(\theta_j)=P(\alpha_j),
+\qquad
+Q^-(\theta_j)=P(-\alpha_j).
+\]
+
+为了做到这一点，需要额外把 \(B(Y)\) 乘以平方根选择多项式 \(h(Y)\)。这个操作在系数坐标中不是简单的取系数，而是一个线性变换
+\[
+H=F_n^{-1}DF_n.
+\]
+
+因此 slot-preserving split 是
+\[
+p\mapsto(Ep+HOp,\;Ep-HOp),
+\]
+而不是
+\[
+p\mapsto(Ep,Op).
+\]
+
+当前 no-\(B_k\) bootstrapping decomposition 使用的是 coefficient split，也就是
+\[
+P(X)\mapsto(A(Y),B(Y)),
+\]
+并不试图让 leaf slots 原样保存
+\[
+P(\alpha_j),P(-\alpha_j).
+\]
+这也是为什么当前路线不需要先构造 \(Q^+,Q^-\)，也不需要显式乘以 \(h(Y)\)。
+\end{remark}
+
+\section{Split 与 C2S 的交换图}
+
+本节证明 no-\(B_k\) 路线最核心的线性恒等式：
+\[
+(\CtwoS_n\oplus \CtwoS_n)\circ \Split
+=
+(E/O)\circ \CtwoS_N.
+\]
+
+直观地说，这个等式表示：
+
+\begin{quote}
+先做 coefficient split，再分别对两个 leaf 做 C2S，等价于先对大环做 C2S，再把得到的 coefficient slots 按偶数/奇数分组。
+\end{quote}
+
+\subsection{Evaluation matrix 表示}
+
+令 \(F_N\) 是大环 evaluation matrix：
+\[
+F_Np=\sigma_N(P).
+\]
+理想情况下，
+\[
+\CtwoS_N=F_N^{-1},
+\qquad
+\StwoC_N=F_N.
+\]
+
+类似地，小环有
+\[
+\CtwoS_n=F_n^{-1},
+\qquad
+\StwoC_n=F_n.
+\]
+
+\begin{remark}
+    C2S 叫 CoeffsToSlots。 这个名字的意思不是： $p \mapsto F_N p$。
+    
+    而是：
+    把明文多项式的 coefficients p 放到 CKKS slots 里面，让后面的 EvalMod 能逐 slot 作用在这些 coefficients 上。
+\end{remark}
+
+\subsection{\(k=2\) 情况的证明}
+
+输入是大环 slot vector
+\[
+z=F_Np.
+\]
+Coefficient split 后得到两个小环多项式 \(A,B\)，其系数分别是
+\[
+Ep,\qquad Op.
+\]
+它们的小环 slot vector 是
+\[
+F_nEp,\qquad F_nOp.
+\]
+
+因此，\(\Split\) 在 slot 视角下的矩阵为
+\[
+\Split^{slot}
+=
+\begin{pmatrix}
+F_nE\\
+F_nO
+\end{pmatrix}
+F_N^{-1}.
+\]
+
+现在对两个 leaf 分别做 \(\CtwoS_n\)：
+\[
+\CtwoS_n\oplus\CtwoS_n
+=
+\begin{pmatrix}
+F_n^{-1} & 0\\
+0 & F_n^{-1}
+\end{pmatrix}.
+\]
+于是
+\[
+(\CtwoS_n\oplus\CtwoS_n)\circ\Split^{slot}
+=
+\begin{pmatrix}
+F_n^{-1} & 0\\
+0 & F_n^{-1}
+\end{pmatrix}
+\begin{pmatrix}
+F_nE\\
+F_nO
+\end{pmatrix}
+F_N^{-1}.
+\]
+化简得
+\[
+=
+\begin{pmatrix}
+E\\
+O
+\end{pmatrix}
+F_N^{-1}.
+\]
+而
+\[
+(E/O)\circ\CtwoS_N
+=
+\begin{pmatrix}
+E\\
+O
+\end{pmatrix}
+F_N^{-1}.
+\]
+因此
+\[
+\boxed{
+(\CtwoS_n\oplus\CtwoS_n)\circ\Split
+=
+(E/O)\circ\CtwoS_N.
+}
+\]
+
+\begin{remark}
+这个等式解释了为什么 no-\(B_k\) 路线在坐标上是自洽的。
+虽然 \(\Split\) 后的小环 slots 不是原始大环 slots 的子集，但再接 leaf C2S 后，得到的正是大环 C2S 输出的 coefficient 子序列。
+\end{remark}
+
+\subsection{一般 \(k\) 的推广}
+
+令 \(N=kn\)。任意大环多项式可以写为
+\[
+P(X)=\sum_{r=0}^{k-1}X^rP_r(X^k),
+\]
+其中
+\[
+P_r(Y)=\sum_{j}a_{r+jk}Y^j.
+\]
+
+定义 residue class coefficient selection：
+\[
+P_r^{\mathrm{sel}}p
+=
+(a_r,a_{r+k},a_{r+2k},\ldots)^T.
+\]
+为避免和多项式 \(P_r\) 混淆，下文把选择矩阵记为 \(S_r\)：
+\[
+S_rp=(a_r,a_{r+k},a_{r+2k},\ldots)^T.
+\]
+
+Coefficient split 为
+\[
+p\longmapsto (S_0p,S_1p,\ldots,S_{k-1}p).
+\]
+在 slot 视角下：
+\[
+\Split_k^{slot}
+=
+\begin{pmatrix}
+F_nS_0\\
+F_nS_1\\
+\vdots\\
+F_nS_{k-1}
+\end{pmatrix}
+F_N^{-1}.
+\]
+
+对每个 leaf 做 \(\CtwoS_n=F_n^{-1}\)，得到：
+\[
+\left(\bigoplus_{r=0}^{k-1}\CtwoS_n\right)\circ\Split_k
+=
+\begin{pmatrix}
+S_0\\
+S_1\\
+\vdots\\
+S_{k-1}
+\end{pmatrix}
+F_N^{-1}.
+\]
+而右边就是先做大环 C2S，再按 residue class 分组：
+\[
+\left(\bigoplus_{r=0}^{k-1}S_r\right)\circ\CtwoS_N
+=
+\begin{pmatrix}
+S_0\\
+S_1\\
+\vdots\\
+S_{k-1}
+\end{pmatrix}
+F_N^{-1}.
+\]
+
+因此有一般形式：
+
+\[
+\boxed{
+\left(\bigoplus_{r=0}^{k-1}\CtwoS_n\right)\circ\Split_k
+=
+\left(\bigoplus_{r=0}^{k-1}S_r\right)\circ\CtwoS_N.
+}
+\]
+
+这就是 no-\(B_k\) 路线的第一个核心交换图。
+
+\section{EvalMod 与 coefficient 分组的交换性}
+
+上一节处理了线性层：
+\[
+\CtwoS.
+\]
+本节处理唯一的非线性层：
+\[
+\EvalMod.
+\]
+
+\subsection{EvalMod 的抽象模型}
+
+在 CKKS bootstrapping 中，经过 \(\CtwoS\) 之后，slots 中装入的是 coefficient-like values。
+更具体地说，\(\CtwoS_N\) 的作用可以抽象理解为：把大环明文多项式的系数（注意，下面是$a$不是$\alpha$）
+\[
+(a_0,a_1,\ldots,a_{N-1})
+\]
+搬到 slots 中，使得后续的 \(\EvalMod\) 可以逐坐标地作用在这些系数型数据上。
+
+在 ModUp 之后，这些 coefficient-like values 可以抽象为
+\[
+x_i=m_i+q_0t_i+\varepsilon_i,
+\]
+其中：
+\begin{itemize}
+    \item \(m_i\) 是我们希望恢复的明文系数；
+    \item \(q_0\) 是底层 modulus；
+    \item \(t_i\in\mathbb Z\) 是 ModUp 后产生的整数 wrap 项；
+    \item \(\varepsilon_i\) 表示噪声或近似误差。
+\end{itemize}
+
+忽略噪声时，可以写成
+\[
+x_i=m_i+q_0t_i.
+\]
+
+$\EvalMod$ 的目标就是逐坐标地去掉 \(q_0t_i\)，恢复 \(m_i\)：
+\[
+x_i=m_i+q_0t_i
+\longmapsto
+m_i.
+\]
+
+等价地，如果进行 mod1 归一化，令
+\[
+y_i=\frac{x_i}{q_0}
+=
+t_i+\frac{m_i}{q_0}.
+\]
+记
+\[
+\epsilon_i=\frac{m_i}{q_0}.
+\]
+那么
+\[
+y_i=t_i+\epsilon_i,
+\qquad t_i\in\mathbb Z.
+\]
+此时 \(\EvalMod\) 的任务可以理解为从
+\[
+t_i+\epsilon_i
+\]
+中恢复小量
+\[
+\epsilon_i.
+\]
+也就是说，它近似实现
+\[
+y_i \bmod 1.
+\]
+
+这也是 CKKS bootstrapping 中 EvalMod 常常与 scaled sine 或 cosine 近似有关的原因。
+因为
+\[
+\sin(2\pi y_i)
+=
+\sin(2\pi(t_i+\epsilon_i))
+=
+\sin(2\pi\epsilon_i)
+\approx
+2\pi\epsilon_i
+\]
+当 \(\epsilon_i\) 足够小时成立。
+因此，适当缩放的 sine 函数可以近似恢复 \(\epsilon_i\)。
+实际实现中通常不会直接计算 sine，而是使用某种多项式近似，例如 Chebyshev 近似、minimax 近似或结合 double-angle 技巧的近似电路。
+
+在本文的抽象模型中，我们用一个标量函数
+\[
+f
+\]
+表示 EvalMod 在单个 coordinate 上实现的近似模约减。它满足
+\[
+f(m_i+q_0t_i)\approx m_i,
+\]
+或者在归一化形式下满足
+\[
+f(t_i+\epsilon_i)\approx \epsilon_i.
+\]
+
+由于 EvalMod 是逐坐标作用的，我们将它在 \(N\) 个坐标上的作用记为
+\[
+f^{\oplus N}.
+\]
+
+也就是说，对向量
+\[
+x=(x_0,x_1,\ldots,x_{N-1})
+\]
+定义
+\[
+f^{\oplus N}(x)
+=
+(f(x_0),f(x_1),\ldots,f(x_{N-1})).
+\]
+
+因此，在理想抽象模型中，大环 EvalMod 可以写成
+\[
+\EvalMod_N=f^{\oplus N}.
+\]
+
+类似地，小环上有 \(n\) 个坐标，leaf EvalMod 可以写成
+\[
+\EvalMod_n=f^{\oplus n}.
+\]
+
+这里需要注意，\(f^{\oplus N}\) 一般不是线性映射，也不是矩阵；它只是同一个标量函数 \(f\) 在每个坐标上独立作用得到的向量函数。
+这个记号也避免了与前文中的 evaluation matrix \(F_N\) 混淆。
+
+\subsection{Residue-class 分组算子}
+
+为了描述 coefficient split 后的各个 leaf，我们需要定义一个按 residue class 选择系数的分组算子。
+
+设
+\[
+N=kn.
+\]
+令
+\[
+x=(x_0,x_1,\ldots,x_{N-1})^T
+\]
+是一个长度为 \(N\) 的 coefficient-packed vector。
+
+\begin{remark}
+    这里需要区分两个向量。设 ModUp 后的明文多项式为
+\[
+P(X)=p_0+p_1X+\cdots+p_{N-1}X^{N-1}.
+\]
+记它的系数向量为
+\[
+p=(p_0,p_1,\ldots,p_{N-1})^T.
+\]
+它的 canonical slot vector 是
+\[
+z=\sigma_N(P)=F_Np.
+\]
+
+在 bootstrapping core 中，\(\CtwoS_N\) 的作用是把当前 canonical slots
+\[
+z=F_Np
+\]
+变成装有 coefficients 的 slots：
+\[
+\CtwoS_N(z)=p.
+\]
+
+因此，下面我们把
+\[
+x=(x_0,x_1,\ldots,x_{N-1})^T
+\]
+称为 C2S 后的 coefficient-packed slot vector，意思是：
+\[
+x=p.
+\]
+也就是说，\(x_i\) 是 C2S 前多项式 \(P(X)\) 的第 \(i\) 个系数，但它现在作为 C2S 后密文的 slot 内容出现。
+
+注意，\(x\) 不是 \(P(X)\) 的 canonical embedding；\(P(X)\) 的 canonical embedding 是
+\[
+\sigma_N(P)=F_Np.
+\]
+
+在 ModUp 后，这些系数型 slot 值可以抽象为
+\[
+x_i=m_i+q_0t_i+\varepsilon_i.
+\]
+\end{remark}
+
+对于每个
+\[
+r=0,1,\ldots,k-1,
+\]
+定义选择算子
+\[
+S_r:\mathbb{C}^N\to \mathbb{C}^n
+\]
+为
+\[
+S_rx
+=
+(x_r,x_{r+k},x_{r+2k},\ldots,x_{r+(n-1)k})^T.
+\]
+
+也就是说，\(S_r\) 从大环 coefficient-packed vector 中取出所有下标与 \(r\) 同余的坐标。
+
+例如，当 \(k=2\) 时，
+\[
+S_0x=(x_0,x_2,x_4,\ldots)^T,
+\]
+\[
+S_1x=(x_1,x_3,x_5,\ldots)^T.
+\]
+
+这正对应于 even/odd coefficient split。
+
+更一般地，我们把所有 residue class 的选择算子合在一起，定义整体分组算子
+\[
+S:\mathbb{C}^N\to (\mathbb{C}^n)^k
+\]
+为
+\[
+Sx
+=
+(S_0x,S_1x,\ldots,S_{k-1}x).
+\]
+
+矩阵形式下，可以写为
+\[
+S=
+\begin{pmatrix}
+S_0\\
+S_1\\
+\vdots\\
+S_{k-1}
+\end{pmatrix}.
+\]
+
+因此
+\[
+Sx=
+\begin{pmatrix}
+S_0x\\
+S_1x\\
+\vdots\\
+S_{k-1}x
+\end{pmatrix}.
+\]
+
+如果
+\[
+x=(x_0,x_1,\ldots,x_{N-1})^T
+\]
+是大环 C2S 后得到的 coefficient-packed vector，那么
+\[
+S_rx=(x_r,x_{r+k},x_{r+2k},\ldots)^T
+\]
+就是第 \(r\) 个 leaf 在 leaf C2S 后应该得到的 coefficient-packed vector。
+
+换句话说，\(S\) 描述的是：
+\[
+\text{大环 coefficient-packed vector}
+\longmapsto
+\text{按 residue class 分成 }k\text{ 个 leaf vectors}.
+\]
+
+在本文中，我们也会把
+\[
+\bigoplus_{r=0}^{k-1}S_r
+\]
+与 \(S\) 视为同一个分组操作；前者强调它由 \(k\) 个选择算子组成，后者强调整体映射。
+
+\begin{remark}
+    
+    这里的 \(S_r\) 不是一个需要实际在密文上执行的算法步骤，而是用来描述
+\(\Split\) 后第 \(r\) 个 leaf 再经过 leaf \(\CtwoS_n\) 的明文坐标效果。
+
+确切地说，我们有如下交换关系：
+\[
+\boxed{
+\CtwoS_n\circ \Split_r
+=
+S_r\circ \CtwoS_N.
+}
+\]
+
+证明如下。设大环明文多项式为
+\[
+P(X)=\sum_{i=0}^{N-1}a_iX^i,
+\]
+系数向量为
+\[
+p=(a_0,a_1,\ldots,a_{N-1})^T.
+\]
+大环 canonical slots 为
+\[
+z=F_Np.
+\]
+因此
+\[
+\CtwoS_N(z)=F_N^{-1}z=p.
+\]
+
+另一方面，coefficient split 给出
+\[
+P(X)=\sum_{r=0}^{k-1}X^rP_r(X^k),
+\]
+其中
+\[
+P_r(Y)=\sum_{j=0}^{n-1}a_{r+jk}Y^j.
+\]
+所以第 \(r\) 个 leaf 多项式 \(P_r\) 的系数向量是
+\[
+S_rp=(a_r,a_{r+k},a_{r+2k},\ldots,a_{r+(n-1)k})^T.
+\]
+
+第 \(r\) 个 leaf 的 canonical slots 是
+\[
+F_nS_rp.
+\]
+对它做 leaf \(\CtwoS_n\)，得到
+\[
+\CtwoS_n(F_nS_rp)
+=
+F_n^{-1}F_nS_rp
+=
+S_rp.
+\]
+
+而 direct 路径中，
+\[
+S_r\circ \CtwoS_N(F_Np)
+=
+S_rF_N^{-1}F_Np
+=
+S_rp.
+\]
+
+因此
+\[
+\CtwoS_n\circ \Split_r(F_Np)
+=
+S_r\circ\CtwoS_N(F_Np),
+\]
+即
+\[
+\boxed{
+\CtwoS_n\circ \Split_r
+=
+S_r\circ \CtwoS_N.
+}
+\]
+
+把所有 \(r=0,\ldots,k-1\) 合起来，得到
+\[
+\boxed{
+\left(
+\bigoplus_{r=0}^{k-1}\CtwoS_n
+\right)
+\circ
+\Split
+=
+\left(
+\bigoplus_{r=0}^{k-1}S_r
+\right)
+\circ
+\CtwoS_N.
+}
+\]
+
+\end{remark}
+\section{S2C 与 Merge 的重组}
+
+上一节说明了 EvalMod 与 coefficient 分组的交换性。设大环 \(\CtwoS_N\) 之后得到的 coefficient-packed vector 为
+\[
+x=(x_0,x_1,\ldots,x_{N-1}).
+\]
+
+\begin{remark}
+    
+    x 是C2S之后的slot 内容；它等于C2S之前明文多项式P（X）的系数向量。
+
+    所以它有双重描述：
+
+\begin{enumerate}
+    \item 从 C2S 后的密文 slot 语义看，$x$ 是 slots 中的值；
+    \item 从 C2S 前的多项式 $P(X)$ 看，$x$ 是 $P(X)$ 的 coefficients。
+\end{enumerate}
+
+这就是 “coefficient-packed vector” 的意思
+
+\end{remark}
+大环 EvalMod 的理想抽象是
+\[
+\EvalMod_N=f^{\oplus N},
+\]
+因此经过大环 EvalMod 后得到
+\[
+y=f^{\oplus N}(x)
+=
+(f(x_0),f(x_1),\ldots,f(x_{N-1})).
+\]
+
+这里 \(y\) 仍然是 coefficient-packed vector，只是每个 coordinate 已经完成了模约减近似。换句话说，如果
+\[
+x_i=m_i+q_0t_i+\varepsilon_i,
+\]
+那么
+\[
+y_i=f(x_i)\approx m_i.
+\]
+
+在 no-\(B_k\) 的 leaf 路线中，先通过 \(S\) 将大环 coefficient-packed vector 按 residue class 分成
+\[
+Sx=(S_0x,\ldots,S_{k-1}x).
+\]
+由于 EvalMod 与该分组操作交换，leaf EvalMod 后得到的 \(k\) 个输出向量等价于
+\[
+S f^{\oplus N}(x)
+=
+(S_0y,S_1y,\ldots,S_{k-1}y),
+\]
+其中
+\[
+y=f^{\oplus N}(x).
+\]
+
+
+或者表达为在 no-\(B_k\) 的 leaf 路线中，上一节的交换性给出：leaf EvalMod 后的 \(k\) 个输出向量分别是
+\[
+S_0y,\ S_1y,\ \ldots,\ S_{k-1}y,
+\]
+也就是
+\[
+(S_0 f^{\oplus N}(x),\ S_1 f^{\oplus N}(x),\ \ldots,\ S_{k-1} f^{\oplus N}(x)).
+\]
+
+现在需要说明的是：leaf \(\StwoC_n\) 和 \(\Merge\) 会把这些 reduced coefficient 子向量重组回大环 slot 表示。
+\subsection{理想重组}
+
+上一节中，我们已经把 EvalMod 后的结果记为
+\[
+y=f^{\oplus N}(x).
+\]
+
+这里需要再次强调 \(y\) 的语义。  
+它不是 canonical slot vector，而是 EvalMod 后的 coefficient-packed vector。也就是说，
+\[
+y=(y_0,y_1,\ldots,y_{N-1})^T
+\]
+中的每个 \(y_i\) 应该被理解为某个大环多项式的第 \(i\) 个系数。
+
+如果 C2S 前的大环多项式系数满足
+\[
+x_i=m_i+q_0t_i+\varepsilon_i,
+\]
+那么经过 EvalMod 后，
+\[
+y_i=f(x_i)\approx m_i.
+\]
+因此 \(y\) 可以理解为模约减后的大环系数向量。
+
+换句话说，如果最终要恢复的大环多项式记为
+\[
+Y(X),
+\]
+那么理想情况下它应该是
+\[
+Y(X)=\sum_{i=0}^{N-1}y_iX^i.
+\]
+
+现在我们要说明：leaf \(\StwoC_n\) 加上 \(\Merge\) 正好会把这些 \(y_i\) 重新组成这个大环多项式，并最终得到它的 canonical slots。
+
+\subsubsection*{第一步：把大环系数向量按 residue class 分成 leaf 系数向量}
+
+因为
+\[
+N=kn,
+\]
+每个下标 \(i=0,\ldots,N-1\) 都可以唯一写成（大环的系数下标按照模 k 的余数r分组。）
+\[
+i=r+jk,
+\]
+其中
+\[
+0\le r<k,\qquad 0\le j<n.
+\]
+
+因此，大环系数向量
+\[
+y=(y_0,y_1,\ldots,y_{N-1})^T
+\]
+可以按 residue class 分成 \(k\) 组。
+
+第 \(r\) 组是 （注：$S_r:\mathbb{C}^N\to\mathbb{C}^n$）
+\[
+S_ry
+=
+(y_r,y_{r+k},y_{r+2k},\ldots,y_{r+(n-1)k})^T.
+\]
+
+这个向量正好可以看成第 \(r\) 个小环多项式的系数向量。定义
+\[
+Y_r(Y)
+=
+\sum_{j=0}^{n-1}y_{r+jk}Y^j.
+\]
+
+于是
+\[
+S_ry
+\]
+就是 \(Y_r(Y)\) 的系数向量。
+
+例如当 \(k=2\) 时，
+\[
+S_0y=(y_0,y_2,y_4,\ldots)^T,
+\]
+对应小环多项式
+\[
+Y_0(Y)=y_0+y_2Y+y_4Y^2+\cdots,
+\]
+而
+\[
+S_1y=(y_1,y_3,y_5,\ldots)^T,
+\]
+对应
+\[
+Y_1(Y)=y_1+y_3Y+y_5Y^2+\cdots.
+\]
+
+\subsubsection*{第二步：leaf \(\StwoC_n\) 把每个 leaf 的系数向量转成小环 slots}
+
+现在考虑第 \(r\) 个 leaf。
+
+它的 coefficient-packed vector 是
+\[
+S_ry.
+\]
+
+也就是说，当前 leaf 的 slots 中装的是小环多项式 \(Y_r(Y)\) 的系数：
+\[
+(y_r,y_{r+k},y_{r+2k},\ldots).
+\]
+
+leaf \(\StwoC_n\) 的作用是：把这些 slots 中的值当作小环多项式的系数，并转回小环 canonical slot 表示。
+
+在理想模型下，
+\[
+\StwoC_n=F_n.
+\]
+
+所以第 \(r\) 个 leaf 经过 \(\StwoC_n\) 后得到
+\[
+F_nS_ry.
+\]
+
+这就是小环多项式 \(Y_r(Y)\) 的 canonical slots：
+\[
+F_nS_ry
+=
+\sigma_n(Y_r).
+\]
+
+所有 leaf 合起来，就得到
+\[
+(F_nS_0y,\ F_nS_1y,\ \ldots,\ F_nS_{k-1}y).
+\]
+
+这表示我们现在有 \(k\) 个小环密文，它们分别加密小环多项式
+\[
+Y_0(Y),Y_1(Y),\ldots,Y_{k-1}(Y)
+\]
+的 canonical slot 表示。
+
+\subsubsection*{第三步：Merge 把这些小环多项式拼回大环多项式}
+
+现在 \(\Merge\) 的理想语义是，把 \(k\) 个小环多项式
+\[
+Y_0(Y),Y_1(Y),\ldots,Y_{k-1}(Y)
+\]
+按照 coefficient split 的逆过程拼回一个大环多项式。
+
+也就是说，定义
+\[
+Y(X)
+=
+\sum_{r=0}^{k-1}X^rY_r(X^k).
+\]
+
+这正是 coefficient split
+\[
+P(X)=\sum_{r=0}^{k-1}X^rP_r(X^k)
+\]
+的逆过程。
+
+把
+\[
+Y_r(Y)=\sum_{j=0}^{n-1}y_{r+jk}Y^j
+\]
+代入上式，得到
+\[
+Y(X)
+=
+\sum_{r=0}^{k-1}X^r
+\left(
+\sum_{j=0}^{n-1}y_{r+jk}(X^k)^j
+\right).
+\]
+
+因为
+\[
+(X^k)^j=X^{jk},
+\]
+所以
+\[
+Y(X)
+=
+\sum_{r=0}^{k-1}
+\sum_{j=0}^{n-1}
+y_{r+jk}X^rX^{jk}.
+\]
+
+也就是
+\[
+Y(X)
+=
+\sum_{r=0}^{k-1}
+\sum_{j=0}^{n-1}
+y_{r+jk}X^{r+jk}.
+\]
+
+由于每个下标 \(i=0,\ldots,N-1\) 都唯一地写成
+\[
+i=r+jk,
+\]
+所以上式正好等于
+\[
+Y(X)=\sum_{i=0}^{N-1}y_iX^i.
+\]
+
+这说明：\(\Merge\) 后得到的大环多项式，其系数向量正是
+\[
+y.
+\]
+
+\subsubsection*{第四步：回到大环 canonical slots}
+
+前面说过，\(y\) 是一个大环系数向量。对应的大环多项式是
+\[
+Y(X)=\sum_{i=0}^{N-1}y_iX^i.
+\]
+
+大环 canonical slot vector 是
+\[
+\sigma_N(Y)=F_Ny.
+\]
+
+理想情况下，
+\[
+\StwoC_N=F_N.
+\]
+
+因此，大环 direct S2C 对 coefficient-packed vector \(y\) 的输出是
+\[
+\StwoC_N(y)=F_Ny.
+\]
+
+而 leaf 路线中，先对每个 \(S_ry\) 做 leaf \(\StwoC_n\)，再 \(\Merge\)，得到的也是同一个大环多项式
+\[
+Y(X)=\sum_{i=0}^{N-1}y_iX^i
+\]
+的 canonical slots。
+
+因此，理想情况下有交换关系：
+\[
+\boxed{
+\Merge
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\StwoC_n
+\right)
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}S_r
+\right)
+=
+\StwoC_N.
+}
+\]
+
+这个等式的含义是：
+
+\[
+\text{先把 coefficient-packed vector 按 residue class 分给各个 leaf，}
+\]
+\[
+\text{每个 leaf 做小环 S2C，最后 Merge，}
+\]
+等价于
+\[
+\text{直接对整个大环 coefficient-packed vector 做大环 S2C。}
+\]
+
+\subsubsection*{把 EvalMod 的输出代回去}
+
+因为 EvalMod 后的 coefficient-packed vector 是
+\[
+y=f^{\oplus N}(x),
+\]
+所以 leaf 路线中进入 leaf \(\StwoC_n\) 的 \(k\) 个向量是
+\[
+S_0y,\ldots,S_{k-1}y.
+\]
+
+也就是
+\[
+S_0 f^{\oplus N}(x),\ldots,S_{k-1} f^{\oplus N}(x).
+\]
+
+因此有
+\[
+\Merge
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\StwoC_n
+\right)
+\left(
+S_0 f^{\oplus N}(x),
+\ldots,
+S_{k-1} f^{\oplus N}(x)
+\right)
+=
+\StwoC_N\left(f^{\oplus N}(x)\right).
+\]
+
+这正是说明：EvalMod 后的 leaf outputs 可以通过 leaf S2C 和 Merge 正确重组为 direct 大环 S2C 的输出。
+
+\section{主定理：no-\(B_k\) 的 bootstrapping core 分解}
+
+现在合成前面的三个部分。
+
+\begin{definition}[理想 bootstrapping core]
+定义大环理想 bootstrapping core：
+\[
+\BTS_N
+:=
+\StwoC_N\circ\EvalMod_N\circ\CtwoS_N.
+\]
+定义小环 leaf bootstrapping core：
+\[
+\BTS_n
+:=
+\StwoC_n\circ\EvalMod_n\circ\CtwoS_n.
+\]
+\end{definition}
+
+\begin{theorem}[理想 no-\(B_k\) 分解]
+在理想 full complex embedding 模型下，若：
+\begin{enumerate}[label=(\arabic*)]
+    \item \(\Split_k\) 是 coefficient-domain residue split；
+    \item \(\Merge_k\) 是其逆向重组；
+    \item \(\CtwoS_N,\CtwoS_n\) 分别为 \(F_N^{-1},F_n^{-1}\)；
+    \item \(\StwoC_N,\StwoC_n\) 分别为 \(F_N,F_n\)；
+    \item \(\EvalMod_N,\EvalMod_n\) 是同一个逐坐标标量函数 \(f\)；
+\end{enumerate}
+则
+\[
+\boxed{
+\Merge_k
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\BTS_n
+\right)
+\circ
+\Split_k
+=
+\BTS_N.
+}
+\]
+\end{theorem}
+
+\begin{proof}
+从右向左跟踪一个大环 slot input：
+\[
+z=F_Np.
+\]
+
+第一步，由 C2S-Split 交换图：
+\[
+\left(\bigoplus_r \CtwoS_n\right)\circ\Split_k(z)
+=
+\left(\bigoplus_r S_r\right)\circ\CtwoS_N(z)
+=
+(S_0p,S_1p,\ldots,S_{k-1}p).
+\]
+
+第二步，leaf EvalMod 分别作用：
+\[
+\left(\bigoplus_r \EvalMod_n\right)(S_0p,\ldots,S_{k-1}p)
+=
+(f(S_0p),\ldots,f(S_{k-1}p)).
+\]
+由于 \(f\) 逐坐标作用，
+\[
+f(S_rp)=S_rf(p).
+\]
+因此得到
+\[
+(S_0f(p),S_1f(p),\ldots,S_{k-1}f(p)).
+\]
+
+第三步，leaf S2C 与 Merge 重组：
+\[
+\Merge_k
+\circ
+\left(\bigoplus_r\StwoC_n\right)
+(S_0f(p),\ldots,S_{k-1}f(p))
+=
+F_Nf(p).
+\]
+
+而 direct bootstrapping core 为
+\[
+\BTS_N(z)
+=
+\StwoC_N\circ\EvalMod_N\circ\CtwoS_N(F_Np)
+=
+F_Nf(p).
+\]
+两者相等。
+\end{proof}
+
+\begin{corollary}[带 normalization 的实现形式]
+真实实现中若线性重组部分带全局 normalization factor \(\gamma_k\)，则可写为
+\[
+\boxed{
+\Merge_k^{impl}
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\BTS_n^{impl}
+\right)
+\circ
+\Split_k^{impl}
+\approx
+\gamma_k \BTS_N^{impl}.
+}
+\]
+因此归一化后有
+\[
+\boxed{
+\gamma_k^{-1}
+\Merge_k^{impl}
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\BTS_n^{impl}
+\right)
+\circ
+\Split_k^{impl}
+\approx
+\BTS_N^{impl}.
+}
+\]
+\end{corollary}
+
+\section{为什么当前路线不需要 \(B_k\)}
+
+本节解释 \(B_k\) 的数学含义，以及为什么它不是 no-\(B_k\) 路线所需的操作。
+
+\subsection{\(B_k\) 的含义}
+
+设
+\[
+P(X)=\sum_{r=0}^{k-1}X^rP_r(X^k).
+\]
+令 \(\alpha\) 是大环 root，并令
+\[
+\theta=\alpha^k.
+\]
+则
+\[
+P(\alpha)
+=
+\sum_{r=0}^{k-1}\alpha^rP_r(\theta).
+\]
+
+因此，如果已知 leaf canonical slots
+\[
+(P_0(\theta),P_1(\theta),\ldots,P_{k-1}(\theta)),
+\]
+想恢复对应的大环 canonical slots
+\[
+P(\alpha),
+\]
+就需要一个局部 Vandermonde 型矩阵：
+\[
+B_{k,\theta}
+=
+\left(\alpha_{\theta,\ell}^{\,r}\right)_{\ell,r}.
+\]
+
+对于 \(k=2\)，这就是
+\[
+\begin{pmatrix}
+P(\alpha)\\
+P(-\alpha)
+\end{pmatrix}
+=
+\begin{pmatrix}
+1 & \alpha\\
+1 & -\alpha
+\end{pmatrix}
+\begin{pmatrix}
+A(\theta)\\
+B(\theta)
+\end{pmatrix}.
+\]
+
+所以 \(B_k\) 的作用是：
+\[
+\boxed{
+\text{从 leaf canonical slots 恢复 big-ring canonical slots。}
+}
+\]
+
+\subsection{no-\(B_k\) 路线的坐标流}
+
+当前 no-\(B_k\) 路线是：
+\[
+\Split
+\longrightarrow
+\bigoplus_r\CtwoS_n
+\longrightarrow
+\bigoplus_r\EvalMod_n
+\longrightarrow
+\bigoplus_r\StwoC_n
+\longrightarrow
+\Merge.
+\]
+
+其坐标流为：
+\[
+\text{big slots}
+\longrightarrow
+\text{leaf canonical slots}
+\longrightarrow
+\text{leaf coefficient-packed slots}
+\longrightarrow
+\text{reduced leaf coefficient-packed slots}
+\longrightarrow
+\text{leaf canonical slots}
+\longrightarrow
+\text{big slots}.
+\]
+
+关键是：经过 leafC2S 后，数据已经不再处于 leaf canonical slot 坐标
+\[
+(P_r(\theta))_r,
+\]
+而是处于 coefficient-packed 坐标：
+\[
+(a_r,a_{r+k},a_{r+2k},\ldots).
+\]
+
+EvalMod 需要处理的正是这些 coefficient-like values：
+\[
+a_i=m_i+q_0t_i.
+\]
+
+因此 no-\(B_k\) 路线不需要先恢复 big-ring canonical slots。
+它只需要让 leafC2S 取得 coefficient 子序列，然后对这些子序列逐坐标 EvalMod。
+
+\subsection{为什么 \(B_k\) 不应插在 leafC2S 之后}
+
+\(B_k\) 的公式
+\[
+P(\alpha)
+=
+\sum_r \alpha^rP_r(\alpha^k)
+\]
+适用于 leaf canonical slots
+\[
+P_r(\theta).
+\]
+但是 leafC2S 之后，slot 中装的是
+\[
+\text{coefficients of }P_r,
+\]
+而不是
+\[
+P_r(\theta).
+\]
+
+因此把裸 \(B_k\) 插在
+\[
+leafC2S \longrightarrow \EvalMod
+\]
+之间，在坐标语义上并不自然。它试图把 coefficient-packed slots 当成 canonical evaluation slots 来 lift，这会造成坐标系不匹配。
+
+\begin{remark}
+这也解释了为什么 \(B_k\) 在裸多项式求值坐标下数学正确，但不一定适用于 Lattigo 的 leafC2S 输出。
+裸 \(B_k\) 解决的是 canonical slot lift 问题；no-\(B_k\) 路线解决的是 coefficient-subvector-wise EvalMod 问题。
+\end{remark}
+
+\section{真实实现中的布局与 scale 问题}
+
+前面的推导使用了理想矩阵 \(F_N,F_n\)。
+真实实现中还需要考虑若干 convention。
+
+\subsection{Coefficient layout}
+
+理论中我们写
+\[
+(E/O)\circ\CtwoS_N.
+\]
+但真实实现的 \(\CtwoS_N\) 输出未必按自然顺序
+\[
+(a_0,a_1,a_2,a_3,\ldots)
+\]
+排列。
+
+它可能输出 blocked layout，例如
+\[
+(a_0,a_2,a_4,\ldots\mid a_1,a_3,a_5,\ldots),
+\]
+或者经过 bit-reversal、permutation、conjugation convention 等。
+
+因此在实现层面，交换图更准确地写为
+\[
+\left(\bigoplus_r \CtwoS_n^{impl}\right)\circ\Split_k^{impl}
+\approx
+\Pi_{\mathrm{layout}}
+\circ
+\left(\bigoplus_r S_r\right)
+\circ
+\CtwoS_N^{impl},
+\]
+其中 \(\Pi_{\mathrm{layout}}\) 是实现相关的 permutation 或 block layout 变换。
+
+\subsection{Real/Imag split}
+
+CKKS bootstrapping 实现中 \(\CtwoS\) 通常输出两个 ciphertext：
+\[
+ct_{\mathrm{real}},\quad ct_{\mathrm{imag}}.
+\]
+理论上可以把它理解为两个独立的线性分支：
+\[
+\CtwoS_N^{real},
+\qquad
+\CtwoS_N^{imag}.
+\]
+no-\(B_k\) 的交换图需要分别在 real 和 imag 分支上成立。
+
+\subsection{Scale 与 level}
+
+真实实现中还要满足：
+\begin{enumerate}[label=(\arabic*)]
+    \item top 与 leaf 使用相同或兼容的 \(Q/P\) modulus chain；
+    \item EvalMod 输入 scale 对齐；
+    \item leaf EvalMod 的 approximation parameters 与 top 一致或等价；
+    \item leaf S2C 的输入 level 满足实现要求；
+    \item Split/Merge key switching 噪声可控；
+    \item normalization factor \(\gamma_k\) 可被全局吸收。
+\end{enumerate}
+
+这些条件不改变理想分解定理，但决定真实系统中误差和 level 是否可接受。
+
+\section{当前理论成果总结}
+
+目前已经得到的理论认识可以总结如下：
+
+\begin{enumerate}[label=(\arabic*)]
+    \item Coefficient split 是
+    \[
+    P(X)=\sum_{r=0}^{k-1}X^rP_r(X^k),
+    \]
+    它不是 slot-preserving split。
+    
+    \item 对于 \(k=2\)，coefficient split 在 slot 视角下是
+    \[
+    (P(\alpha),P(-\alpha))
+    \mapsto
+    \left(
+    \frac{P(\alpha)+P(-\alpha)}{2},
+    \frac{P(\alpha)-P(-\alpha)}{2\alpha}
+    \right).
+    \]
+    
+    \item 若要 slot-preserving split，需要额外构造
+    \[
+    Q^\pm(Y)=A(Y)\pm h(Y)B(Y),
+    \]
+    其中
+    \[
+    h(\theta)=\alpha,\qquad h(Y)^2\equiv Y.
+    \]
+    
+    \item 当前 no-\(B_k\) 路线使用 coefficient split，而不是 slot-preserving split。
+    
+    \item 理想模型下，C2S 与 coefficient split 满足交换图：
+    \[
+    \left(\bigoplus_r\CtwoS_n\right)\circ\Split_k
+    =
+    \left(\bigoplus_rS_r\right)\circ\CtwoS_N.
+    \]
+    
+    \item 如果 EvalMod 是同一个逐坐标标量函数 \(f\)，则
+    \[
+    \left(\bigoplus_r\EvalMod_n\right)
+    \circ
+    \left(\bigoplus_rS_r\right)
+    =
+    \left(\bigoplus_rS_r\right)
+    \circ
+    \EvalMod_N.
+    \]
+    
+    \item leaf S2C 与 Merge 可以将 reduced coefficient 子序列重组回大环 slot。
+    
+    \item 因此理想模型下：
+    \[
+    \Merge_k
+    \circ
+    \left(
+    \bigoplus_r\BTS_n
+    \right)
+    \circ
+    \Split_k
+    =
+    \BTS_N.
+    \]
+    
+    \item 真实实现中可能出现全局 normalization factor：
+    \[
+    \Merge_k^{impl}
+    \circ
+    \left(
+    \bigoplus_r\BTS_n^{impl}
+    \right)
+    \circ
+    \Split_k^{impl}
+    \approx
+    \gamma_k\BTS_N^{impl}.
+    \]
+    
+    \item \(B_k\) 是 leaf canonical slots 到 big canonical slots 的 lift 矩阵；no-\(B_k\) 路线在 leafC2S 后进入 coefficient-packed coordinates，因此不需要显式 \(B_k\)。
+\end{enumerate}
+
+\section{尚未完全解决的问题}
+
+虽然理想理论已经给出清晰框架，但仍有若干问题需要继续研究：
+
+\begin{enumerate}[label=(\arabic*)]
+    \item \(\gamma_k\) 的精确来源是什么？
+    
+    当前猜测一般可能有
+    \[
+    \gamma_k=k.
+    \]
+    需要从 ring switching、trace/projection、Merge convention 或 S2C normalization 中推导。
+    
+    \item 对任意 \(k\) 的 layout 如何描述？
+    
+    对 \(k=2\)，可以用 even/odd 或 blocked layout 描述。
+    对 \(k=4,8,\ldots\)，需要明确 leaf ordering、bit-reversal、residue class layout。
+    
+    \item Lattigo 的 C2S 实际矩阵与理想 \(F_N^{-1}\) 的关系是什么？
+    
+    理论中用 \(F_N^{-1}\)，实现中是 factorized DFT、permutation、real/imag split 和 scale 的组合。
+    
+    \item top 与 leaf EvalMod 参数何时完全等价？
+    
+    需要比较：
+    \[
+    q_0,\quad \log\text{MessageRatio},\quad K,\quad degree,\quad double\ angle,\quad scale.
+    \]
+    
+    \item 误差如何累积？
+    
+    需要建立误差模型：
+    \[
+    \epsilon_{\mathrm{total}}
+    =
+    \epsilon_{\mathrm{split}}
+    +
+    \epsilon_{\mathrm{C2S}}
+    +
+    \epsilon_{\mathrm{EvalMod}}
+    +
+    \epsilon_{\mathrm{S2C}}
+    +
+    \epsilon_{\mathrm{merge}}
+    +
+    \epsilon_{\mathrm{keyswitch}}.
+    \]
+    
+    \item level 消耗是否真的优于或不劣于 direct bootstrapping？
+    
+    如果 no-\(B_k\) 路线不再需要为 \(B_k,B_k^{-1}\) 预留 level，则输出 level 可能可以改善。
+    
+    \item 成本模型如何建立？
+    
+    需要比较：
+    \[
+    T_{\mathrm{direct}}
+    \]
+    与
+    \[
+    T_{\mathrm{factored}}
+    =
+    T_{\mathrm{Split}}
+    +
+    \max_r T_{\mathrm{leafBTS}}
+    +
+    T_{\mathrm{Merge}}.
+    \]
+    
+    还需要计入 key generation、ring switching keys、leaf bootstrapping keys、memory footprint 等。
+\end{enumerate}
+
+\section{可能的后续理论方向}
+
+\subsection{任意 \(k\) 的完整 slot-level 推导}
+
+需要把 \(k=2\) 的 pairwise 推导推广到 \(k\)-fiber：
+\[
+\alpha_{\theta,0},\ldots,\alpha_{\theta,k-1},
+\qquad
+\alpha_{\theta,\ell}^k=\theta.
+\]
+Coefficient split 给出
+\[
+P(X)=\sum_{r=0}^{k-1}X^rP_r(X^k).
+\]
+在 slot 层面：
+\[
+P(\alpha_{\theta,\ell})
+=
+\sum_{r=0}^{k-1}
+\alpha_{\theta,\ell}^rP_r(\theta).
+\]
+局部矩阵是 Vandermonde：
+\[
+B_{k,\theta}
+=
+\left(\alpha_{\theta,\ell}^{\,r}\right)_{\ell,r}.
+\]
+但 no-\(B_k\) 路线不需要显式使用它，因为 C2S 之后进入 coefficient coordinates。
+
+\subsection{Normalization factor 的理论化}
+
+需要分析实现中的 Split/Merge 是否满足：
+\[
+\Merge\circ\Split=\Id
+\]
+还是
+\[
+\Merge\circ\Split=\gamma_k\Id.
+\]
+也可能 Split/Merge roundtrip 本身是 identity，但
+\[
+\Merge\circ(\oplus \StwoC_n)
+\]
+相对
+\[
+\StwoC_N
+\]
+带有 \(\gamma_k\)。
+
+这一点需要进一步区分。
+
+\subsection{与 slot-preserving split 的关系}
+
+可以把 coefficient split 和 slot-preserving split 写成两个不同路线：
+
+\[
+p\mapsto(S_0p,\ldots,S_{k-1}p)
+\]
+与
+\[
+p\mapsto F_n^{-1}SF_Np.
+\]
+前者高效、适合 no-\(B_k\) bootstrapping decomposition；
+后者更适合真正的 slot extraction / slot distribution，但通常是稠密线性变换。
+
+\section{结论}
+
+本文理论框架说明，no-\(B_k\) subring bootstrapping decomposition 的关键并不是“小环 slots 是否等于大环 slots 的子集”，而是以下交换结构：
+
+\[
+\boxed{
+\left(\bigoplus_r\CtwoS_n\right)\circ\Split_k
+=
+\left(\bigoplus_rS_r\right)\circ\CtwoS_N.
+}
+\]
+
+Coefficient split 在 slot 视角下确实会混合大环 slots；但随后 leafC2S 会把这些 leaf slots 转回对应的 coefficient 子序列。
+因为 EvalMod 是逐坐标函数，只要 top 与 leaf 使用相同的 scalar approximation，则 EvalMod 可以在每个 leaf 上独立执行。
+最后 leafS2C 与 Merge 将 reduced coefficient 子序列重组回大环 slots。
+
+因此，在理想模型下有：
+\[
+\boxed{
+\Merge_k
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\BTS_n
+\right)
+\circ
+\Split_k
+=
+\BTS_N.
+}
+\]
+
+在真实实现中，更合理的形式是：
+\[
+\boxed{
+\Merge_k^{impl}
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\BTS_n^{impl}
+\right)
+\circ
+\Split_k^{impl}
+\approx
+\gamma_k\BTS_N^{impl}.
+}
+\]
+
+这里 \(\gamma_k\) 是实现相关的全局 normalization factor。
+
+最后，\(B_k\) 的作用是从 leaf canonical slots lift 到 big-ring canonical slots。
+no-\(B_k\) 路线并不需要做这个 lift，因为它在 leafC2S 后进入了 coefficient-packed coordinates，EvalMod 正是在这些 coordinates 上逐坐标执行。
+因此，显式 \(B_k\) 不是该分解理论的必要组成部分。
+
+\section{核心交换图总结}
+
+本文的核心观点可以浓缩为三个交换关系。它们分别对应 bootstrapping core 中的三段：
+\[
+\CtwoS
+\quad\longrightarrow\quad
+\EvalMod
+\quad\longrightarrow\quad
+\StwoC.
+\]
+
+设
+\[
+N=kn.
+\]
+令
+\[
+\Split_k
+\]
+表示 coefficient-domain split：
+\[
+P(X)=\sum_{r=0}^{k-1}X^rP_r(X^k),
+\]
+其中
+\[
+P_r(Y)=\sum_{j=0}^{n-1}a_{r+jk}Y^j.
+\]
+
+令
+\[
+S_r:\mathbb C^N\to\mathbb C^n
+\]
+为 residue-class 选择算子：
+\[
+S_r(x_0,\ldots,x_{N-1})
+=
+(x_r,x_{r+k},x_{r+2k},\ldots,x_{r+(n-1)k}).
+\]
+
+把所有 \(S_r\) 合并，定义
+\[
+S=
+\bigoplus_{r=0}^{k-1}S_r.
+\]
+
+也就是
+\[
+Sx=(S_0x,S_1x,\ldots,S_{k-1}x).
+\]
+
+\subsection*{1. C2S 与 Split 的交换图}
+
+第一个、也是最关键的交换图是：
+\[
+\boxed{
+\left(
+\bigoplus_{r=0}^{k-1}\CtwoS_n
+\right)
+\circ
+\Split_k
+=
+S
+\circ
+\CtwoS_N.
+}
+\]
+
+也可以逐 leaf 写成：
+\[
+\boxed{
+\CtwoS_n\circ\Split_{k,r}
+=
+S_r\circ\CtwoS_N,
+\qquad r=0,\ldots,k-1.
+}
+\]
+
+其中 \(\Split_{k,r}\) 表示 split 后取第 \(r\) 个 leaf。
+
+这个交换图的含义是：
+
+\[
+\text{先 coefficient split，再对每个 leaf 做 C2S}
+\]
+等价于
+\[
+\text{先做大环 C2S，再按 residue class 把 coefficients 分给各个 leaf。}
+\]
+
+也就是说，虽然 coefficient split 在 slot 视角下不是简单的 slot selection，但是
+\[
+\Split_k+\text{leaf }\CtwoS_n
+\]
+整体上正好实现了大环 C2S 输出的 coefficient 分组。
+
+用图表示为：
+\[
+\begin{tikzcd}[column sep=large,row sep=large]
+\text{big-ring canonical slots}
+    \arrow[r,"\Split_k"]
+    \arrow[d,"\CtwoS_N"']
+&
+\text{\(k\) leaf canonical slots}
+    \arrow[d,"\bigoplus_r \CtwoS_n"]
+\\
+\text{big-ring coefficient-packed slots}
+    \arrow[r,"S=\oplus_r S_r"']
+&
+\text{\(k\) leaf coefficient-packed slots}
+\end{tikzcd}
+\]
+
+\subsection*{2. EvalMod 与 coefficient 分组的交换图}
+
+设单坐标 EvalMod 标量函数为
+\[
+f.
+\]
+大环 EvalMod 抽象为
+\[
+\EvalMod_N=f^{\oplus N},
+\]
+小环 EvalMod 抽象为
+\[
+\EvalMod_n=f^{\oplus n}.
+\]
+
+由于 \(f\) 是逐坐标作用的，有：
+\[
+f^{\oplus n}(S_rx)=S_rf^{\oplus N}(x).
+\]
+
+因此：
+\[
+\boxed{
+\left(
+\bigoplus_{r=0}^{k-1}\EvalMod_n
+\right)
+\circ
+S
+=
+S
+\circ
+\EvalMod_N.
+}
+\]
+
+也就是：
+\[
+\boxed{
+\left(
+\bigoplus_{r=0}^{k-1} f^{\oplus n}
+\right)
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}S_r
+\right)
+=
+\left(
+\bigoplus_{r=0}^{k-1}S_r
+\right)
+\circ
+f^{\oplus N}.
+}
+\]
+
+这个交换图的含义是：
+
+\[
+\text{先把 coefficients 分组，再在每个 leaf 上 EvalMod}
+\]
+等价于
+\[
+\text{先在大环上逐坐标 EvalMod，再把结果分组。}
+\]
+
+图示为：
+\[
+\begin{tikzcd}[column sep=large,row sep=large]
+\text{big-ring coefficient-packed slots}
+    \arrow[r,"S"]
+    \arrow[d,"\EvalMod_N=f^{\oplus N}"']
+&
+\text{\(k\) leaf coefficient-packed slots}
+    \arrow[d,"\bigoplus_r \EvalMod_n"]
+\\
+\text{reduced big-ring coefficient-packed slots}
+    \arrow[r,"S"']
+&
+\text{\(k\) reduced leaf coefficient-packed slots}
+\end{tikzcd}
+\]
+
+\subsection*{3. S2C 与 Merge 的交换图}
+
+第三个交换图描述 leaf S2C 和 Merge 如何把分组后的 coefficient vectors 重组回大环 canonical slots：
+
+\[
+\boxed{
+\Merge_k
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\StwoC_n
+\right)
+\circ
+S
+=
+\StwoC_N.
+}
+\]
+
+这个交换图的含义是：
+
+\[
+\text{先把 reduced coefficients 分组，每组做 leaf S2C，再 Merge}
+\]
+等价于
+\[
+\text{直接对完整的大环 reduced coefficient vector 做大环 S2C。}
+\]
+
+图示为：
+\[
+\begin{tikzcd}[column sep=large,row sep=large]
+\text{big-ring coefficient-packed slots}
+    \arrow[r,"S"]
+    \arrow[d,"\StwoC_N"']
+&
+\text{\(k\) leaf coefficient-packed slots}
+    \arrow[d,"\bigoplus_r \StwoC_n"]
+\\
+\text{big-ring canonical slots}
+&
+\text{\(k\) leaf canonical slots}
+    \arrow[l,"\Merge_k"']
+\end{tikzcd}
+\]
+
+\subsection*{4. 合成后的 bootstrapping core 交换关系}
+
+将以上三个交换图合成，得到 no-\(B_k\) bootstrapping core 的理想分解：
+\[
+\boxed{
+\Merge_k
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}
+\left(
+\StwoC_n\circ\EvalMod_n\circ\CtwoS_n
+\right)
+\right)
+\circ
+\Split_k
+=
+\StwoC_N\circ\EvalMod_N\circ\CtwoS_N.
+}
+\]
+
+也就是：
+\[
+\boxed{
+\Merge_k
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\BTS_n
+\right)
+\circ
+\Split_k
+=
+\BTS_N.
+}
+\]
+
+在真实实现中，如果 Split/Merge 或 S2C/Merge convention 带有全局 normalization factor \(\gamma_k\)，则更合理地写为
+\[
+\boxed{
+\Merge_k^{impl}
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\BTS_n^{impl}
+\right)
+\circ
+\Split_k^{impl}
+\approx
+\gamma_k \BTS_N^{impl}.
+}
+\]
+
+因此归一化后：
+\[
+\boxed{
+\gamma_k^{-1}
+\Merge_k^{impl}
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\BTS_n^{impl}
+\right)
+\circ
+\Split_k^{impl}
+\approx
+\BTS_N^{impl}.
+}
+\]
+
+\subsection*{5. 解释}
+
+以上交换图说明：
+
+\[
+\boxed{
+no\text{-}B_k \text{ 路线不是在小环中保留原始大环 slots。}
+}
+\]
+
+它真正利用的是：
+
+\[
+\boxed{
+\Split_k+\text{leaf }\CtwoS_n
+\text{ 等价于 }
+\CtwoS_N
+\text{ 后的 coefficient 分组。}
+}
+\]
+
+因此，EvalMod 可以在各个 leaf 上独立执行，因为 EvalMod 是逐坐标函数。最后，leaf S2C 与 Merge 将 reduced coefficient 子向量重组回大环 canonical slots。
+
+这就是 no-\(B_k\) bootstrapping decomposition 的核心理论结构。
+
+
+把 Step 1, Step 2, Step 3 纵向串联，可得完整 bootstrapping core 分解图：
+
+\[
+\begin{tikzcd}[column sep=huge,row sep=large]
+\mathbb{C}^{N}_{\mathrm{can}}
+    \arrow[r,"\Split_k"]
+    \arrow[d,"\CtwoS_N"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{can}}
+    \arrow[d,"\displaystyle\bigoplus_{r=0}^{k-1}\CtwoS_n"]
+\\
+\mathbb{C}^{N}_{\mathrm{coeff}}
+    \arrow[r,"S"]
+    \arrow[d,"f^{\oplus N}"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{coeff}}
+    \arrow[d,"\displaystyle\bigoplus_{r=0}^{k-1}f^{\oplus n}"]
+\\
+\mathbb{C}^{N}_{\mathrm{coeff}}
+    \arrow[r,"S"]
+    \arrow[d,"\StwoC_N"']
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{coeff}}
+    \arrow[d,"\displaystyle\bigoplus_{r=0}^{k-1}\StwoC_n"]
+\\
+\mathbb{C}^{N}_{\mathrm{can}}
+&
+\displaystyle\bigoplus_{r=0}^{k-1}\mathbb{C}^{n}_{\mathrm{can}}
+    \arrow[l,"\Merge_k"']
+\end{tikzcd}
+\]
+
+\section{一句话总结}
+
+线性操作可以FFT分解并行计算是显然的。我们证明了即使是非线性运算，只要它是对系数逐坐标作用的，也可以分解为并行计算。
+
+\end{document}

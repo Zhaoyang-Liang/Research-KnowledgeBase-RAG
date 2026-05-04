@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q136",
+  "card_id": "K046",
+  "source_id": "src_000080",
+  "question": "为什么不能跳过M直接乘U_ℓ？",
+  "answer": "不做M时，各槽用自己的局部根ζ_{m,i}，直接乘U_ℓ会产生ζ_{m,0}²·ζ_{m,1}这样的跨槽根混合项→结果无法按单槽幂基解释→不是正确的系数多项式。M先统一所有槽的坐标系（都用ζ_m），U_ℓ才能正确执行跨槽重排。",
+  "confidence": "high",
+  "needs_human_review": false,
+  "batch": "Batch-05a2",
+  "created": "2026-05-04T15:02"
+}

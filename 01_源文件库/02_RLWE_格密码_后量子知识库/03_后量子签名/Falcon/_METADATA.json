@@ -1,0 +1,8 @@
+{
+  "source_id": "src_000116",
+  "document_role": "side_material",
+  "future_batch_candidate": "Post-Quantum Signatures",
+  "review_policy": "review_when_signature_batch_starts",
+  "notes": "Falcon签名方案完整笔记(.tex+.pdf+sampling-example)。包含Falcon tree、ffsampling、高斯采样陷门。暂不展开为知识卡片，等后续签名专题batch再处理。",
+  "processed_in": "Batch-05c (基本导入，未深度处理)"
+}

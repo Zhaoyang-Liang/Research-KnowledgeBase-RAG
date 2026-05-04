@@ -1,0 +1,19 @@
+# DFT/FFT/NTT定义与区别：复数域vs有限域vs快速算法
+
+**card_id**: K053 | **batch**: Batch-05a3 | **confidence**: low
+**source_id**: src_000092, src_000093, src_000094 | **claim_source_type**: 用户笔记
+⚠️ **needs_human_review**: true
+📝 **note_quality**: rough_note
+
+## Knowledge Points
+
+1. DFT(离散傅里叶变换)：复数域C上的线性变换，A_k=Σ_{i=0}^{n-1}a_i·ω_n^{ik}, ω_n=e^{2πi/n}。将时域序列映射到频域。逆变换用ω_n^{-1}并除n。
+2. FFT(快速傅里叶变换)：DFT的快速算法(Cooley-Tukey)，利用ω_n^{k+n/2}=-ω_n^k的对称性分治，复杂度O(n log n)而非O(n²)。有decimation-in-time和decimation-in-frequency两种变体。
+3. NTT(数论变换)：将DFT搬至有限域F_q。需要存在n次本原单位根ω∈F_q满足ω^n=1且对所有0<k<n有ω^k≠1。存在条件：n|(q-1)。所有运算在mod q整数中，无精度问题。
+4. NTT与DFT的域不同但公式形式相同。NTT不涉及复数、浮点误差——这对密码学中精确模运算至关重要。
+5. ⚠️ NTT/DFT ≠ CKKS canonical embedding。虽然都涉及Vandermonde/求值矩阵，但CKKS的典范嵌入σ使用特定的复数本原根ζ^{s_j}(s_j∈Z_m^*/⟨5⟩)，目标是编码复数消息，不是有限域卷积加速。
+6. ⚠️ 这是用户的rough_note，不是标准教材。涉及Cooley-Tukey分解方向、bit-reversal细节、NTT参数选择等内容可能不完整或有笔误。
+
+**交叉引用**: K018(Y-X): CKKS典范嵌入与U_n矩阵(U_n是标准Vandermonde矩阵)；K048(Y-X): U_ℓ矩阵的Fourier/FFT-like结构(BGV/BFV context)。K053讲的是通用信号处理/算法层面的DFT/FFT/NTT，是底层数学工具。
+
+**备注**: ⚠️ rough_note，confidence=low。Needs validation: Cooley-Tukey分解方向、bit-reversal顺序、NTT与CKKS编码的确切关系。

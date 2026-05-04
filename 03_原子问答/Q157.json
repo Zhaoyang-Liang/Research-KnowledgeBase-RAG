@@ -1,0 +1,11 @@
+{
+  "qa_id": "Q157",
+  "card_id": "K054",
+  "source_id": "src_000094",
+  "question": "Vandermonde矩阵和DFT矩阵是什么关系？",
+  "answer": "DFT矩阵是Vandermonde矩阵的特例——点集取单位根ω⁰,ω¹,...,ω^{n-1}。此时矩阵不是任意dense矩阵，具有对称性和FFT可分解性。一般Vandermonde矩阵(任意点集)不能快速分解。这就是为什么FFT/NTT\"必须\"用单位根——不是理论上不能用其他点，而是为了得到O(n log n)。",
+  "confidence": "low",
+  "needs_human_review": true,
+  "batch": "Batch-05a3",
+  "created": "2026-05-04T15:40"
+}

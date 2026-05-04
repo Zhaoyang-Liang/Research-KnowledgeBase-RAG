@@ -1,0 +1,7 @@
+# SlotToCoeff密文层公式
+
+$$\mathbf{ct}_0=\mathsf{Enc}^*(\mathbf{p}_0),\ \mathbf{ct}_1=\mathsf{Enc}^*(\mathbf{p}_1),\ \mathbf{ct}=\mathbf{ct}_0+\operatorname{Ecd}(\mathbf{I})\times\mathbf{ct}_1,\ \mathbf{ct}'=\operatorname{Ecd}(U_n)\times\mathbf{ct}$$
+
+SlotToCoeff的密文态操作
+
+source: src_000046
