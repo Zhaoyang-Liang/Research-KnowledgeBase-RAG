@@ -1,0 +1,218 @@
+\documentclass[11pt]{article}
+
+% ---------- Packages ----------
+\usepackage[a4paper,margin=0.85in]{geometry}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{tikz-cd}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{hyperref}
+
+% ---------- Macros ----------
+\newcommand{\Can}{\mathsf{Can}}
+\newcommand{\Coeff}{\mathsf{Coeff}}
+\newcommand{\CtwoS}{\mathsf{C2S}}
+\newcommand{\StwoC}{\mathsf{S2C}}
+\newcommand{\EvalMod}{\mathsf{EvalMod}}
+\newcommand{\Split}{\mathsf{Split}}
+\newcommand{\Merge}{\mathsf{Merge}}
+\newcommand{\BTS}{\mathsf{BTS}}
+
+\begin{document}
+
+\title{Core Commutative Diagrams for Coefficient-Split CKKS Bootstrapping}
+\author{}
+\date{}
+\maketitle
+
+This note contains two commutative diagrams for the ideal normalized
+coefficient-split CKKS bootstrapping core. The first diagram isolates the
+key semantic invariant: coefficient split does not preserve the original
+big-ring canonical slots, but after applying \(\CtwoS\), the resulting
+coefficient-packed coordinates decompose by residue class. The second
+diagram shows the full split-compatible sandwich.
+
+\section{Core Split--\(\CtwoS\) Commutative Square}
+
+The key compatibility is
+\[
+\left(
+\bigoplus_{r=0}^{k-1}\CtwoS_n
+\right)
+\circ
+\Split_k
+=
+\Pi_k
+\circ
+\CtwoS_N.
+\]
+
+Equivalently, the following square commutes.
+
+\begin{figure}[h]
+\centering
+\resizebox{0.78\textwidth}{!}{%
+$
+\begin{tikzcd}[
+  ampersand replacement=\&,
+  column sep=huge,
+  row sep=large
+]
+\Can_N
+  \arrow[r, "\Split_k"]
+  \arrow[d, "\CtwoS_N"'] \&
+\displaystyle\bigoplus_{r=0}^{k-1}\Can_n
+  \arrow[d, "\displaystyle\bigoplus_{r=0}^{k-1}\CtwoS_n"] \\
+\Coeff_N
+  \arrow[r, "\Pi_k"'] \&
+\displaystyle\bigoplus_{r=0}^{k-1}\Coeff_n
+\end{tikzcd}
+$
+}
+\caption{
+Core semantic commutative square. The split operation does not preserve
+the original big-ring canonical slots. However, after applying
+\(\CtwoS\), the resulting coefficient-packed coordinates decompose
+exactly by residue class. This is the invariant used by the factorized
+bootstrapping core.
+}
+\label{fig:split-c2s-square}
+\end{figure}
+
+The top route first performs coefficient split at the message level and
+then applies leaf \(\CtwoS_n\). The bottom route first applies the
+large-ring \(\CtwoS_N\) and then groups coefficient-packed coordinates by
+residue class using \(\Pi_k\). The two routes produce the same leaf
+coefficient-packed representation.
+
+\section{Full Split-Compatible Sandwich}
+
+The ideal large-ring core is
+\[
+\BTS^{\mathrm{core}}_N
+=
+\StwoC_N
+\circ
+\EvalMod_N
+\circ
+\CtwoS_N.
+\]
+
+The leaf core is
+\[
+\BTS^{\mathrm{core}}_n
+=
+\StwoC_n
+\circ
+\EvalMod_n
+\circ
+\CtwoS_n.
+\]
+
+The factorization theorem states that, under the normalized coefficient-split
+semantics,
+\[
+\StwoC_N
+\circ
+\EvalMod_N
+\circ
+\CtwoS_N
+=
+\Merge_k
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}
+\StwoC_n
+\circ
+\EvalMod_n
+\circ
+\CtwoS_n
+\right)
+\circ
+\Split_k.
+\]
+
+The proof is visualized by the following diagram.
+
+\begin{figure}[h]
+\centering
+\resizebox{\textwidth}{!}{%
+$
+\begin{tikzcd}[
+  ampersand replacement=\&,
+  column sep=large,
+  row sep=large
+]
+\Can_N
+  \arrow[r, "\CtwoS_N"]
+  \arrow[d, "\Split_k"'] \&
+\Coeff_N
+  \arrow[r, "\EvalMod_N"]
+  \arrow[d, "\Pi_k"'] \&
+\Coeff_N
+  \arrow[r, "\StwoC_N"]
+  \arrow[d, "\Pi_k"'] \&
+\Can_N \\
+\displaystyle\bigoplus_{r=0}^{k-1}\Can_n
+  \arrow[r, "\displaystyle\bigoplus_{r=0}^{k-1}\CtwoS_n"'] \&
+\displaystyle\bigoplus_{r=0}^{k-1}\Coeff_n
+  \arrow[r, "\displaystyle\bigoplus_{r=0}^{k-1}\EvalMod_n"'] \&
+\displaystyle\bigoplus_{r=0}^{k-1}\Coeff_n
+  \arrow[r, "\displaystyle\bigoplus_{r=0}^{k-1}\StwoC_n"'] \&
+\displaystyle\bigoplus_{r=0}^{k-1}\Can_n
+  \arrow[u, "\Merge_k"']
+\end{tikzcd}
+$
+}
+\caption{
+Factorized CKKS bootstrapping core as a split-compatible sandwich.
+The left square is the Split--\(\CtwoS\) compatibility, the middle square
+is component-wise EvalMod compatibility, and the right rectangle is the
+\(\StwoC\)--Merge compatibility. Together, these compatibilities imply
+the factorization of the large-ring bootstrapping core into leaf cores.
+}
+\label{fig:core-factorization-ladder}
+\end{figure}
+
+The left square expresses
+\[
+\left(
+\bigoplus_{r=0}^{k-1}\CtwoS_n
+\right)
+\circ
+\Split_k
+=
+\Pi_k
+\circ
+\CtwoS_N.
+\]
+
+The middle square expresses the component-wise EvalMod compatibility
+\[
+\left(
+\bigoplus_{r=0}^{k-1}\EvalMod_n
+\right)
+\circ
+\Pi_k
+=
+\Pi_k
+\circ
+\EvalMod_N.
+\]
+
+The right rectangle expresses
+\[
+\Merge_k
+\circ
+\left(
+\bigoplus_{r=0}^{k-1}\StwoC_n
+\right)
+\circ
+\Pi_k
+=
+\StwoC_N.
+\]
+
+Composing these three compatibilities gives the factorized core identity.
+
+\end{document}

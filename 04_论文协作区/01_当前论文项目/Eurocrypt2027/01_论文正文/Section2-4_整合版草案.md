@@ -50,6 +50,8 @@ Here \(\Delta\cdot P(X)\) denotes the scaled-and-rounded CKKS plaintext represen
 \quad\text{in }\mathcal R_{q,d}.
 \]
 
+> **[批注]** 上面两种写法（`Δ·P(X)` 和 `Encode_{Δ,d}(P(X))`）描述同一个对象，并排出现容易让读者以为是两回事。建议只保留一种，另一种用 "Equivalently," 引出后立刻说 "we write the former as shorthand" 并收尾，或者直接删去 `Encode` 那行，在脚注里说明这等价于标准 CKKS encoding。
+
 Throughout the ideal message-level discussion, we suppress the explicit encoding map and write \(\Delta\cdot P(X)\) for this representative.
 
 When \(\Delta\), \(s(X)\), and the modulus are clear from context, we abbreviate the semantic judgment as
@@ -331,6 +333,8 @@ The following notation is used consistently in Sections 2-4.
 | \(\operatorname{can}_d(P(X))\) | canonical-slot vector of \(P(X)\) |
 | \(\operatorname{coeff}_d(P(X))\) | coefficient vector of \(P(X)\) |
 | \(\mathsf{C2S}_d\) | CoeffToSlot; as a coordinate map, \(\mathsf{Can}_d\to\mathsf{Coeff}_d\), placing message coefficients into ciphertext slots |
+
+> **[批注 §2.7]** "placing message coefficients into ciphertext slots" 略松散。建议改为：the canonical slots of the output ciphertext carry the **coefficient vector of the input message polynomial**。与 §2.4 Definition 2.1 措辞一致，避免歧义。
 | \(\mathsf{S2C}_d\) | SlotToCoeff; as a coordinate map, \(\mathsf{Coeff}_d\to\mathsf{Can}_d\), interpreting slot values as coefficients |
 | \(\Pi_k\) | residue-class grouping of coefficient coordinates |
 | \(\mathsf{Split}_k\) | ciphertext split algorithm, or its induced message-coordinate split when the type is clear |
@@ -498,6 +502,8 @@ fiber-wise by
 \sum_{r=0}^{k-1}\alpha_t(\theta)^r u_r(\theta).
 \]
 
+> **[批注 §3.3 B_k]** 符号 `(B_k(...))_t(θ)` 用了双重下标/括号，初次见到容易混淆。建议在公式前加一句说明："Here the subscript \(t\) indexes the output leaf (\(t=0,\ldots,k-1\)), and \(\theta\) indexes the slot within that leaf (\(\theta\in\Omega_n\))。" 或者在 §2.7 Notation Table 里为 \(B_k\) 的输出结构加一行说明。
+
 If \(u_r(\theta)=P_r(\theta)\), then
 
 \[
@@ -627,6 +633,8 @@ Thus the no-\(B_k\) route does not claim that coefficient split preserves big-ri
 \[
 \text{coefficient split preserves the C2S-output coefficient coordinates up to residue grouping.}
 \]
+
+> **[批注 §3.5→§4]** 建议在此处加一句过渡，例如："We now formalize this observation as an algebraic theorem in Section 4." 帮助读者明确 Section 3 是 semantic argument，Section 4 是 formal proof。
 
 ## 4. Core Factorization Theorem
 
@@ -816,6 +824,8 @@ This proves the theorem. \(\square\)
 
 The theorem does not require \(\Phi_N\) or \(\Phi_n\) to be linear. The only nonlinear requirement is compatibility (2), which will follow from component-wise EvalMod on coefficient-packed slots.
 
+> **[批注 §4.1→§4.2]** 建议在此加一句引导："We now verify conditions (1)–(3) of Theorem 4.1 for the CKKS instantiation in Lemmas 4.3–4.5 below." 帮助读者看清 Lemmas 4.2–4.5 的角色是验证抽象定理的三个条件。
+
 ### 4.2 Component-Wise Compatibility
 
 #### Lemma 4.2: Component-Wise Maps Commute with Residue Grouping
@@ -961,6 +971,8 @@ and then applies leaf \(\mathsf{C2S}_n\), giving
 \]
 
 The right-hand side first maps \(z\) by \(\mathsf{C2S}_N\) to \(p\), and then applies \(\Pi_k\), also giving \(\Pi_kp\). Since \(\operatorname{can}_N\) is a linear coordinate isomorphism, every \(z\in\mathsf{Can}_N\) is uniquely of the form \(\operatorname{can}_N(P(X))\). Hence the maps are equal. \(\square\)
+
+> **[批注 Lemma 4.3 proof]** 最后一句略绕。建议简化为："Since \(\operatorname{can}_N\) is a bijection, the identity holds for all \(z\in\mathsf{Can}_N\)." 意思一样，更简洁。
 
 In ciphertext terms, this lemma formalizes the semantic statement from Section 3. If
 
@@ -1194,3 +1206,5 @@ has the same ideal message effect as
 The equality is not a statement that \(\mathsf{Split}_k\) preserves big-ring slots. It is a statement that, after \(\mathsf{C2S}\), the relevant encrypted slots are coefficient-packed slots, and those coordinates decompose by residue class. This is the formal reason the core can be factored without the \(B_k\) slot-recovery transform.
 
 A full ciphertext-level correctness theorem must separately show that the concrete \(\mathsf{RSDown}_{N\to n}\) and \(\mathsf{RSUp}_{n\to N}\) operations implement \(\mathsf{Split}_k\) and \(\mathsf{Merge}_k\) up to controlled error and the same normalization. It must also account for key-switching error, EvalMod approximation error, C2S/S2C linear transform error, RNS rounding, rescaling, implementation layout, and security parameters for the top and leaf rings.
+
+> **[批注 §4.8]** 本节目前只是一段文字，结构偏弱。建议升格为正式的 **Remark 4.7**（或 Corollary），明确列出 ideal theorem 之外的五类误差来源：(i) RSDown/RSUp key-switching error；(ii) C2S/S2C linear transform approximation error；(iii) EvalMod polynomial approximation error；(iv) RNS/rescaling rounding error；(v) implementation-specific normalization factor。这样读者能清楚地知道 §5（参数与安全）需要处理哪些 gap。

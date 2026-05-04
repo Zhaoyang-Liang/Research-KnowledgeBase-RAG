@@ -29,6 +29,7 @@
 | ckks_parameter_tutorial.tex | `安全性_复杂度_噪声分析/安全性分析/` | 参数教程 TeX |
 | 安全参数分析.md | `idea-plaintext-Decop/paper组内讨论初步/待完成/` | 安全参数分析 |
 | 都要进行哪些安全性分析.md | `Filed Switching/5月1号前最新成果/` | 安全性分析规划 |
+| 形式化安全分析.md | 本轮新增 | **当前主安全草案**：same-Q leaf 设定下的 per-layer RLWE / IND-CPA hybrid / 参数定位 |
 
 ## ⚠️ 重要：未完成项
 
@@ -38,6 +39,7 @@
 | leaf error aggregation | 🔴 未完成 |
 | formal noise theorem | 🔴 未完成 |
 | 主定理噪声界 | 🟡 待作者决策 (A1/A2/A3) |
+| concrete lattice-estimator security table | 🔴 未完成 |
 
 ## 交叉引用
 - `../../Research-KB-RAG/09_工作进度/Batch05b2_pre_噪声分析双层盘点.md` — 噪声双层盘点
