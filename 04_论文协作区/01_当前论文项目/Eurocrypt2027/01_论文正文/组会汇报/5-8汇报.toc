@@ -1,0 +1,5 @@
+\beamer@sectionintoc {1}{CKKS 编码与问题背景}{3}{0}{1}
+\beamer@sectionintoc {2}{系数拆分的语义基础}{40}{0}{2}
+\beamer@sectionintoc {3}{核心因式分解定理}{61}{0}{3}
+\beamer@sectionintoc {4}{实现与实验}{78}{0}{4}
+\beamer@sectionintoc {5}{总结与展望}{104}{0}{5}

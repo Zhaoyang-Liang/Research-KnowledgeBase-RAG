@@ -17,4 +17,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/tuneinsight/lattigo/v6 => ./lattigo-v6-local
+replace github.com/tuneinsight/lattigo/v6 => /Users/mac/Desktop/做实验/subring_bts-main

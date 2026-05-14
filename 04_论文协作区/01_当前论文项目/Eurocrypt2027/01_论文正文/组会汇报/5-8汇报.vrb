@@ -1,0 +1,21 @@
+\frametitle{实现架构：leafBootstrapper 接口}
+\begin{block}{Go 接口定义}
+    \begin{verbatim}
+type leafBootstrapper interface {
+    ScaleDown(*rlwe.Ciphertext) (*rlwe.Ciphertext, error)
+    ModUp(*rlwe.Ciphertext) (*rlwe.Ciphertext, error)
+    CoeffsToSlots(*rlwe.Ciphertext) (*rlwe.Ciphertext, error)
+    EvalMod(*rlwe.Ciphertext) (*rlwe.Ciphertext, error)
+    SlotsToCoeffs(*rlwe.Ciphertext) (*rlwe.Ciphertext, error)
+    MaxBootLevel() int
+}
+    \end{verbatim}
+  \end{block}
+
+  \pause
+
+  \begin{itemize}
+    \item 当前实现：\texttt{lattigoLeafBootstrapper}（标准 Lattigo CKKS Bootstrapping）
+    \item 新增实现：\texttt{anyuLeafBootstrapper}（subKey Bootstrapping）
+    \item 叶子引擎完全可替换——定理不绑定具体 Bootstrapping 实现
+  \end{itemize}

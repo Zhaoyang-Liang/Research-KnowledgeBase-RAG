@@ -1,0 +1,1385 @@
+% ============================================================
+% 组会汇报：No-B_k 系数拆分自举因式分解与子密钥优化
+% 编译：xelatex 文件名.tex
+% ============================================================
+\documentclass[aspectratio=169, 10pt, xcolor=svgnames, table, UTF8]{ctexbeamer}
+
+% ============ 包 ============
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{tikz}
+\usepackage{adjustbox}
+\usetikzlibrary{positioning, arrows.meta, shapes, fit, backgrounds, decorations.pathreplacing}
+
+% ============ 主题与颜色 ============
+\usetheme{Madrid}
+\usecolortheme{whale}
+\usefonttheme{professionalfonts}
+
+\definecolor{myblue}{RGB}{20, 80, 150}
+\definecolor{myteal}{RGB}{0, 128, 128}
+\definecolor{myred}{RGB}{180, 40, 40}
+\definecolor{mygreen}{RGB}{40, 130, 40}
+
+\setbeamercolor{structure}{fg=myblue}
+\setbeamercolor{alerted text}{fg=myred}
+\setbeamercolor{block title}{bg=myblue!15, fg=myblue}
+\setbeamercolor{block body}{bg=myblue!5}
+\setbeamercolor{example text}{fg=myteal}
+\setbeamercolor{titlelike}{fg=white, bg=myblue}
+
+% ============ 字号微调 ============
+\setbeamerfont{frametitle}{size=\large, series=\bfseries}
+\setbeamerfont{block title}{size=\normalsize, series=\bfseries}
+\setbeamerfont{footnote}{size=\tiny}
+
+% ============ 页脚信息 ============
+\setbeamertemplate{footline}[frame number]
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{section in toc}[sections numbered]
+
+\AtBeginSection[]{
+  \begin{frame}[plain]
+    \centering
+    \vspace{1.4cm}
+    {\Large\bfseries \insertsection}\\[0.6cm]
+    \rule{0.65\linewidth}{0.6pt}
+  \end{frame}
+}
+
+% ============ 自定义命令 ============
+\newcommand{\cipherSem}[1]{\mathrel{\vDash_{#1}}}
+\newcommand{\vDashsym}{\mathrel{\vDash}}
+\newcommand{\can}{\operatorname{can}}
+\newcommand{\coeffvec}{\operatorname{coeff}}
+\newcommand{\bts}{\mathsf{BTS}}
+\newcommand{\cots}{\mathsf{C2S}}
+\newcommand{\stoc}{\mathsf{S2C}}
+\newcommand{\evalmod}{\mathsf{EvalMod}}
+\newcommand{\splitop}{\mathsf{Split}}
+\newcommand{\mergeop}{\mathsf{Merge}}
+\newcommand{\preop}{\mathsf{Pre}}
+\newcommand{\sdop}{\mathsf{ScaleDown}}
+\newcommand{\mrop}{\mathsf{ModRaise}}
+\newcommand{\ringR}{\mathcal{R}}
+\newcommand{\ringZ}{\mathbb{Z}}
+\newcommand{\ringC}{\mathbb{C}}
+\newcommand{\canSpace}{\mathsf{Can}}
+\newcommand{\coeffSpace}{\mathsf{Coeff}}
+
+\begin{document}
+
+% ============================================================
+% 标题页
+% ============================================================
+\begin{frame}[plain]
+  \centering
+  \vspace{1cm}
+  {\Large\bfseries No-\(B_k\) 系数拆分自举因式分解\\[0.3cm]
+  与 subKey Bootstrapping 叶子优化}\\[0.8cm]
+  
+  {\large 面向 CKKS Bootstrapping 的\\[0.2cm]
+  coefficient-split core factorization}\\[1.2cm]
+  
+  {\normalsize 组会汇报}\\[0.4cm]
+  {\small \today}
+  
+  \vfill
+\end{frame}
+
+% ============================================================
+% 目录
+% ============================================================
+\begin{frame}{目录}
+  \tableofcontents[hideallsubsections]
+\end{frame}
+
+% ============================================================
+% PART I: CKKS 编码与问题背景
+% ============================================================
+\section{CKKS 编码与问题背景}
+
+\begin{frame}{从明文环开始}
+  CKKS 的明文不是一开始就写成“向量”，而是先放在一个多项式环里。
+  
+  \begin{block}{消息层的复数环}
+    \[
+    \mathcal R_d=\mathbb C[X]/(X^d+1).
+    \]
+    一个消息多项式写作
+    \[
+    P(X)=a_0+a_1X+\cdots+a_{d-1}X^{d-1}.
+    \]
+  \end{block}
+  
+  \pause
+  \begin{block}{密文计算使用的模环}
+    \[
+    \mathcal R_{q,d}=\mathbb Z_q[X]/(X^d+1).
+    \]
+    CKKS 编码会把复数消息经过 scale \(\Delta\) 放入这个模环中：
+    \[
+    \operatorname{Encode}_{\Delta,d}(P)\approx \Delta\cdot P \pmod q.
+    \]
+  \end{block}
+  
+  后面的所有“slot 语义”和“系数拆分”都发生在这个多项式环结构之上。
+\end{frame}
+
+\begin{frame}{典范嵌入：CKKS slots 从哪里来？}
+  令
+  \[
+  \Omega_d=\{\omega\in\mathbb C:\omega^d+1=0\}.
+  \]
+  典范嵌入（canonical embedding）把多项式评价到所有根上：
+  \[
+  \operatorname{can}_d(P)
+  =
+  (P(\omega))_{\omega\in\Omega_d}.
+  \]
+  
+  \pause
+  \begin{columns}
+    \begin{column}{0.48\linewidth}
+      \begin{block}{系数坐标}
+        \[
+        \operatorname{coeff}_d(P)
+        =
+        (a_0,\ldots,a_{d-1}).
+        \]
+        这是多项式本身的系数。
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\linewidth}
+      \begin{block}{槽坐标}
+        \[
+        \operatorname{can}_d(P)
+        =
+        (P(\omega_0),\ldots,P(\omega_{d-1})).
+        \]
+        这是 CKKS SIMD slots 的数学来源。
+      \end{block}
+    \end{column}
+  \end{columns}
+  
+  \pause
+  \begin{alertblock}{需要区分}
+    一个密文加密的是同一个多项式 \(P(X)\)，只是我们可以用“系数坐标”或“槽坐标”两种方式描述它。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{一个小例子：系数坐标和槽坐标不是同一回事}
+  取 \(d=2\)，则
+  \[
+  \mathcal R_2=\mathbb C[X]/(X^2+1),
+  \qquad \Omega_2=\{i,-i\}.
+  \]
+  
+  若
+  \[
+  P(X)=a_0+a_1X,
+  \]
+  那么
+  \[
+  \operatorname{coeff}_2(P)=(a_0,a_1),
+  \]
+  但
+  \[
+  \operatorname{can}_2(P)=(P(i),P(-i))=(a_0+ia_1,\;a_0-ia_1).
+  \]
+  
+  \pause
+  \begin{exampleblock}{后面会反复使用的观点}
+    slots 不是“多项式的系数”。它们是同一个多项式在根上的取值。
+    C2S/S2C 的作用，本质上是在这两套坐标之间做线性变换。
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{密文语义：我们如何说一个密文加密了什么？}
+  本文使用下面的记号：
+  \[
+  \mathbf{ct}\vDash_{d,\Delta,s}P(X).
+  \]
+  
+  它表示：密文 \(\mathbf{ct}\) 在环维度 \(d\)、scale \(\Delta\)、密钥 \(s\) 下加密消息多项式 \(P(X)\)。
+  
+  \pause
+  更具体地说：
+  \[
+  \operatorname{Dec}_{s}(\mathbf{ct})
+  =
+  \operatorname{Encode}_{\Delta,d}(P)+e
+  \quad\text{in }\mathcal R_{q,d},
+  \]
+  其中 \(e\) 是 CKKS 允许的小误差。
+  
+  \pause
+  \begin{block}{槽语义}
+    \[
+    \mathbf{ct}\vDash_d^{\mathrm{slot}}z
+    \quad\Longleftrightarrow\quad
+    \mathbf{ct}\vDash_dP(X)
+    \text{ 且 } z=\operatorname{can}_d(P).
+    \]
+  \end{block}
+  
+  这个记号很重要：后面所有算法仍然作用在密文上，\(\vDash\) 只是记录它诱导出的消息变换。
+\end{frame}
+
+\begin{frame}{C2S 与 S2C：Bootstrapping 前必须理解的两个线性变换}
+  在理想消息层：
+  \[
+  \mathsf{C2S}_d
+  =
+  \operatorname{coeff}_d\circ\operatorname{can}_d^{-1},
+  \qquad
+  \mathsf{S2C}_d
+  =
+  \operatorname{can}_d\circ\operatorname{coeff}_d^{-1}.
+  \]
+  
+  \pause
+  \begin{block}{C2S 的语义}
+    如果
+    \[
+    \mathbf{ct}\vDash_dP(X),
+    \]
+    那么
+    \[
+    \mathsf{C2S}_d(\mathbf{ct})
+    \vDash_d^{\mathrm{slot}}
+    \operatorname{coeff}_d(P).
+    \]
+  \end{block}
+  
+  \pause
+  \begin{alertblock}{关键点}
+    C2S 之后，密文的 slots 里装的是 \(P(X)\) 的系数向量。
+    这类 slots 后面称为\textbf{系数打包槽（coefficient-packed slots）}。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{CKKS Bootstrapping 回顾}
+  \begin{block}{标准 CKKS 自举管线}
+    \[
+    \underbrace{\sdop_N \to \mrop_N}_{\text{预处理}}
+    \to
+    \underbrace{\cots_N \to \evalmod_N \to \stoc_N}_{\text{自举核心}}
+    \]
+  \end{block}
+  
+  \pause
+  \begin{itemize}
+    \item \(\cots\): CoeffToSlot，系数到槽变换
+    \item \(\evalmod\): EvalMod，逐 slot 的近似模约化
+    \item \(\stoc\): SlotToCoeff，槽到系数变换
+  \end{itemize}
+  
+  \pause
+  \begin{alertblock}{代价来源}
+    大环维度 \(N\) 上的 NTT、旋转、密钥切换。\\
+    粗略模型：\(T_{\mathrm{op}}(N, Q) \approx C \cdot N \log N \cdot \#\mathrm{primes}(Q)\)
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{本文关心的问题}
+  前面的讨论说明，CKKS Bootstrapping 的核心是一个坐标变换夹着逐坐标非线性函数的结构：
+  \[
+  \mathsf{C2S}
+  \to
+  \mathsf{EvalMod}
+  \to
+  \mathsf{S2C}.
+  \]
+  
+  \pause
+  现在考虑 \(N=kn\)。如果能把大环上的一个 Bootstrapping 拆成 \(k\) 个叶子环上的 Bootstrapping，
+  那么主要计算就可以在更小的环 \(n\) 上进行：
+  \[
+  \mathbf{ct}_N
+  \xrightarrow{\mathsf{Split}}
+  (\mathbf{ct}_{n,0},\ldots,\mathbf{ct}_{n,k-1})
+  \xrightarrow{\text{leaf Bootstrapping}}
+  \cdots
+  \xrightarrow{\mathsf{Merge}}
+  \mathbf{ct}'_N.
+  \]
+  
+  \pause
+  
+  \begin{exampleblock}{直接挑战}
+    \begin{itemize}
+      \item 系数拆分 (\(\splitop_k\)) 不保持原始 canonical slots
+      \item 如果恢复 slot 需要额外的 \(B_k\) 变换（\(k\) 个叶子间的线性变换）
+      \item 本文证明：对 CKKS Bootstrapping core 来说，恢复原始 slots 不是必要条件
+    \end{itemize}
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Related Work 总览：我们站在哪几条线上？}
+  \begin{center}
+  \begin{tikzpicture}[
+      topic/.style={draw, rounded corners=2pt, align=center, fill=myblue!8, text width=3.1cm, minimum height=0.9cm},
+      ours/.style={draw, rounded corners=2pt, align=center, fill=myred!12, text width=3.8cm, minimum height=1.1cm},
+      arr/.style={-{Latex[length=2mm]}, thick}
+    ]
+    \node[topic] (ckks) at (0,2) {CKKS 与传统\\Bootstrapping};
+    \node[topic] (ring) at (0,0.65) {Ring Switching\\与系数/模分解};
+    \node[topic] (hermes) at (0,-0.7) {HERMES\\Ring Packing};
+    \node[topic] (subkey) at (5,2) {subKey / Subring-secret\\Bootstrapping};
+    \node[topic] (paco) at (5,0.65) {PaCo 等新式\\CKKS Bootstrapping};
+    \node[ours] (ours) at (5,-0.95) {本文：传统 CKKS core\\沿系数拆分因式分解\\并与 subKey 组合};
+    \draw[arr] (ckks) -- (ours);
+    \draw[arr] (ring) -- (ours);
+    \draw[arr] (hermes) -- (ours);
+    \draw[arr] (subkey) -- (ours);
+    \draw[arr] (paco) -- (ours);
+  \end{tikzpicture}
+  \end{center}
+\end{frame}
+
+\begin{frame}{Related Work 1：CKKS 与传统 Bootstrapping}
+  \begin{block}{CKKS 做什么？}
+    CKKS 用于近似实数/复数计算。用户看到的是复数向量；数学底层是 cyclotomic ring 中的多项式。
+  \end{block}
+  
+  \pause
+  \begin{block}{传统 CKKS Bootstrapping 的核心}
+    \[
+    \mathsf{CoeffToSlot}
+    \to
+    \mathsf{EvalMod}
+    \to
+    \mathsf{SlotToCoeff}.
+    \]
+    
+    现有工作通常优化：
+    \begin{itemize}
+      \item 线性变换 C2S/S2C 的分解与旋转数量；
+      \item EvalMod 的多项式近似；
+      \item 模数链、scale、精度和安全参数。
+    \end{itemize}
+  \end{block}
+  
+  \pause
+  \begin{alertblock}{本文与它们的区别}
+    本文不重新设计 CKKS，也不替换 EvalMod。\\
+    本文问的是：\textbf{传统 C2S \(\to\) EvalMod \(\to\) S2C core 本身能否沿系数拆分分解？}
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Related Work 2：Ring Switching 与系数/模分解}
+  \begin{block}{经典分解}
+    当 \(N=kn\) 时：
+    \[
+    P(X)=\sum_{r=0}^{k-1} X^r P_r(X^k),
+    \qquad P_r(Y)\in \mathbb{C}[Y]/(Y^n+1).
+    \]
+    
+    这就是把大环多项式按系数下标模 \(k\) 分组。
+  \end{block}
+  
+  \pause
+  \begin{itemize}
+    \item 这类分解和 ring switching 不是本文新发明。
+    \item 密文层面的 ring switching 需要 key switching，会引入噪声。
+    \item 本文新点不是“可以拆多项式”，而是：
+  \end{itemize}
+  
+  \begin{exampleblock}{本文新问题}
+    这种 coefficient/module decomposition 是否与 CKKS Bootstrapping 的 sandwich 结构兼容？
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Related Work 3：HERMES 与 Ring Packing}
+  \begin{block}{HERMES 的任务}
+    HERMES 使用 ring switching 和 MLWE 中间表示，把许多 LWE/MLWE 格式密文打包成一个 RLWE/CKKS 密文，用于 transciphering 和后续 SIMD 计算。
+  \end{block}
+  
+  \pause
+  \begin{columns}
+    \begin{column}{0.48\linewidth}
+      \begin{block}{HERMES}
+        \begin{itemize}
+          \item 输入：很多 LWE/MLWE 密文
+          \item 目标：打包成 RLWE/CKKS
+          \item 关键词：ring packing, transciphering
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\linewidth}
+      \begin{block}{本文}
+        \begin{itemize}
+          \item 输入：已经是 CKKS/RLWE 密文
+          \item 目标：分解它自己的 Bootstrapping core
+          \item 关键词：core factorization
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+  
+  \pause
+  \begin{alertblock}{区别}
+    HERMES 解决的是“把许多小密文打包成大密文”；本文解决的是“一个大密文的自举能否拆成多个叶子自举”。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Related Work 4：subKey / subring-secret Bootstrapping}
+  \begin{block}{subKey Bootstrapping 的思想}
+    在 Bootstrapping 过程中切换到子环密钥结构，使若干步骤更便宜：
+    \begin{itemize}
+      \item dense secret 的有效 Hamming weight 变小；
+      \item EvalMod 或 digit removal 的近似区间缩小；
+      \item C2S/S2C 中的 key switching 可以利用子环结构。
+    \end{itemize}
+  \end{block}
+  
+  \pause
+  \begin{columns}
+    \begin{column}{0.48\linewidth}
+      \begin{block}{subKey 方法}
+        \begin{itemize}
+          \item secret-side optimization
+          \item 仍围绕一个密文做自举
+          \item 改变的是密钥结构
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\linewidth}
+      \begin{block}{本文 no-\(B_k\)}
+        \begin{itemize}
+          \item ciphertext/message-side decomposition
+          \item 把密文语义拆到多个 leaf
+          \item 改变的是执行粒度
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+  
+  \pause
+  \begin{exampleblock}{为什么能组合？}
+    no-\(B_k\) 是外层因式分解；subKey 是叶子内部的自举引擎。两者不是互斥，而是可以叠加。
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Related Work 5：PaCo 与新式 CKKS Bootstrapping}
+  \begin{block}{PaCo 的方向}
+    PaCo 通过 partial CoeffToSlot、blind rotations、circle-group modular additions 和 alternative ring structures 改写 CKKS Bootstrapping 逻辑。
+  \end{block}
+  
+  \pause
+  \begin{alertblock}{本文与 PaCo 正交}
+    \begin{itemize}
+      \item 不重新表述 CKKS decryption equation；
+      \item 不用 blind rotation 作为主机制；
+      \item 不替换传统 EvalMod；
+      \item 只改变传统 core 的执行粒度。
+    \end{itemize}
+  \end{alertblock}
+  
+  \pause
+  \begin{center}
+    \Large
+    \[
+    \text{传统 core} \quad+\quad \text{系数拆分因式分解}
+    \]
+  \end{center}
+\end{frame}
+
+\begin{frame}{本文与已有工作的关系}
+  \begin{block}{本文处理的对象}
+    本文不改变 CKKS 的编码方式，也不替换传统 EvalMod。
+    研究对象是传统 Bootstrapping core
+    \[
+    \mathsf{C2S}\to\mathsf{EvalMod}\to\mathsf{S2C}
+    \]
+    在 coefficient split 下是否保持同一个理想消息变换。
+  \end{block}
+  
+  \pause
+  \begin{enumerate}
+    \item \textbf{语义层面：}C2S 后的 slots 是系数打包槽（coefficient-packed slots），而不是原始 canonical slots。
+    \item \textbf{理论层面：}抽象出 split-compatible sandwich theorem，并用三个兼容性引理实例化到 CKKS。
+    \item \textbf{实现层面：}实现 split-first leaf preprocessing，并在叶子上替换为 subKey Bootstrapping 做实验验证。
+  \end{enumerate}
+\end{frame}
+
+% ============================================================
+% PART II: 系数拆分语义
+% ============================================================
+\section{系数拆分的语义基础}
+
+\begin{frame}{符号约定 (I)}
+  \begin{itemize}
+    \item 环：\(\ringR_d = \ringC[X]/(X^d+1)\), \quad \(\ringR_{q,d} = \ringZ_q[X]/(X^d+1)\)
+    
+    \item 语义判断：\(\mathbf{ct} \vDashsym_{d} P(X)\) \quad (密文加密 \(P(X)\))
+    
+    \item 典范嵌入：\(\can_d : \ringR_d \to \canSpace_d\), \quad \(P \mapsto (P(\omega))_{\omega^d+1=0}\)
+    
+    \item 系数坐标：\(\coeffvec_d : \ringR_d \to \coeffSpace_d\), \quad \(P(X) = \sum a_i X^i \mapsto (a_0,\ldots,a_{d-1})\)
+  \end{itemize}
+  
+  \pause
+  
+  \begin{block}{Slot 语义}
+    \[
+    \mathbf{ct} \vDashsym_d^{\mathrm{slot}} z
+    \quad\Longleftrightarrow\quad
+    \mathbf{ct} \vDashsym_d P(X) \;\text{且}\; z = \can_d(P(X))
+    \]
+    
+    Slot 是加密消息多项式在典范嵌入下的坐标——不是独立的明文对象。
+  \end{block}
+\end{frame}
+
+\begin{frame}{符号约定 (II): C2S / S2C}
+  \begin{block}{坐标映射（理想消息层）}
+    \[
+    \boxed{\cots_d = \coeffvec_d \circ \can_d^{-1}}
+    \qquad
+    \boxed{\stoc_d = \can_d \circ \coeffvec_d^{-1}}
+    \]
+  \end{block}
+  
+  \pause
+  
+  \begin{block}{语义效果}
+    \vspace{-0.3cm}
+    \begin{align*}
+      \mathbf{ct} \vDashsym_d P(X)
+      &\Longrightarrow
+      \cots_d(\mathbf{ct}) \vDashsym_d^{\mathrm{slot}} \coeffvec_d(P(X))
+      \\[0.2cm]
+      \mathbf{ct}' \vDashsym_d^{\mathrm{slot}} y
+      &\Longrightarrow
+      \stoc_d(\mathbf{ct}') \vDashsym_d \coeffvec_d^{-1}(y)
+    \end{align*}
+  \end{block}
+  
+  \pause
+  
+  \begin{definition}[Coefficient-Packed Slots]
+    \(\mathbf{ct}'\) 携带 \(P(X)\) 的 \alert{coefficient-packed slots}，当且仅当
+    \[
+    \mathbf{ct}' \vDashsym_d^{\mathrm{slot}} \coeffvec_d(P(X))
+    \]
+  \end{definition}
+  
+  这意味着 \(\cots\) 之后，slot 里装的是 \alert{系数坐标}，不是原始 slot 值！
+\end{frame}
+
+\begin{frame}{EvalMod 的语义}
+  \begin{block}{分量形式}
+    \[
+    \evalmod_d = f^{\oplus d},
+    \quad
+    f^{\oplus d}(x_0,\ldots,x_{d-1}) = (f(x_0),\ldots,f(x_{d-1}))
+    \]
+  \end{block}
+  
+  \pause
+  
+  其中 \(f: \ringC \to \ringC\) 是公开的标量模约化函数。
+  
+  多项式近似：\(p(t) = \sum_{\ell=0}^{m} c_\ell t^\ell\)，同态计算 \(p(Q(X))\)。
+  
+  \pause
+  
+  \begin{exampleblock}{关键观察}
+    EvalMod 对 \textbf{C2S 之后的 slots} 分量作用。\\
+    这些 slots 装载的是 \alert{系数坐标}，不是原始 big-ring slots。\\
+    \(\Rightarrow\) 系数拆分的"不保 slot"不影响自举正确性。
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{子环分解}
+  设 \(N = kn\)，\(Y \mapsto X^k\) 给出 \(\ringR_n \hookrightarrow \ringR_N\)。
+  
+  \begin{block}{系数分解}
+    \[
+    P(X) = \sum_{r=0}^{k-1} X^r P_r(X^k), \qquad P_r(Y) \in \ringR_n
+    \]
+    其中 \(P_r(Y) = \sum_{j=0}^{n-1} a_{r+jk} Y^j\)
+  \end{block}
+  
+  \pause
+  
+  \begin{block}{余类分组算子 \(\Pi_k\)}
+    \vspace{-0.3cm}
+    \[
+    S_r p = (a_r, a_{r+k}, \ldots, a_{r+(n-1)k}) \in \coeffSpace_n
+    \]
+    \[
+    \boxed{\Pi_k : \coeffSpace_N \to \bigoplus_{r=0}^{k-1} \coeffSpace_n},
+    \qquad
+    \Pi_k p = (S_0 p, \ldots, S_{k-1} p)
+    \]
+  \end{block}
+  
+  直观：把长 \(N\) 的系数向量按「模 \(k\) 余类」分成 \(k\) 个长为 \(n\) 的子向量。
+\end{frame}
+
+\begin{frame}{系数拆分 \(=\) 密文拆分}
+  \begin{block}{\(\splitop_k\) 的语义规格}
+    \[
+    \mathbf{ct}_N \vDashsym_N P(X)
+    \Longrightarrow
+    \splitop_k(\mathbf{ct}_N) = (\mathbf{ct}_{n,0}, \ldots, \mathbf{ct}_{n,k-1})
+    \]
+    且 \(\mathbf{ct}_{n,r} \vDashsym_n P_r(Y)\)。
+  \end{block}
+  
+  \pause
+  
+  \begin{block}{\(\mergeop_k\) 的语义规格（逆操作）}
+    \[
+    \mathbf{ct}_{n,r} \vDashsym_n P_r(Y) \quad (r=0,\ldots,k-1)
+    \Longrightarrow
+    \mergeop_k(\mathbf{ct}_{n,0}, \ldots, \mathbf{ct}_{n,k-1})
+    \vDashsym_N \sum_{r=0}^{k-1} X^r P_r(X^k)
+    \]
+  \end{block}
+  
+  \begin{itemize}
+    \item 实现层面：通过 ring switching + key switching 完成
+    \item 不是公开系数抽取！是对密文的代数操作
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{系数拆分不保 Slot（\(k=2\) 演示）}
+  设 \(P(X) = A(X^2) + X B(X^2)\)。
+  
+  对 \(\alpha \in \Omega_N\), \(\theta = \alpha^2 \in \Omega_n\):
+  \[
+  P(\alpha) = A(\theta) + \alpha B(\theta)
+  \qquad
+  P(-\alpha) = A(\theta) - \alpha B(\theta)
+  \]
+  
+  \pause
+  
+  \begin{align*}
+    A(\theta) &= \frac{P(\alpha) + P(-\alpha)}{2} \quad\leftarrow \text{线性和与差}\\
+    B(\theta) &= \frac{P(\alpha) - P(-\alpha)}{2\alpha} \quad\leftarrow \text{不是 slot 选择！}
+  \end{align*}
+  
+  \pause
+  
+  \begin{alertblock}{一般情况}
+    纤维 \(\pi^{-1}(\theta) = \{\alpha : \alpha^k = \theta\}\) 大小为 \(k\)，内部是 Vandermonde 基变换：
+    \[
+    P(\alpha) = \sum_{r=0}^{k-1} \alpha^r P_r(\theta), \quad \forall \alpha \in \pi^{-1}(\theta)
+    \]
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{如果硬要恢复 Slot：\(B_k\) 变换}
+  \begin{block}{\(B_k\) 的定义（逐纤维）}
+    \[
+    \boxed{(B_k(u_0,\ldots,u_{k-1}))_t(\theta) = \sum_{r=0}^{k-1} \alpha_t(\theta)^r u_r(\theta)}
+    \]
+    其中 \(\pi^{-1}(\theta) = \{\alpha_0(\theta), \ldots, \alpha_{k-1}(\theta)\}\)。
+  \end{block}
+  
+  \pause
+  
+  \begin{itemize}
+    \item 若 \(u_r(\theta) = P_r(\theta)\)，则 \((B_k u)_t(\theta) = P(\alpha_t(\theta))\) —— 恢复了 big-ring slots
+    \item \(k=2\) 时：\(Q^\pm(Y) = A(Y) \pm h(Y) B(Y)\)，其中 \(h\) 是分支依赖的
+    \item \(B_k\) 是 \(k\) 个叶子 ciphertext 之间的线性密文变换——\alert{代价大}
+  \end{itemize}
+  
+  \pause
+  
+  \begin{exampleblock}{本文的核心观察}
+    \textbf{自举核心不需要 \(B_k\)！} 因为 EvalMod 需要的是 C2S 之后的 coefficient-packed slots，
+    而这些坐标正好按余类分组分解。
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{关键等式：C2S 输出与余类分组的交换}
+  \begin{block}{核心不变式}
+    \[
+    \operatorname{coeff}_n(P_r(Y)) = (a_r, a_{r+k}, \ldots, a_{r+(n-1)k})
+    \]
+    
+    \[
+    \boxed{(\coeffvec_n(P_0), \ldots, \coeffvec_n(P_{k-1})) = \Pi_k \coeffvec_N(P(X))}
+    \]
+  \end{block}
+  
+  \pause
+  
+  \begin{block}{算子等式}
+    \[
+    \boxed{\left(\bigoplus_{r=0}^{k-1} \cots_n\right) \circ \splitop_k = \Pi_k \circ \cots_N}
+    \]
+  \end{block}
+  
+  \begin{center}
+    \alert{这就是 no-\(B_k\) 路线的代数根基。}
+    
+    系数拆分的 C2S 输出 = 大环 C2S 输出的余类分组。
+  \end{center}
+\end{frame}
+
+% ============================================================
+% PART III: 核心因式分解定理
+% ============================================================
+\section{核心因式分解定理}
+
+\begin{frame}{抽象框架：Split-Compatible Sandwich}
+  \begin{definition}[Sandwich 结构]
+    \begin{align*}
+      F_N &= L_N^{(2)} \circ \Phi_N \circ L_N^{(1)} \quad (\text{大环自举核心})\\
+      F_n &= L_n^{(2)} \circ \Phi_n \circ L_n^{(1)} \quad (\text{叶子环自举核心})
+    \end{align*}
+  \end{definition}
+  
+  \pause
+  
+  \begin{theorem}[定理 4.1: Split-Compatible Sandwich]
+    若存在 \(\splitop, \mergeop, \Pi\) 满足三个兼容条件 (1)(2)(3)，则：
+    \[
+    \boxed{F_N = \mergeop \circ \left(\bigoplus_{r=0}^{k-1} F_n\right) \circ \splitop}
+    \]
+  \end{theorem}
+  
+  条件：
+  \begin{enumerate}
+    \item[(1)] \((\bigoplus_r L_n^{(1)}) \circ \splitop = \Pi \circ L_N^{(1)}\)
+    \item[(2)] \((\bigoplus_r \Phi_n) \circ \Pi = \Pi \circ \Phi_N\)
+    \item[(3)] \(\mergeop \circ (\bigoplus_r L_n^{(2)}) \circ \Pi = L_N^{(2)}\)
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{定理 4.1 的证明}
+  \begin{align*}
+    &\mergeop \circ \left(\bigoplus_r F_n\right) \circ \splitop \\[0.2cm]
+    =&\mergeop \circ \left(\bigoplus_r L_n^{(2)} \circ \Phi_n \circ L_n^{(1)}\right) \circ \splitop \\[0.2cm]
+    =&\mergeop \circ \left(\bigoplus_r L_n^{(2)}\right) \circ \alert{\left(\bigoplus_r \Phi_n\right)} \circ \alert{\left(\bigoplus_r L_n^{(1)}\right) \circ \splitop}
+  \end{align*}
+  
+  \pause
+  \begin{align*}
+    \overset{(1)}{=}& \mergeop \circ \left(\bigoplus_r L_n^{(2)}\right) \circ \left(\bigoplus_r \Phi_n\right) \circ \alert{\Pi \circ L_N^{(1)}} \\[0.2cm]
+    \overset{(2)}{=}& \mergeop \circ \left(\bigoplus_r L_n^{(2)}\right) \circ \alert{\Pi \circ \Phi_N} \circ L_N^{(1)} \\[0.2cm]
+    \overset{(3)}{=}& \alert{L_N^{(2)}} \circ \Phi_N \circ L_N^{(1)} = F_N
+  \end{align*}
+  
+  \begin{alertblock}{注意}
+    条件 (2) 是唯一涉及非线性 (\(\Phi_N, \Phi_n\)) 的条件。\\
+    但它只用到了「同一个标量函数 \(f\) 被分量应用」这个事实——不需要 \(\Phi\) 线性！
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{引理 4.2：EvalMod 与余类分组交换}
+  \begin{lemma}
+    设 \(\Phi_N = f^{\oplus N}\)，\(\Phi_n = f^{\oplus n}\)（同一标量函数 \(f\)），则：
+    \[
+    \boxed{\left(\bigoplus_{r=0}^{k-1} \Phi_n\right) \circ \Pi_k = \Pi_k \circ \Phi_N}
+    \]
+  \end{lemma}
+  
+  \pause
+  
+  \begin{proof}[证明概要]
+    令 \(x = (x_0, \ldots, x_{N-1})\)。
+    
+    \begin{itemize}
+      \item 先分组再应用 \(f\)：叶子 \(r\) 位置 \(j\) 得到 \(f(x_{r+jk})\)
+      \item 先应用 \(f\) 再分组：\(f^{\oplus N}(x)\) 的位置 \(r+jk\) 是 \(f(x_{r+jk})\)，分组后叶子 \(r\) 位置 \(j\) 也是 \(f(x_{r+jk})\)
+    \end{itemize}
+    
+    两个路径在每个坐标上都一致。\(\square\)
+  \end{proof}
+  
+  \begin{alertblock}{关键洞察}
+    这个引理 \textbf{不要求 \(f\) 是线性、加法或乘法的}。\\
+    它只要求余类分组 \(\Pi_k\) 不含未归一化的坐标依赖缩放。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{CKKS 实例化：三个兼容性引理}
+  \begin{lemma}[引理 4.3: Split-C2S]
+    \[
+    \boxed{\left(\bigoplus_{r=0}^{k-1} \cots_n\right) \circ \splitop_k = \Pi_k \circ \cots_N}
+    \]
+  \end{lemma}
+  
+  \pause
+  
+  \begin{lemma}[引理 4.4: EvalMod 兼容性]
+    若大环和叶子环使用同一标量 EvalMod 近似 \(f\)，则：
+    \[
+    \boxed{\left(\bigoplus_{r=0}^{k-1} \evalmod_n\right) \circ \Pi_k = \Pi_k \circ \evalmod_N}
+    \]
+  \end{lemma}
+  
+  \pause
+  
+  \begin{lemma}[引理 4.5: S2C-Merge 兼容性]
+    \[
+    \boxed{\mergeop_k \circ \left(\bigoplus_{r=0}^{k-1} \stoc_n\right) \circ \Pi_k = \stoc_N}
+    \]
+  \end{lemma}
+\end{frame}
+
+\begin{frame}{主定理 4.6：CKKS 核心因式分解}
+  \begin{theorem}[定理 4.6]
+    在理想归一化消息层模型下：
+    \[
+    \boxed{\stoc_N \circ \evalmod_N \circ \cots_N
+    = \mergeop_k \circ \left(\bigoplus_{r=0}^{k-1}
+    \stoc_n \circ \evalmod_n \circ \cots_n
+    \right) \circ \splitop_k}
+    \]
+  \end{theorem}
+  
+  \pause
+  
+  \begin{proof}[证明思路]
+    定理 4.1 中取：
+    \begin{align*}
+      L^{(1)} &= \cots, \quad \Phi = \evalmod, \quad L^{(2)} = \stoc
+    \end{align*}
+    三条件恰为引理 4.3、4.4、4.5。代入即得。\(\square\)
+  \end{proof}
+  
+  \begin{center}
+    \alert{一个理想层的等式——实现需要另行控制误差}
+  \end{center}
+\end{frame}
+
+\begin{frame}{加入预处理：完整因式分解}
+  \begin{block}{预处理定义}
+    \(\preop_d = \mrop_d \circ \sdop_d\)
+    
+    \(\sdop_d\) 的作用：公开归一化，\(\mathbf{ct} \vDashsym \Delta P \Longrightarrow \sdop(\mathbf{ct}) \vDashsym \Delta'\! \rho P\)
+    
+    \(\mrop_d\) 的作用：模数提升（理想层不变消息）
+  \end{block}
+  
+  \pause
+  
+  \begin{block}{预处理与拆分的兼容性 (Eq 4)}
+    \[
+    \boxed{\left(\bigoplus_{r=0}^{k-1} \preop_n\right) \circ \splitop_k = \splitop_k \circ \preop_N}
+    \]
+    因为 \(\rho P(X) = \sum_r X^r (\rho P_r)(X^k)\)（同一缩放因子 \(\rho\)）。
+  \end{block}
+  
+  \pause
+  定义完整自举映射 \(\bts_d = \stoc_d \circ \evalmod_d \circ \cots_d \circ \preop_d\)，则：
+  \[
+  \boxed{\bts_N = \mergeop_k \circ \left(\bigoplus_{r=0}^{k-1} \bts_n\right) \circ \splitop_k} \quad\text{(Eq 5)}
+  \]
+\end{frame}
+
+\begin{frame}{三条实现路线的语义对比}
+  \begin{block}{推荐：Split-first 全叶子预处理}
+    \[
+    \alert{\splitop \to \bigoplus_r \sdop_n \to \bigoplus_r \mrop_n \to \bigoplus_r \cots_n \to \bigoplus_r \evalmod_n \to \bigoplus_r \stoc_n \to \mergeop}
+    \]
+    \(\sdop_n\) 和 \(\mrop_n\) 作为配对预处理放在叶子环内。实验表明\textbf{精度显著优于混合路线}。
+  \end{block}
+  
+  \pause
+  
+  \begin{block}{对比：旧路线 (Top 预处理)}
+    \[
+    \sdop_N \to \mrop_N \to \splitop \to \bigoplus_r \cots_n \to \cdots
+    \]
+    预处理开销留在大环，违背分解目的。
+  \end{block}
+  
+  \begin{block}{对比：混合路线 (仅 ModRaise 移到叶子)}
+    \[
+    \sdop_N \to \splitop \to \bigoplus_r \mrop_n \to \cdots
+    \]
+    \alert{输出精度崩溃（0.96 bits）}——Leaf EvalMod 的归一化预期被破坏！
+  \end{block}
+\end{frame}
+
+% ============================================================
+% PART IV: 实现与实验
+% ============================================================
+\section{实现与实验}
+
+\begin{frame}[fragile]{实现架构：leafBootstrapper 接口}
+  \begin{block}{Go 接口定义}
+    \begin{verbatim}
+type leafBootstrapper interface {
+    ScaleDown(*rlwe.Ciphertext) (*rlwe.Ciphertext, error)
+    ModUp(*rlwe.Ciphertext) (*rlwe.Ciphertext, error)
+    CoeffsToSlots(*rlwe.Ciphertext) (*rlwe.Ciphertext, error)
+    EvalMod(*rlwe.Ciphertext) (*rlwe.Ciphertext, error)
+    SlotsToCoeffs(*rlwe.Ciphertext) (*rlwe.Ciphertext, error)
+    MaxBootLevel() int
+}
+    \end{verbatim}
+  \end{block}
+  
+  \pause
+  
+  \begin{itemize}
+    \item 当前实现：\texttt{lattigoLeafBootstrapper}（标准 Lattigo CKKS Bootstrapping）
+    \item 新增实现：\texttt{anyuLeafBootstrapper}（subKey Bootstrapping）
+    \item 叶子引擎完全可替换——定理不绑定具体 Bootstrapping 实现
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{目标 Workload：容量驱动而非深度驱动}
+  \begin{block}{适用条件}
+    \begin{enumerate}
+      \item 容量条件：\(S(n) < M \le S(N)\)，\(N = kn\)
+      \item 深度条件：\(D_{\mathrm{cycle}} \le L(Q_{\mathrm{leaf}})\)
+    \end{enumerate}
+    大环因 \textbf{packing 容量} 而选择，不是因深度。
+  \end{block}
+  
+  \pause
+  
+  \begin{exampleblock}{典型场景}
+    \begin{itemize}
+      \item 批量 SIMD 推理：\(M = B \cdot F\)（批量大小 \(\times\) 特征数）
+      \item 数据库聚合：\(M = R \cdot a\)（记录数 \(\times\) 每记录 slots）
+      \item 大向量分析：\(M = G \cdot p\)（独立任务数 \(\times\) 每任务维度）
+    \end{itemize}
+  \end{exampleblock}
+  
+  \pause
+  
+  \begin{alertblock}{什么时候不适合？}
+    深度驱动的 workload（\(D_{\mathrm{cycle}} > L(Q_{\mathrm{leaf}})\)），
+    降低模数会导致自举频率增加抵消每自举节省的时间。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{安全计账}
+  \begin{block}{方案安全 = 最弱 RLWE 实例}
+    \[
+    \lambda_{\mathrm{scheme}} = \min\{
+    \lambda(N, Q_{\mathrm{top}}, P_{\mathrm{top}}),
+    \lambda(n, Q_{\mathrm{leaf}}, P_{\mathrm{leaf}}),
+    \lambda_{\mathrm{rs/ks}}
+    \}
+    \]
+  \end{block}
+  
+  \pause
+  
+  \begin{alertblock}{关键要点}
+    拆分后叶子密文和叶子密钥暴露在维度 \(n\) 下。\\
+    \textbf{安全瓶颈在叶子环，不在大环！}大环的安全余量不能掩盖不安全的叶子。
+  \end{alertblock}
+  
+  \pause
+  
+  \begin{block}{128-bit 安全参考表（工作估值）}
+    \begin{center}
+    \begin{tabular}{@{}cc@{}}
+      \toprule
+      \(\log N\) & \(\log(PQ)\) 参考上限 \\
+      \midrule
+      15 (\(N=2^{15}\)) & \(\approx 868\) \\
+      16 (\(N=2^{16}\)) & \(\approx 1747\) \\
+      17 (\(N=2^{17}\)) & \(\approx 3523\) \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{block}
+\end{frame}
+
+\begin{frame}{噪声与正确性预算}
+  \begin{block}{总误差分解}
+    \[
+    \boxed{e_{\mathrm{out}} = e_{\mathrm{enc}} + e_{\mathrm{split}} + e_{\mathrm{sd}} + e_{\mathrm{mr}} + e_{\mathrm{\cots}} + e_{\mathrm{\evalmod}} + e_{\mathrm{\stoc}} + e_{\mathrm{merge}}}
+    \]
+  \end{block}
+  
+  \pause
+  
+  \begin{block}{正确性条件}
+    \[
+    \|e_{\mathrm{out}}\| \ll \Delta_{\mathrm{out}}, \qquad \|\Delta m + e\| < Q/2
+    \]
+  \end{block}
+  
+  \pause
+  
+  \begin{block}{精度公式}
+    \[
+    E \approx 2^{-p} \quad\text{（\(p\) 为 L1 precision in bits）}
+    \]
+  \end{block}
+  
+  \begin{itemize}
+    \item 安全要求拉低 \(Q\) —— 增加 RLWE 安全性
+    \item 正确性要求拉高 \(Q\) —— 减少模数溢出风险
+    \item \alert{安全与精度是双向拉锯}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{实验历程：subKey 集成三步走}
+  \begin{enumerate}
+    \item \textbf{Galois Key 缺失}：subKey 的 CtS 需要特殊旋转密钥
+    \[
+    \Longrightarrow \text{生成 subring CtS 专用 Galois keys，挂到 evaluator}
+    \]
+    
+    \pause
+    \item \textbf{精度崩溃 → 负数 bits}：CtS 第一段折叠深度不对
+    \[
+    \text{leaf CtS depth} = \frac{2^{\mathrm{leafLogN}}}{2^{\mathrm{subringLogN}}}
+    \begin{cases}
+      2^{15}/2^{12} = 2^3 = 3 & (\text{top}=16)\\
+      2^{16}/2^{12} = 2^4 = 4 & (\text{top}=17)
+    \end{cases}
+    \]
+    \(\Longrightarrow\) 加入 ManualDepthSplit 自动修正
+    
+    \pause
+    \item \textbf{模数链对齐}：leaf Q/P basis \(\equiv\) top Q/P basis（exact-basis 设计）
+    \[
+    \Longrightarrow \text{split/merge 与 leaf Bootstrapping 的 modulus 完全兼容}
+    \]
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{top=16 → leaf=15 参数搜索}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}cccccc@{}}
+      \toprule
+      配置 & \(\log Q\) & \(\log QP\) & 精度 & 时间 & 判定 \\
+      \midrule
+      default lowq & 868 & 929 & 16.16 & 6.73s & 基准 \\
+      Eval56 CtS46 & 866 & 927 & \alert{16.42} & 6.55s & \(\uparrow\) \\
+      \alert{Eval56 StC26 CtS50} & 866 & 927 & \alert{16.74} & 6.59s & \textbf{最优} \\
+      Eval57 CtS43 & 867 & 928 & 13.77 & 6.69s & CtS太低 \\
+      Eval60 CtS33 & 867 & 928 & 3.77 & 6.62s & 明显失败 \\
+      StC23 CtS50 & 867 & 928 & 14.02 & 6.02s & StC太低 \\
+      subringLogN=13 & 868 & 929 & -5.52 & 8.03s & 失败 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  
+  \pause
+  
+  \begin{itemize}
+    \item CtS 不能压太低（< 46 即恶化）
+    \item StC 可以从 30 降到 26，但不能到 23
+    \item 安全裕量：\(\log QP = 927\) vs 参考 868 \(\rightarrow\) \alert{约 -59 bits}
+    \item 结论：工程可行，安全叙事不干净，不适合主推
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{top=17 → leaf=16 主参数}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}lcccccc@{}}
+      \toprule
+      配置 & \(\log Q\) & \(\log QP\) & 层数 & 精度 & 时间 & 安全 \\
+      \midrule
+      lowq tuned & 866 & 927 & 1 & 15.47 & 45.7s & +820 \\
+      lowq default & 868 & 929 & 1 & 14.64 & 43.0s & +818 \\
+      \alert{i1 default} & 1425 & 1730 & 15 & \alert{19.40} & 52.0s & \alert{+17} \\
+      i1 CtS=55 & 1434 & 1739 & 15 & 19.42 & 50.5s & +8 \\
+      i1 d255 & 1415 & 1720 & 13 & 19.39 & 45.3s & +27 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  
+  \pause
+  
+  \begin{alertblock}{主推：i1 default}
+    \begin{center}
+    \textbf{top \(\log N=17\), leaf \(\log N=16\), layers=1}\\
+    \(\log Q = 1425\), \(\log QP = 1730 \;\text{(参考 1747, 裕量 +17)}\)
+    \end{center}
+  \end{alertblock}
+  
+  \begin{itemize}
+    \item 叶子正好是 \(2^{16} \to 2^{12}\) subKey 设置（接近 Wang 2025 原文设置）
+    \item CtS=55 只提升 0.02 bits 但吃掉 9 bits 安全裕量 → 不值得
+    \item Mod1Degree=255 没提升精度且减少 2 层输出
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{完整对照实验：四种方法 (I1)}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}lcccccc@{}}
+      \toprule
+      方法 & 拆分 & subKey & \(\log QP\) & 安全 & 精度 & 时间 \\
+      \midrule
+      \alert{组合方案} & \alert{是} & \alert{是} & 1730 & +17 & \alert{19.40} & \alert{52.0s} \\
+      只有拆分 & 是 & 否 & 1696 & +51 & 20.47 & 63.2s \\
+      只有 subKey & 否 & 是 & 1730 & +1793 & 18.61 & 135.1s \\
+      直接 baseline & 否 & 否 & 1696 & +1827 & 20.87 & 143.3s \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  
+  \pause
+  
+  \begin{block}{加速比}
+    \begin{itemize}
+      \item vs 直接 baseline: \(143.3 / 52.0 \approx \alert{2.75\times}\)
+      \item vs 只有 subKey: \(135.1 / 52.0 \approx \alert{2.60\times}\)
+      \item vs 只有拆分: \(63.2 / 52.0 \approx \alert{1.21\times}\)
+    \end{itemize}
+  \end{block}
+  
+  \begin{itemize}
+    \item 组合方案 = 外部分解加速 \(+\) 内部 subKey 加速（叠加！）
+    \item subKey 替换叶子普通 Bootstrapping 带来 \(1.21\times\) 额外加速，牺牲约 1 bit 精度
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{top=17 对照实验：大表总览}
+  \begin{center}
+    \begin{tabular}{@{}llccccccc@{}}
+      \toprule
+      \# & 方法 & 分类 & \(\log Q\) & \(\log QP\) & 安全 & 层数 & 精度 & 时间 \\
+      \midrule
+      \alert{1} & \alert{组合·i1} & \alert{主推} & 1425 & 1730 & +17 & 15 & \alert{19.40} & 52.0s \\
+      2 & 组合·CtS55 & 对比 & 1434 & 1739 & +8 & 15 & 19.42 & 50.5s \\
+      3 & 组合·d255 & 对比 & 1415 & 1720 & +27 & 13 & 19.39 & 45.3s \\
+      4 & 只拆分 & 对照 & 1391 & 1696 & +51 & 15 & 20.47 & 63.2s \\
+      5 & 只 subKey & 对照 & 1425 & 1730 & +1793 & 15 & 18.61 & 135.1s \\
+      6 & 直接 baseline & 基线 & 1391 & 1696 & +1827 & 15 & 20.87 & 143.3s \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  
+  \vspace{0.2cm}
+  
+%   \begin{center}
+%     \begin{tikzpicture}[scale=0.65]
+%       \draw[->, thick, myblue] (0,0) -- (0,4) node[above] {加速比};
+%       \draw[->, thick, myblue] (0,0) -- (8,0) node[right] {精度};
+%       \node[draw, fill=myred!10, circle, minimum size=0.7cm] at (2.0, 2.75) {\tiny 基线};
+%       \node[draw, fill=myblue!10, circle, minimum size=0.7cm] at (3.2, 2.6) {\tiny subKey};
+%       \node[draw, fill=mygreen!10, circle, minimum size=0.7cm] at (4.5, 2.3) {\tiny 拆分};
+%       \node[draw, fill=myteal!20, circle, minimum size=0.75cm] at (5.8, 3.5) {\tiny \alert{组合}};
+%     \end{tikzpicture}
+%   \end{center}
+\end{frame}
+
+\begin{frame}{top=16 对照实验}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}lcccccc@{}}
+      \toprule
+      方法 & \(\log QP\) & 安全 & 精度 & 时间 & 备注 \\
+      \midrule
+      组合方案 & 927 & -59 & \alert{16.74} & 6.59s & 工程可行 \\
+      只有拆分 & 960 & -92 & 失败 & -- & 条件不满足 \\
+      只有 subKey & 927 & +820 & 15.92 & 32.9s & \\
+      直接 baseline & 960 & +787 & 21.97 & 60.9s & \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  
+  \pause
+  
+  \begin{alertblock}{top=16 的教训}
+    \begin{itemize}
+      \item 组合方案加速比惊人：vs baseline \(\approx 9.2\times\)，vs subKey \(\approx 5.0\times\)
+      \item 但 leaf15 安全裕量为负（\(\log QP = 927 > 868\)）
+      \item only-split 路线在 top=16 下不稳定（split-first 失败，旧路线归一化不对）
+      \item \textbf{结论：适合作为工程验证，不适合作为论文安全参数}
+    \end{itemize}
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{AnyuWang subKey 模数链}
+  \begin{block}{特殊模数布局}
+    \[
+    \boxed{q_0 \parallel Q_{\mathrm{circuit}} \parallel Q_{\mathrm{StC}} \parallel Q_{\mathrm{EvalMod}} \parallel Q_{\mathrm{CtS}}}
+    \]
+  \end{block}
+  
+  \pause
+  
+  \begin{table}[h]
+    \centering
+    \small
+    \begin{tabular}{@{}ll@{}}
+      \toprule
+      参数 & 默认值 (I1) \\
+      \midrule
+      \(\log(\text{default scale})\) & 35 \\
+      \(q_0\) & [45] \\
+      \(Q_{\mathrm{StC}}\) & [35, 35, 35] (3 primes) \\
+      \(Q_{\mathrm{EvalMod}}\) & \(\text{EvalModLevels} \times\) [60] \\
+      \(Q_{\mathrm{CtS}}\) & [60, 60, 60, 60] (4 primes) \\
+      \(P_{\mathrm{bootstrap}}\) & [61, 61, 61, 61, 61] (5 primes) \\
+      \(\mathrm{Mod1Degree}\) & 127 \\
+      \(\mathrm{DoubleAngle}\) & 3 \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  
+  \[
+  \mathrm{EvalModLevels} = \lceil\log_2(\mathrm{Mod1Degree})\rceil + \mathrm{DoubleAngle}
+  \]
+\end{frame}
+
+% ============================================================
+% PART V: 总结与展望
+% ============================================================
+\section{总结与展望}
+
+\begin{frame}{当前最好结果}
+  \begin{block}{主推参数}
+    \[
+    \boxed{\text{top } \log N=17,\; \text{leaf } \log N=16,\; \text{layers}=1,\; \text{I1 profile}}
+    \]
+  \end{block}
+  
+  \begin{center}
+    \small
+    \begin{tabular}{@{}lc@{}}
+      \toprule
+      指标 & 数值 \\
+      \midrule
+      安全参考 (\(\log QP\)) & 1747 \\
+      实际 \(\log QP\) & 1730 \\
+      安全裕量 & \alert{+17 bits} \\
+      输出计算层 & 15 \\
+      平均 L1 精度 & \alert{19.40 bits} \\
+      运行时间 & 52.0s \\
+      vs 直接 baseline 加速 & \alert{2.75\(\times\)} \\
+      vs 只有 subKey 加速 & \alert{2.60\(\times\)} \\
+      vs 只有拆分加速 & \alert{1.21\(\times\)} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}{方法边界：什么时候用？}
+  \begin{block}{适用场景}
+    \begin{itemize}
+      \item 大环因 \textbf{packing 容量} 而选择（\(S(n) < M \le S(N)\)）
+      \item 刷新周期深度在叶子安全模数预算内（\(D_{\mathrm{cycle}} \le L(Q_{\mathrm{leaf}})\)）
+      \item 需要保持单一大环密文布局
+    \end{itemize}
+  \end{block}
+  
+  \pause
+  
+  \begin{alertblock}{不适用场景}
+    \begin{itemize}
+      \item 深度驱动的 workload（降低模数会增加自举频率）
+      \item 没有容量需求，多个小环密文自然够用
+      \item \(B(Q_{\mathrm{leaf}}) \cdot T_{\mathrm{boot}}^{\mathrm{split}} > B(Q_{\mathrm{top}}) \cdot T_{\mathrm{boot}}^{\mathrm{direct}}\)
+    \end{itemize}
+  \end{alertblock}
+  
+  \[
+  \boxed{B(Q_{\mathrm{leaf}}) \cdot T_{\mathrm{boot}}^{\mathrm{split}} < B(Q_{\mathrm{top}}) \cdot T_{\mathrm{boot}}^{\mathrm{direct}}} \quad\text{(收益条件)}
+  \]
+\end{frame}
+
+\begin{frame}{下一步工作}
+  \begin{enumerate}
+    \item \textbf{重复实验}：对第一名参数多次运行，统计均值与方差
+    
+    \item \textbf{Stage trace}：定位剩余约 2 bits 精度损失的具体来源
+    \[
+    e_{\mathrm{out}} = e_{\mathrm{enc}} + e_{\mathrm{split}} + e_{\mathrm{sd}} + e_{\mathrm{mr}} + e_{\mathrm{\cots}} + e_{\mathrm{\evalmod}} + e_{\mathrm{\stoc}} + e_{\mathrm{merge}}
+    \]
+    
+    \item \textbf{内存统计}：增加 evaluation key size 和内存占用报告
+    
+    \item \textbf{安全核算}：用正式 LWE estimator 替换当前的参考值
+    
+    \item \textbf{论文定稿}：将实验数据写入 Section 5 的最终版本
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{核心贡献总结}
+  \begin{enumerate}
+    \item \textbf{语义洞察}：CKKS 自举核心需要的是 C2S 后的 coefficient-packed slots，不是原始 canonical slots。系数拆分恰好保持了 coefficient-packed 坐标的余类分组结构。
+    
+    \pause
+    \item \textbf{形式化证明}：建立了抽象 Sandwich 因式分解框架（Theorem 4.1），并在 CKKS 上证明了完整因式分解（Theorem 4.6），不需要 \(B_k\) 槽恢复变换。
+    
+    \pause
+    \item \textbf{工程实现}：实现了 leafBootstrapper 接口，验证了 split-first 全叶子预处理路线的正确性。
+    
+    \pause
+    \item \textbf{组合加速}：成功将 no-\(B_k\) 外部分解与 subKey (AnyuWang 2025) 内层自举叠加，本地实验获得约 \(2.75\times\) 总加速比。
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}[plain]
+  \centering
+  \vspace{2cm}
+  {\Huge 谢谢！}\\[1cm]
+  {\Large 欢迎提问}\\[2cm]
+  
+  \begin{itemize}
+    \item 代码：\texttt{ckks-subring-compression/5-7/}
+    \item 论文草案：\texttt{Section2-4\_整合版草案.md}
+    \item 实验报告：\texttt{最新\_LEAF\_EXPERIMENT\_REPORT.md}
+  \end{itemize}
+\end{frame}
+
+% ============================================================
+% 附录：备份公式
+% ============================================================
+\appendix
+\begin{frame}[allowframebreaks]{附录：完整公式参考}
+  \small
+  \begin{enumerate}
+    \item 环：\(\ringR_d = \ringC[X]/(X^d+1)\), \(\ringR_{q,d} = \ringZ_q[X]/(X^d+1)\)
+    \item 语义：\(\mathbf{ct} \vDashsym_{d,\Delta,s} P(X)\)
+    \item 典范嵌入：\(\can_d : \ringR_d \to \canSpace_d\)
+    \item 系数向量：\(\coeffvec_d(P) = (a_0,\ldots,a_{d-1})\)
+    \item C2S：\(\cots_d = \coeffvec_d \circ \can_d^{-1}\)
+    \item S2C：\(\stoc_d = \can_d \circ \coeffvec_d^{-1}\)
+    \item EvalMod：\(\evalmod_d = f^{\oplus d}\)
+    \item 子环分解：\(P(X) = \sum_{r=0}^{k-1} X^r P_r(X^k)\)
+    \item 余类分组：\(\Pi_k p = (S_0 p, \ldots, S_{k-1} p)\)
+    \item CoeﬀSplit：\(\operatorname{CoeffSplit}_k(P) = (P_0,\ldots,P_{k-1})\)
+    \item Split 语义：\(\mathbf{ct}_N \mapsto (\mathbf{ct}_{n,0},\ldots,\mathbf{ct}_{n,k-1})\)
+    \item 纤维：\(\pi(\alpha) = \alpha^k\), \(\pi^{-1}(\theta) = \{\alpha : \alpha^k = \theta\}\)
+    \item 纤维内关系：\(P(\alpha) = \sum_{r=0}^{k-1} \alpha^r P_r(\theta)\)
+    \item \(B_k\)：\((B_k u)_t(\theta) = \sum_{r=0}^{k-1} \alpha_t(\theta)^r u_r(\theta)\)
+    \item 核心不变式：\((\coeffvec_n(P_0),\ldots) = \Pi_k \coeffvec_N(P)\)
+    \item 算子等式：\((\bigoplus_r \cots_n) \circ \splitop_k = \Pi_k \circ \cots_N\)
+    \item Thm 4.1：\(F_N = \mergeop \circ (\bigoplus_r F_n) \circ \splitop\)
+    \item 条件(1)：\((\bigoplus_r L_n^{(1)}) \circ \splitop = \Pi \circ L_N^{(1)}\)
+    \item 条件(2)：\((\bigoplus_r \Phi_n) \circ \Pi = \Pi \circ \Phi_N\)
+    \item 条件(3)：\(\mergeop \circ (\bigoplus_r L_n^{(2)}) \circ \Pi = L_N^{(2)}\)
+    \item Lemma 4.2：\((\bigoplus_r f^{\oplus n}) \circ \Pi_k = \Pi_k \circ f^{\oplus N}\)
+    \item Lemma 4.3：\((\bigoplus_r \cots_n) \circ \splitop_k = \Pi_k \circ \cots_N\)
+    \item Lemma 4.4：\((\bigoplus_r \evalmod_n) \circ \Pi_k = \Pi_k \circ \evalmod_N\)
+    \item Lemma 4.5：\(\mergeop_k \circ (\bigoplus_r \stoc_n) \circ \Pi_k = \stoc_N\)
+    \item Thm 4.6：\(\stoc_N\circ\evalmod_N\circ\cots_N = \mergeop_k \circ (\bigoplus_r \stoc_n\circ\evalmod_n\circ\cots_n) \circ \splitop_k\)
+    \item \(\preop_d = \mrop_d \circ \sdop_d\)
+    \item Eq(4)：\((\bigoplus_r \preop_n) \circ \splitop_k = \splitop_k \circ \preop_N\)
+    \item \(\bts_d = \stoc_d \circ \evalmod_d \circ \cots_d \circ \preop_d\)
+    \item Eq(5)：\(\bts_N = \mergeop_k \circ (\bigoplus_r \bts_n) \circ \splitop_k\)
+    \item 容量条件：\(S(n) < M \le S(N)\), \(N = kn\)
+    \item 深度条件：\(D_{\mathrm{cycle}} \le L(Q_{\mathrm{leaf}})\)
+    \item 安全：\(\lambda_{\mathrm{scheme}} = \min(\lambda_{\mathrm{top}}, \lambda_{\mathrm{leaf}}, \lambda_{\mathrm{rs/ks}})\)
+    \item 噪声：\(e_{\mathrm{out}} = e_{\mathrm{enc}} + \cdots + e_{\mathrm{merge}}\)
+    \item 代价：\(T_{\mathrm{op}} \approx C \cdot d\log d \cdot \#\mathrm{primes}(Q)\)
+    \item 收益条件：\(B(Q_{\mathrm{leaf}})\cdot T^{\mathrm{split}} < B(Q_{\mathrm{top}})\cdot T^{\mathrm{direct}}\)3
+    \item CtS深度：\(\text{depth} = 2^{\mathrm{leafLogN}} / 2^{\mathrm{subringLogN}}\)
+    \item EvalMod层数：\(\lceil\log_2(\mathrm{Mod1Degree})\rceil + \mathrm{DoubleAngle}\)
+    \item 安全参考：\(\log N=15\to868\), \(16\to1747\), \(17\to3523\)
+  \end{enumerate}
+\end{frame}
+
+\end{document}

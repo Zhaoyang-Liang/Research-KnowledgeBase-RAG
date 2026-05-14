@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"math"
-	"math/cmplx"
 	"os"
+	"math/cmplx"
 	"runtime"
 	"sync"
 	"time"
@@ -130,16 +130,10 @@ func bench(name string, warmup, reps int, f func() error) benchResult {
 type ExpConfig struct {
 	// Secret key Hamming weight. 0 = uniform ternary (P=2/3), i.e. AnyuWang-style dense secret.
 	H int
-	// Bit-size of the first residual Q prime.
-	Q0Bits int
-	// Number of circuit primes in LogQ.
+	// Number of 35-bit "circuit" primes in LogQ (output levels available after bootstrapping).
 	CircuitLevels int
-	// Bit-size of each circuit prime in LogQ.
-	CircuitPrimeBits int
 	// Number of 61-bit P primes for key switching.
 	NumP int
-	// Default CKKS scale bit-size.
-	DefaultScaleBits int
 }
 
 // Xs returns the ring.Ternary matching this config.
@@ -150,12 +144,12 @@ func (c ExpConfig) Xs() ring.Ternary {
 	return ring.Ternary{H: c.H}
 }
 
-// logQI builds the residual LogQ slice: [q0] + CircuitLevels circuit primes.
+// logQI builds the full LogQ slice: [q0=45] + CircuitLevels×[35].
 func (c ExpConfig) logQI() []int {
 	q := make([]int, 1+c.CircuitLevels)
-	q[0] = c.Q0Bits
+	q[0] = 45
 	for i := 1; i <= c.CircuitLevels; i++ {
-		q[i] = c.CircuitPrimeBits
+		q[i] = 35
 	}
 	return q
 }
@@ -174,7 +168,7 @@ func makeResidualParams(logN int, cfg ExpConfig) ckks.Parameters {
 		LogN:            logN,
 		LogQ:            cfg.logQI(),
 		LogP:            cfg.logPI(),
-		LogDefaultScale: cfg.DefaultScaleBits,
+		LogDefaultScale: 35,
 		Xs:              cfg.Xs(),
 	})
 	if err != nil {
@@ -204,6 +198,24 @@ func makeBootstrappingParams(logN int, cfg ExpConfig) (ckks.Parameters, bootstra
 	return params, btpParams
 }
 
+func copyQ(params ckks.Parameters) []uint64 {
+	rq := params.RingQ()
+	q := make([]uint64, len(rq.SubRings))
+	for i := range rq.SubRings {
+		q[i] = rq.SubRings[i].Modulus
+	}
+	return q
+}
+
+func copyP(params ckks.Parameters) []uint64 {
+	rp := params.RingP()
+	p := make([]uint64, len(rp.SubRings))
+	for i := range rp.SubRings {
+		p[i] = rp.SubRings[i].Modulus
+	}
+	return p
+}
+
 func copyQPrefix(params ckks.Parameters, count int) []uint64 {
 	rq := params.RingQ()
 	if count <= 0 || count > len(rq.SubRings) {
@@ -228,6 +240,20 @@ func copyPPrefix(params ckks.Parameters, count int) []uint64 {
 	return p
 }
 
+func makeParamsFromExactBasis(template ckks.Parameters, logN int) ckks.Parameters {
+	params, err := ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
+		LogN:            logN,
+		Q:               copyQ(template),
+		P:               copyP(template),
+		LogDefaultScale: template.LogDefaultScale(),
+		Xs:              template.Xs(),
+	})
+	if err != nil {
+		panic(fmt.Errorf("makeParamsFromExactBasis failed: %w", err))
+	}
+	return params
+}
+
 func makeParamsFromPrefixBasis(template ckks.Parameters, logN, qCount, pCount int) ckks.Parameters {
 	params, err := ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
 		LogN:            logN,
@@ -240,6 +266,86 @@ func makeParamsFromPrefixBasis(template ckks.Parameters, logN, qCount, pCount in
 		panic(fmt.Errorf("makeParamsFromPrefixBasis failed: %w", err))
 	}
 	return params
+}
+
+func sameRingBasisSilent(a, b ckks.Parameters) bool {
+	aQ := a.RingQ()
+	bQ := b.RingQ()
+	if len(aQ.SubRings) != len(bQ.SubRings) {
+		return false
+	}
+	for i := range aQ.SubRings {
+		if aQ.SubRings[i].Modulus != bQ.SubRings[i].Modulus {
+			return false
+		}
+	}
+
+	aP := a.RingP()
+	bP := b.RingP()
+	if len(aP.SubRings) != len(bP.SubRings) {
+		return false
+	}
+	for i := range aP.SubRings {
+		if aP.SubRings[i].Modulus != bP.SubRings[i].Modulus {
+			return false
+		}
+	}
+	return true
+}
+
+func reportSameRingBasis(name string, top, leaf ckks.Parameters) bool {
+	ok := true
+	topQ := top.RingQ()
+	leafQ := leaf.RingQ()
+
+	fmt.Println()
+	fmt.Println("=== Ring-basis compatibility check ===")
+	fmt.Printf("%s\n", name)
+	fmt.Printf("top LogN=%d, leaf LogN=%d\n", top.LogN(), leaf.LogN())
+	fmt.Printf("Q count: top=%d, leaf=%d\n", len(topQ.SubRings), len(leafQ.SubRings))
+
+	if len(topQ.SubRings) != len(leafQ.SubRings) {
+		ok = false
+		fmt.Println("Q count mismatch.")
+	} else {
+		for i := range topQ.SubRings {
+			qa := topQ.SubRings[i].Modulus
+			qb := leafQ.SubRings[i].Modulus
+			same := qa == qb
+			if !same {
+				ok = false
+			}
+			if i < 8 || i >= len(topQ.SubRings)-8 || !same {
+				fmt.Printf("Q[%02d]: top=%d leaf=%d same=%v\n", i, qa, qb, same)
+			}
+		}
+	}
+
+	topP := top.RingP()
+	leafP := leaf.RingP()
+	fmt.Printf("P count: top=%d, leaf=%d\n", len(topP.SubRings), len(leafP.SubRings))
+
+	if len(topP.SubRings) != len(leafP.SubRings) {
+		ok = false
+		fmt.Println("P count mismatch.")
+	} else {
+		for i := range topP.SubRings {
+			pa := topP.SubRings[i].Modulus
+			pb := leafP.SubRings[i].Modulus
+			same := pa == pb
+			if !same {
+				ok = false
+			}
+			fmt.Printf("P[%02d]: top=%d leaf=%d same=%v\n", i, pa, pb, same)
+		}
+	}
+
+	if ok {
+		fmt.Println("Ring-basis check: PASS. Top and leaf Q/P moduli match exactly.")
+	} else {
+		fmt.Println("Ring-basis check: FAIL. Top and leaf Q/P moduli do not match.")
+	}
+	return ok
 }
 
 func reportRingBasisPrefix(name string, top, leaf ckks.Parameters) bool {
@@ -268,20 +374,12 @@ func reportRingBasisPrefix(name string, top, leaf ckks.Parameters) bool {
 
 	topP := top.RingP()
 	leafP := leaf.RingP()
-	topPCount := 0
-	leafPCount := 0
-	if topP != nil {
-		topPCount = len(topP.SubRings)
-	}
-	if leafP != nil {
-		leafPCount = len(leafP.SubRings)
-	}
-	fmt.Printf("P count: top=%d, leaf=%d\n", topPCount, leafPCount)
+	fmt.Printf("P count: top=%d, leaf=%d\n", len(topP.SubRings), len(leafP.SubRings))
 
-	if leafPCount > topPCount {
+	if len(leafP.SubRings) > len(topP.SubRings) {
 		ok = false
 		fmt.Println("P prefix check: FAIL. Leaf has more P primes than top.")
-	} else if leafP != nil {
+	} else {
 		for i := range leafP.SubRings {
 			pa := topP.SubRings[i].Modulus
 			pb := leafP.SubRings[i].Modulus
@@ -1140,8 +1238,7 @@ func runSplitMergeRoundtrip(
 
 // printBootstrapDebug prints precision statistics in AnyuWang 2025 output format.
 // divK: divide decoded test values by this factor before comparison
-//
-//	(use 1.0 for no scaling; use float64(k) for the factored DIV-K comparison).
+//       (use 1.0 for no scaling; use float64(k) for the factored DIV-K comparison).
 func printBootstrapDebug(
 	params ckks.Parameters,
 	ct *rlwe.Ciphertext,
@@ -1188,92 +1285,28 @@ func printBootstrapDebug(
 	return
 }
 
-func securityLogQPLimit128(logN int) (float64, bool) {
-	switch logN {
-	case 15:
-		return 868, true
-	case 16:
-		return 1747, true
-	case 17:
-		return 3523, true
-	default:
-		return 0, false
-	}
-}
-
-func printParamDryRun(logN, layers int, cfg, leafCfg ExpConfig) {
-	_, btpTop := makeBootstrappingParams(logN, cfg)
-	paramsTop := btpTop.BootstrappingParameters
-
-	leafLogN := logN - layers
-	_, leafBtpParams := makeBootstrappingParams(leafLogN, leafCfg)
-	leafTemplateParams := leafBtpParams.BootstrappingParameters
-	leafParams := makeParamsFromPrefixBasis(paramsTop, leafLogN, leafTemplateParams.QCount(), leafTemplateParams.PCount())
-
-	fmt.Println("=== Parameter dry run ===")
-	fmt.Printf("top:  logN=%d N=%d qCount=%d pCount=%d logQ=%.1f logQP=%.1f\n",
-		paramsTop.LogN(),
-		1<<uint(paramsTop.LogN()),
-		paramsTop.QCount(),
-		paramsTop.PCount(),
-		paramsTop.LogQ(),
-		paramsTop.LogQP())
-	fmt.Printf("leaf: logN=%d N=%d qCount=%d pCount=%d logQ=%.1f logQP=%.1f\n",
-		leafParams.LogN(),
-		1<<uint(leafParams.LogN()),
-		leafParams.QCount(),
-		leafParams.PCount(),
-		leafParams.LogQ(),
-		leafParams.LogQP())
-	fmt.Printf("leaf config: q0Bits=%d circuitLevels=%d circuitPrimeBits=%d numP=%d defaultScale=%d\n",
-		leafCfg.Q0Bits,
-		leafCfg.CircuitLevels,
-		leafCfg.CircuitPrimeBits,
-		leafCfg.NumP,
-		leafCfg.DefaultScaleBits)
-
-	if limit, ok := securityLogQPLimit128(leafParams.LogN()); ok {
-		margin := limit - leafParams.LogQP()
-		status := "PASS"
-		if margin < 0 {
-			status = "FAIL"
-		}
-		fmt.Printf("128-bit reference: leaf logQP <= %.0f, margin=%.1f bits [%s]\n", limit, margin, status)
-	} else {
-		fmt.Printf("128-bit reference: no local table entry for leaf logN=%d\n", leafParams.LogN())
-	}
-}
-
 func main() {
-	logN := flag.Int("logN", 16, "top ring degree log2(N)")
-	layers := flag.Int("layers", 1, "recursive split layers; k=2^layers")
-	reps := flag.Int("reps", 1, "number of repeated tests")
-	_ = flag.Int("warmup", 0, "warmup repetitions (unused)")
+	logN           := flag.Int("logN", 16, "top ring degree log2(N)")
+	layers         := flag.Int("layers", 1, "recursive split layers; k=2^layers")
+	reps           := flag.Int("reps", 1, "number of repeated tests")
+	_               = flag.Int("warmup", 0, "warmup repetitions (unused)")
 	parallelLeaves := flag.Bool("parallelLeaves", true, "run leaf operations in parallel")
 	leafWorkersFlag := flag.Int("leafWorkers", 0, "leaf workers; 0 = min(k, NumCPU)")
-	_ = flag.String("leafOrder", "bitrev", "leaf order (unused)")
-	_ = flag.Int("printSlots", 4, "print slots (unused)")
-	_ = flag.Bool("timing", true, "timing (always on)")
-	runMode := flag.String("run", "all",
+	_               = flag.String("leafOrder", "bitrev", "leaf order (unused)")
+	_               = flag.Int("printSlots", 4, "print slots (unused)")
+	_               = flag.Bool("timing", true, "timing (always on)")
+	runMode        := flag.String("run", "all",
 		"which experiment(s) to run: all | baseline | ours | subKey25")
-	flagH := flag.Int("H", 192,
+	flagH           := flag.Int("H", 192,
 		"secret key Hamming weight; 0 = uniform ternary P=2/3 (AnyuWang-style dense)")
-	flagQ0Bits := flag.Int("q0Bits", 55,
-		"bit-size of the first residual Q prime")
-	flagCircuit := flag.Int("circuitLevels", 10,
-		"number of circuit primes in residual LogQ")
-	flagCircuitPrimeBits := flag.Int("circuitPrimeBits", 40,
-		"bit-size of each residual circuit prime in LogQ")
-	flagNumP := flag.Int("numP", 4,
+	flagCircuit     := flag.Int("circuitLevels", 15,
+		"number of 35-bit circuit primes in LogQ (= output levels after bootstrapping)")
+	flagNumP        := flag.Int("numP", 4,
 		"number of 61-bit P primes for key switching")
-	flagDefaultScale := flag.Int("defaultScale", 40,
-		"default CKKS scale bit-size")
 	flagLeafCircuit := flag.Int("leafCircuitLevels", -1,
-		"leaf number of circuit primes in LogQ; -1 = max(1, circuitLevels-layers)")
+		"leaf number of 35-bit circuit primes in LogQ; -1 = max(1, circuitLevels-layers)")
 	flagLeafNumP := flag.Int("leafNumP", -1,
 		"leaf number of 61-bit P primes for key switching; -1 = same as numP")
-	dryRunParams := flag.Bool("dryRunParams", false,
-		"print top/leaf bootstrapping parameters and exit before key generation")
 	flag.Parse()
 
 	validModes := map[string]bool{"all": true, "baseline": true, "ours": true, "subKey25": true}
@@ -1281,26 +1314,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unknown -run value %q; valid options: all, baseline, ours, subKey25\n", *runMode)
 		os.Exit(1)
 	}
-	runBaseline := *runMode == "all" || *runMode == "baseline"
-	runOurs := *runMode == "all" || *runMode == "ours"
-	runSubKey25 := *runMode == "all" || *runMode == "subKey25"
-
-	if *layers <= 0 {
-		panic("layers must be positive")
-	}
-	leafLogN := *logN - *layers
-	if leafLogN < 1 {
-		panic("layers too large")
-	}
-	numLeaves := 1 << uint(*layers)
+	runBaseline  := *runMode == "all" || *runMode == "baseline"
+	runOurs      := *runMode == "all" || *runMode == "ours"
+	runSubKey25  := *runMode == "all" || *runMode == "subKey25"
 
 	cfg := ExpConfig{
-		H:                *flagH,
-		Q0Bits:           *flagQ0Bits,
-		CircuitLevels:    *flagCircuit,
-		CircuitPrimeBits: *flagCircuitPrimeBits,
-		NumP:             *flagNumP,
-		DefaultScaleBits: *flagDefaultScale,
+		H:             *flagH,
+		CircuitLevels: *flagCircuit,
+		NumP:          *flagNumP,
 	}
 	leafCfg := cfg
 	if *flagLeafCircuit >= 0 {
@@ -1314,25 +1335,23 @@ func main() {
 	if *flagLeafNumP >= 0 {
 		leafCfg.NumP = *flagLeafNumP
 	}
-	if leafCfg.CircuitLevels < 1 {
-		panic("leafCircuitLevels must be positive")
-	}
-	if leafCfg.NumP < 0 {
-		panic("leafNumP must be non-negative")
-	}
 
 	if cfg.H <= 0 {
-		fmt.Printf("[config] Xs = uniform ternary P=2/3 (H≈%d for N=2^%d), q0Bits=%d, circuitPrimeBits=%d, defaultScale=%d, topCircuitLevels=%d, topNumP=%d, leafCircuitLevels=%d, leafNumP=%d\n",
-			int(float64(int(1)<<uint(*logN))*2.0/3.0), *logN, cfg.Q0Bits, cfg.CircuitPrimeBits, cfg.DefaultScaleBits, cfg.CircuitLevels, cfg.NumP, leafCfg.CircuitLevels, leafCfg.NumP)
+		fmt.Printf("[config] Xs = uniform ternary P=2/3 (H≈%d for N=2^%d), topCircuitLevels=%d, topNumP=%d, leafCircuitLevels=%d, leafNumP=%d\n",
+			int(float64(int(1)<<uint(*logN))*2.0/3.0), *logN, cfg.CircuitLevels, cfg.NumP, leafCfg.CircuitLevels, leafCfg.NumP)
 	} else {
-		fmt.Printf("[config] Xs = sparse H=%d, q0Bits=%d, circuitPrimeBits=%d, defaultScale=%d, topCircuitLevels=%d, topNumP=%d, leafCircuitLevels=%d, leafNumP=%d\n",
-			cfg.H, cfg.Q0Bits, cfg.CircuitPrimeBits, cfg.DefaultScaleBits, cfg.CircuitLevels, cfg.NumP, leafCfg.CircuitLevels, leafCfg.NumP)
+		fmt.Printf("[config] Xs = sparse H=%d, topCircuitLevels=%d, topNumP=%d, leafCircuitLevels=%d, leafNumP=%d\n",
+			cfg.H, cfg.CircuitLevels, cfg.NumP, leafCfg.CircuitLevels, leafCfg.NumP)
 	}
 
-	if *dryRunParams {
-		printParamDryRun(*logN, *layers, cfg, leafCfg)
-		return
+	if *layers <= 0 {
+		panic("layers must be positive")
 	}
+	leafLogN := *logN - *layers
+	if leafLogN < 1 {
+		panic("layers too large")
+	}
+	numLeaves := 1 << uint(*layers)
 
 	leafWorkers := *leafWorkersFlag
 	if !*parallelLeaves {
@@ -1370,13 +1389,13 @@ func main() {
 	//=== 2) KEYGEN & ENCRYPT ===
 	//===========================
 
-	kgenTop := rlwe.NewKeyGenerator(paramsTop)
+	kgenTop      := rlwe.NewKeyGenerator(paramsTop)
 	skTop, pkTop := kgenTop.GenKeyPairNew()
-	encoderTop := ckks.NewEncoder(paramsTop)
+	encoderTop   := ckks.NewEncoder(paramsTop)
 	encryptorTop := rlwe.NewEncryptor(paramsTop, pkTop)
 	decryptorTop := rlwe.NewDecryptor(paramsTop, skTop)
 
-	rpk := &rlwe.RingPackingEvaluationKey{}
+	rpk    := &rlwe.RingPackingEvaluationKey{}
 	skMap, err := rpk.GenRingSwitchingKeys(paramsTop, skTop, leafLogN, rlwe.EvaluationKeyParameters{})
 	if err != nil {
 		panic(fmt.Errorf("GenRingSwitchingKeys: %w", err))
@@ -1389,7 +1408,7 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("Generating bootstrapping evaluation keys...")
-	_, _, topEval := makeDirectEvaluator(*logN, skTop, cfg)
+	_, _, topEval  := makeDirectEvaluator(*logN, skTop, cfg)
 	_, _, leafEvals := makeLeafEvaluatorPoolNoBK(paramsTop, leafLogN, skLeaf, leafWorkers, leafCfg)
 	fmt.Println("Done")
 
@@ -1398,7 +1417,7 @@ func main() {
 	//========================
 
 	values := makeValues(paramsTop.MaxSlots())
-	ctLow := encryptAtLevel(paramsTop, encoderTop, encryptorTop, values, 0)
+	ctLow  := encryptAtLevel(paramsTop, encoderTop, encryptorTop, values, 0)
 
 	fmt.Println()
 	fmt.Println("Precision of values vs. ciphertext")
@@ -1413,169 +1432,169 @@ func main() {
 	//=== BASELINE: direct single-ring bootstrap
 	//===========================================
 	var (
-		bAvgL1Err                                           float64
+		bAvgL1Err                                            float64
 		bAvgModUp, bAvgCtS, bAvgEvalMod, bAvgStC, bAvgTotal time.Duration
-		bRan                                                bool
+		bRan                                                 bool
 	)
 	if runBaseline {
-		bRan = true
-		fmt.Println()
-		fmt.Printf("=== Baseline: direct single-ring bootstrapping (k=1) ===\n")
-		fmt.Println("Bootstrapping...")
+	bRan = true
+	fmt.Println()
+	fmt.Printf("=== Baseline: direct single-ring bootstrapping (k=1) ===\n")
+	fmt.Println("Bootstrapping...")
 
-		for repeat := 0; repeat < nRepeat; repeat++ {
-			_ = repeat
-			tStart := time.Now()
+	for repeat := 0; repeat < nRepeat; repeat++ {
+		_ = repeat
+		tStart := time.Now()
 
-			_, ctBoot, err := prepareBootstrapInput(topEval, ctLow.CopyNew())
-			if err != nil {
-				panic(err)
-			}
-			t1 := time.Now()
-
-			ctReal, ctImag, err := c2SOnly(topEval, ctBoot)
-			if err != nil {
-				panic(err)
-			}
-			t2 := time.Now()
-
-			ctReal, err = topEval.EvalMod(ctReal)
-			if err != nil {
-				panic(err)
-			}
-			ctImag, err = topEval.EvalMod(ctImag)
-			if err != nil {
-				panic(err)
-			}
-			t3 := time.Now()
-
-			outBaseline, err := topEval.SlotsToCoeffs(ctReal, ctImag)
-			if err != nil {
-				panic(err)
-			}
-			t4 := time.Now()
-
-			modUp := t1.Sub(tStart)
-			cts := t2.Sub(t1)
-			evalMod := t3.Sub(t2)
-			stc := t4.Sub(t3)
-			total := t4.Sub(tStart)
-
-			bAvgModUp += modUp
-			bAvgCtS += cts
-			bAvgEvalMod += evalMod
-			bAvgStC += stc
-			bAvgTotal += total
-
-			fmt.Printf("Bootstrapping finished in %s\nStC: %s, ModUp: %s, CtS: %s, EvalMod: %s\n",
-				total, stc, modUp, cts, evalMod)
-			fmt.Println("Done")
-			fmt.Printf("Output ciphertext level = %d, circuit moduli = %v\n",
-				outBaseline.Level(), paramsTop.LogQi()[1:outBaseline.Level()+1])
-
-			fmt.Println()
-			fmt.Println("Precision of ciphertext vs. Bootstrap(ciphertext)")
-			_, logL1 := printBootstrapDebug(paramsTop, outBaseline, valuesTest, decryptorTop, encoderTop, 1)
-			bAvgL1Err += math.Pow(2, -logL1)
+		_, ctBoot, err := prepareBootstrapInput(topEval, ctLow.CopyNew())
+		if err != nil {
+			panic(err)
 		}
+		t1 := time.Now()
 
-		bAvgL1Err = -math.Log2(bAvgL1Err / float64(nRepeat))
-		bAvgModUp /= time.Duration(nRepeat)
-		bAvgCtS /= time.Duration(nRepeat)
-		bAvgEvalMod /= time.Duration(nRepeat)
-		bAvgStC /= time.Duration(nRepeat)
-		bAvgTotal /= time.Duration(nRepeat)
+		ctReal, ctImag, err := c2SOnly(topEval, ctBoot)
+		if err != nil {
+			panic(err)
+		}
+		t2 := time.Now()
 
-		fmt.Printf("Avg L1 error is %f\n", bAvgL1Err)
-		fmt.Printf("Avg time... ModUp: %s, CtS: %s, EvalMod: %s, StC: %s, Total: %s\n",
-			bAvgModUp, bAvgCtS, bAvgEvalMod, bAvgStC, bAvgTotal)
+		ctReal, err = topEval.EvalMod(ctReal)
+		if err != nil {
+			panic(err)
+		}
+		ctImag, err = topEval.EvalMod(ctImag)
+		if err != nil {
+			panic(err)
+		}
+		t3 := time.Now()
+
+		outBaseline, err := topEval.SlotsToCoeffs(ctReal, ctImag)
+		if err != nil {
+			panic(err)
+		}
+		t4 := time.Now()
+
+		modUp   := t1.Sub(tStart)
+		cts     := t2.Sub(t1)
+		evalMod := t3.Sub(t2)
+		stc     := t4.Sub(t3)
+		total   := t4.Sub(tStart)
+
+		bAvgModUp   += modUp
+		bAvgCtS     += cts
+		bAvgEvalMod += evalMod
+		bAvgStC     += stc
+		bAvgTotal   += total
+
+		fmt.Printf("Bootstrapping finished in %s\nStC: %s, ModUp: %s, CtS: %s, EvalMod: %s\n",
+			total, stc, modUp, cts, evalMod)
+		fmt.Println("Done")
+		fmt.Printf("Output ciphertext level = %d, circuit moduli = %v\n",
+			outBaseline.Level(), paramsTop.LogQi()[1:outBaseline.Level()+1])
+
+		fmt.Println()
+		fmt.Println("Precision of ciphertext vs. Bootstrap(ciphertext)")
+		_, logL1 := printBootstrapDebug(paramsTop, outBaseline, valuesTest, decryptorTop, encoderTop, 1)
+		bAvgL1Err += math.Pow(2, -logL1)
+	}
+
+	bAvgL1Err   = -math.Log2(bAvgL1Err / float64(nRepeat))
+	bAvgModUp   /= time.Duration(nRepeat)
+	bAvgCtS     /= time.Duration(nRepeat)
+	bAvgEvalMod /= time.Duration(nRepeat)
+	bAvgStC     /= time.Duration(nRepeat)
+	bAvgTotal   /= time.Duration(nRepeat)
+
+	fmt.Printf("Avg L1 error is %f\n", bAvgL1Err)
+	fmt.Printf("Avg time... ModUp: %s, CtS: %s, EvalMod: %s, StC: %s, Total: %s\n",
+		bAvgModUp, bAvgCtS, bAvgEvalMod, bAvgStC, bAvgTotal)
 	} // end runBaseline
 
 	//==============================================
 	//=== PROPOSED: factored no-B_k bootstrapping
 	//==============================================
 	var (
-		avgL1Err                                       float64
+		avgL1Err                                        float64
 		avgModUp, avgCtS, avgEvalMod, avgStC, avgTotal time.Duration
-		oursRan                                        bool
+		oursRan                                         bool
 	)
 	if runOurs {
-		oursRan = true
-		fmt.Println()
-		fmt.Printf("=== Proposed: factored no-B_k bootstrapping (k=%d) ===\n", numLeaves)
-		fmt.Println("Bootstrapping...")
+	oursRan = true
+	fmt.Println()
+	fmt.Printf("=== Proposed: factored no-B_k bootstrapping (k=%d) ===\n", numLeaves)
+	fmt.Println("Bootstrapping...")
 
-		for repeat := 0; repeat < nRepeat; repeat++ {
-			_ = repeat
-			tStart := time.Now()
+	for repeat := 0; repeat < nRepeat; repeat++ {
+		_ = repeat
+		tStart := time.Now()
 
-			_, ctBoot, err := prepareBootstrapInput(topEval, ctLow.CopyNew())
-			if err != nil {
-				panic(err)
-			}
-			t1 := time.Now()
-
-			_, pair, err := leafC2SOnlyParallel(rpEval, leafEvals, ctBoot, *layers)
-			if err != nil {
-				panic(err)
-			}
-			t2 := time.Now()
-
-			pair, err = leafEvalModParallel(leafEvals, pair)
-			if err != nil {
-				panic(err)
-			}
-			t3 := time.Now()
-
-			_, out, err := leafS2CAndMergeParallel(rpEval, leafEvals, pair)
-			if err != nil {
-				panic(err)
-			}
-			t4 := time.Now()
-
-			modUp := t1.Sub(tStart)
-			cts := t2.Sub(t1)
-			evalMod := t3.Sub(t2)
-			stc := t4.Sub(t3)
-			total := t4.Sub(tStart)
-
-			avgModUp += modUp
-			avgCtS += cts
-			avgEvalMod += evalMod
-			avgStC += stc
-			avgTotal += total
-
-			fmt.Printf("Bootstrapping finished in %s\nStC: %s, ModUp: %s, CtS: %s, EvalMod: %s\n",
-				total, stc, modUp, cts, evalMod)
-			fmt.Println("Done")
-			fmt.Printf("Output ciphertext level = %d, circuit moduli = %v\n",
-				out.Level(), paramsTop.LogQi()[1:out.Level()+1])
-
-			fmt.Println()
-			fmt.Println("Precision of ciphertext vs. Bootstrap(ciphertext)")
-			_, logL1 := printBootstrapDebug(paramsTop, out, valuesTest, decryptorTop, encoderTop, 1)
-			avgL1Err += math.Pow(2, -logL1)
+		_, ctBoot, err := prepareBootstrapInput(topEval, ctLow.CopyNew())
+		if err != nil {
+			panic(err)
 		}
+		t1 := time.Now()
 
-		avgL1Err = -math.Log2(avgL1Err / float64(nRepeat))
-		avgModUp /= time.Duration(nRepeat)
-		avgCtS /= time.Duration(nRepeat)
-		avgEvalMod /= time.Duration(nRepeat)
-		avgStC /= time.Duration(nRepeat)
-		avgTotal /= time.Duration(nRepeat)
+		_, pair, err := leafC2SOnlyParallel(rpEval, leafEvals, ctBoot, *layers)
+		if err != nil {
+			panic(err)
+		}
+		t2 := time.Now()
 
-		fmt.Printf("Avg L1 error is %f\n", avgL1Err)
-		fmt.Printf("Avg time... ModUp: %s, CtS: %s, EvalMod: %s, StC: %s, Total: %s\n",
-			avgModUp, avgCtS, avgEvalMod, avgStC, avgTotal)
+		pair, err = leafEvalModParallel(leafEvals, pair)
+		if err != nil {
+			panic(err)
+		}
+		t3 := time.Now()
+
+		_, out, err := leafS2CAndMergeParallel(rpEval, leafEvals, pair)
+		if err != nil {
+			panic(err)
+		}
+		t4 := time.Now()
+
+		modUp   := t1.Sub(tStart)
+		cts     := t2.Sub(t1)
+		evalMod := t3.Sub(t2)
+		stc     := t4.Sub(t3)
+		total   := t4.Sub(tStart)
+
+		avgModUp   += modUp
+		avgCtS     += cts
+		avgEvalMod += evalMod
+		avgStC     += stc
+		avgTotal   += total
+
+		fmt.Printf("Bootstrapping finished in %s\nStC: %s, ModUp: %s, CtS: %s, EvalMod: %s\n",
+			total, stc, modUp, cts, evalMod)
+		fmt.Println("Done")
+		fmt.Printf("Output ciphertext level = %d, circuit moduli = %v\n",
+			out.Level(), paramsTop.LogQi()[1:out.Level()+1])
+
+		fmt.Println()
+		fmt.Println("Precision of ciphertext vs. Bootstrap(ciphertext)")
+		_, logL1 := printBootstrapDebug(paramsTop, out, valuesTest, decryptorTop, encoderTop, float64(numLeaves))
+		avgL1Err += math.Pow(2, -logL1)
+	}
+
+	avgL1Err   = -math.Log2(avgL1Err / float64(nRepeat))
+	avgModUp   /= time.Duration(nRepeat)
+	avgCtS     /= time.Duration(nRepeat)
+	avgEvalMod /= time.Duration(nRepeat)
+	avgStC     /= time.Duration(nRepeat)
+	avgTotal   /= time.Duration(nRepeat)
+
+	fmt.Printf("Avg L1 error is %f\n", avgL1Err)
+	fmt.Printf("Avg time... ModUp: %s, CtS: %s, EvalMod: %s, StC: %s, Total: %s\n",
+		avgModUp, avgCtS, avgEvalMod, avgStC, avgTotal)
 	} // end runOurs
 
 	//==============================================
 	//=== subKey25: AnyuWang 2025 subring-secret
 	//==============================================
 	var (
-		a25AvgL1Err float64
-		a25AvgTotal time.Duration
-		a25Ran      bool
+		a25AvgL1Err  float64
+		a25AvgTotal  time.Duration
+		a25Ran       bool
 	)
 	if runSubKey25 {
 		a25Ran = true

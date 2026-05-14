@@ -228,6 +228,27 @@ func copyPPrefix(params ckks.Parameters, count int) []uint64 {
 	return p
 }
 
+func copyQ(params ckks.Parameters) []uint64 {
+	rq := params.RingQ()
+	q := make([]uint64, len(rq.SubRings))
+	for i := range rq.SubRings {
+		q[i] = rq.SubRings[i].Modulus
+	}
+	return q
+}
+
+func copyP(params ckks.Parameters) []uint64 {
+	rp := params.RingP()
+	if rp == nil {
+		return nil
+	}
+	p := make([]uint64, len(rp.SubRings))
+	for i := range rp.SubRings {
+		p[i] = rp.SubRings[i].Modulus
+	}
+	return p
+}
+
 func makeParamsFromPrefixBasis(template ckks.Parameters, logN, qCount, pCount int) ckks.Parameters {
 	params, err := ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
 		LogN:            logN,
@@ -238,6 +259,20 @@ func makeParamsFromPrefixBasis(template ckks.Parameters, logN, qCount, pCount in
 	})
 	if err != nil {
 		panic(fmt.Errorf("makeParamsFromPrefixBasis failed: %w", err))
+	}
+	return params
+}
+
+func makeParamsFromExactBasis(template ckks.Parameters, logN int) ckks.Parameters {
+	params, err := ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
+		LogN:            logN,
+		Q:               copyQ(template),
+		P:               copyP(template),
+		LogDefaultScale: template.LogDefaultScale(),
+		Xs:              template.Xs(),
+	})
+	if err != nil {
+		panic(fmt.Errorf("makeParamsFromExactBasis failed: %w", err))
 	}
 	return params
 }
@@ -299,6 +334,63 @@ func reportRingBasisPrefix(name string, top, leaf ckks.Parameters) bool {
 	return ok
 }
 
+func reportRingBasisExact(name string, top, leaf ckks.Parameters) bool {
+	ok := true
+	topQ := top.RingQ()
+	leafQ := leaf.RingQ()
+
+	fmt.Println("=== Ring-basis exact check:", name, "===")
+	fmt.Printf("top LogN=%d, leaf LogN=%d\n", top.LogN(), leaf.LogN())
+	fmt.Printf("Q count: top=%d, leaf=%d\n", len(topQ.SubRings), len(leafQ.SubRings))
+
+	if len(topQ.SubRings) != len(leafQ.SubRings) {
+		ok = false
+		fmt.Println("Q exact check: FAIL. Top and leaf Q counts differ.")
+	} else {
+		for i := range topQ.SubRings {
+			qa := topQ.SubRings[i].Modulus
+			qb := leafQ.SubRings[i].Modulus
+			same := qa == qb
+			ok = ok && same
+			if i < 8 || i >= len(leafQ.SubRings)-8 || !same {
+				fmt.Printf("Q[%02d]: top=%d leaf=%d same=%v\n", i, qa, qb, same)
+			}
+		}
+	}
+
+	topP := top.RingP()
+	leafP := leaf.RingP()
+	topPCount := 0
+	leafPCount := 0
+	if topP != nil {
+		topPCount = len(topP.SubRings)
+	}
+	if leafP != nil {
+		leafPCount = len(leafP.SubRings)
+	}
+	fmt.Printf("P count: top=%d, leaf=%d\n", topPCount, leafPCount)
+
+	if topPCount != leafPCount {
+		ok = false
+		fmt.Println("P exact check: FAIL. Top and leaf P counts differ.")
+	} else if topP != nil {
+		for i := range topP.SubRings {
+			pa := topP.SubRings[i].Modulus
+			pb := leafP.SubRings[i].Modulus
+			same := pa == pb
+			ok = ok && same
+			fmt.Printf("P[%02d]: top=%d leaf=%d same=%v\n", i, pa, pb, same)
+		}
+	}
+
+	if ok {
+		fmt.Println("Ring-basis exact check: PASS. Top and leaf Q/P moduli match exactly.")
+	} else {
+		fmt.Println("Ring-basis exact check: FAIL. Top and leaf Q/P moduli do not match exactly.")
+	}
+	return ok
+}
+
 func makeDirectEvaluator(logN int, sk *rlwe.SecretKey, cfg ExpConfig) (ckks.Parameters, bootstrapping.Parameters, *bootstrapping.Evaluator) {
 	_, btpParams := makeBootstrappingParams(logN, cfg)
 	paramsBoot := btpParams.BootstrappingParameters
@@ -325,8 +417,7 @@ func makeLeafEvaluatorPoolNoBK(topBootParams ckks.Parameters, leafLogN int, skLe
 	}
 
 	_, leafBtpParams := makeBootstrappingParams(leafLogN, cfg)
-	leafTemplateParams := leafBtpParams.BootstrappingParameters
-	leafParams := makeParamsFromPrefixBasis(topBootParams, leafLogN, leafTemplateParams.QCount(), leafTemplateParams.PCount())
+	leafParams := makeParamsFromExactBasis(topBootParams, leafLogN)
 
 	// Important: no B_k and no B_k^{-1}; do not reserve any B-related levels.
 	leafBtpParams.ResidualParameters = leafParams
@@ -334,23 +425,23 @@ func makeLeafEvaluatorPoolNoBK(topBootParams ckks.Parameters, leafLogN int, skLe
 
 	paramsBoot := leafBtpParams.BootstrappingParameters
 
-	fmt.Printf("Generating no-B_k PREFIX-BASIS leaf bootstrapping keys for LogN=%d, logQP=%.1f, maxLevel=%d, workers=%d...\n",
+	fmt.Printf("Generating no-B_k EXACT-BASIS leaf bootstrapping keys for LogN=%d, logQP=%.1f, maxLevel=%d, workers=%d...\n",
 		leafLogN, paramsBoot.LogQP(), paramsBoot.MaxLevel(), workers)
 
-	if !reportRingBasisPrefix("top boot params vs prefix-basis leaf params", topBootParams, paramsBoot) {
-		panic("prefix-basis construction failed: leaf params are not a top Q/P prefix")
+	if !reportRingBasisExact("top boot params vs exact-basis leaf params", topBootParams, paramsBoot) {
+		panic("exact-basis construction failed: leaf params do not match top Q/P")
 	}
 
 	btpKeys, _, err := leafBtpParams.GenEvaluationKeys(skLeaf)
 	if err != nil {
-		panic(fmt.Errorf("GenEvaluationKeys prefix-basis LogN=%d failed: %w", leafLogN, err))
+		panic(fmt.Errorf("GenEvaluationKeys exact-basis LogN=%d failed: %w", leafLogN, err))
 	}
 
 	evals := make([]*bootstrapping.Evaluator, workers)
 	for i := 0; i < workers; i++ {
 		ev, err := bootstrapping.NewEvaluator(leafBtpParams, btpKeys)
 		if err != nil {
-			panic(fmt.Errorf("NewEvaluator prefix-basis LogN=%d worker=%d failed: %w", leafLogN, i, err))
+			panic(fmt.Errorf("NewEvaluator exact-basis LogN=%d worker=%d failed: %w", leafLogN, i, err))
 		}
 		evals[i] = ev
 	}
@@ -782,6 +873,173 @@ func leafC2SOnlyParallel(rpEval *rlwe.RingPackingEvaluator, leafEvals []*bootstr
 	return leaves, complexLeafPair{Real: outRealLeaves, Imag: outImagLeaves}, nil
 }
 
+func leafModUpAndC2SAfterSplitParallel(rpEval *rlwe.RingPackingEvaluator, leafEvals []*bootstrapping.Evaluator, ctScaled *rlwe.Ciphertext, layers int) ([]*rlwe.Ciphertext, complexLeafPair, error) {
+	if len(leafEvals) == 0 {
+		return nil, complexLeafPair{}, fmt.Errorf("empty leaf evaluator pool")
+	}
+
+	leaves, err := splitTree(rpEval, ctScaled.CopyNew(), layers)
+	if err != nil {
+		return nil, complexLeafPair{}, err
+	}
+
+	outRealLeaves := make([]*rlwe.Ciphertext, len(leaves))
+	outImagLeaves := make([]*rlwe.Ciphertext, len(leaves))
+
+	type job struct{ idx int }
+	type result struct {
+		idx  int
+		real *rlwe.Ciphertext
+		imag *rlwe.Ciphertext
+		err  error
+	}
+
+	jobs := make(chan job)
+	results := make(chan result, len(leaves))
+
+	var wg sync.WaitGroup
+	workerCount := len(leafEvals)
+	for w := 0; w < workerCount; w++ {
+		wg.Add(1)
+		eval := leafEvals[w]
+		go func() {
+			defer wg.Done()
+			for jb := range jobs {
+				bootLeaf, err := eval.ModUp(leaves[jb.idx].CopyNew())
+				if err != nil {
+					results <- result{idx: jb.idx, err: fmt.Errorf("leaf %d ModUp failed: %w", jb.idx, err)}
+					continue
+				}
+
+				real, imag, err := c2SOnly(eval, bootLeaf)
+				if err != nil {
+					results <- result{idx: jb.idx, err: fmt.Errorf("leaf %d C2S failed: %w", jb.idx, err)}
+					continue
+				}
+
+				results <- result{idx: jb.idx, real: real, imag: imag}
+			}
+		}()
+	}
+
+	go func() {
+		for i := range leaves {
+			jobs <- job{idx: i}
+		}
+		close(jobs)
+		wg.Wait()
+		close(results)
+	}()
+
+	var firstErr error
+	for res := range results {
+		if res.err != nil && firstErr == nil {
+			firstErr = res.err
+			continue
+		}
+		outRealLeaves[res.idx] = res.real
+		outImagLeaves[res.idx] = res.imag
+	}
+	if firstErr != nil {
+		return leaves, complexLeafPair{}, firstErr
+	}
+	for i := range leaves {
+		if outRealLeaves[i] == nil || outImagLeaves[i] == nil {
+			return leaves, complexLeafPair{}, fmt.Errorf("missing leaf ModUp+C2S output at leaf %d", i)
+		}
+	}
+
+	return leaves, complexLeafPair{Real: outRealLeaves, Imag: outImagLeaves}, nil
+}
+
+func leafScaleDownModUpAndC2SAfterSplitParallel(rpEval *rlwe.RingPackingEvaluator, leafEvals []*bootstrapping.Evaluator, ct *rlwe.Ciphertext, layers int) ([]*rlwe.Ciphertext, []*rlwe.Ciphertext, complexLeafPair, error) {
+	if len(leafEvals) == 0 {
+		return nil, nil, complexLeafPair{}, fmt.Errorf("empty leaf evaluator pool")
+	}
+
+	leaves, err := splitTree(rpEval, ct.CopyNew(), layers)
+	if err != nil {
+		return nil, nil, complexLeafPair{}, err
+	}
+
+	scaledLeaves := make([]*rlwe.Ciphertext, len(leaves))
+	outRealLeaves := make([]*rlwe.Ciphertext, len(leaves))
+	outImagLeaves := make([]*rlwe.Ciphertext, len(leaves))
+
+	type job struct{ idx int }
+	type result struct {
+		idx    int
+		scaled *rlwe.Ciphertext
+		real   *rlwe.Ciphertext
+		imag   *rlwe.Ciphertext
+		err    error
+	}
+
+	jobs := make(chan job)
+	results := make(chan result, len(leaves))
+
+	var wg sync.WaitGroup
+	workerCount := len(leafEvals)
+	for w := 0; w < workerCount; w++ {
+		wg.Add(1)
+		eval := leafEvals[w]
+		go func() {
+			defer wg.Done()
+			for jb := range jobs {
+				scaled, _, err := eval.ScaleDown(leaves[jb.idx].CopyNew())
+				if err != nil {
+					results <- result{idx: jb.idx, err: fmt.Errorf("leaf %d ScaleDown failed: %w", jb.idx, err)}
+					continue
+				}
+
+				bootLeaf, err := eval.ModUp(scaled.CopyNew())
+				if err != nil {
+					results <- result{idx: jb.idx, err: fmt.Errorf("leaf %d ModUp failed: %w", jb.idx, err)}
+					continue
+				}
+
+				real, imag, err := c2SOnly(eval, bootLeaf)
+				if err != nil {
+					results <- result{idx: jb.idx, err: fmt.Errorf("leaf %d C2S failed: %w", jb.idx, err)}
+					continue
+				}
+
+				results <- result{idx: jb.idx, scaled: scaled, real: real, imag: imag}
+			}
+		}()
+	}
+
+	go func() {
+		for i := range leaves {
+			jobs <- job{idx: i}
+		}
+		close(jobs)
+		wg.Wait()
+		close(results)
+	}()
+
+	var firstErr error
+	for res := range results {
+		if res.err != nil && firstErr == nil {
+			firstErr = res.err
+			continue
+		}
+		scaledLeaves[res.idx] = res.scaled
+		outRealLeaves[res.idx] = res.real
+		outImagLeaves[res.idx] = res.imag
+	}
+	if firstErr != nil {
+		return leaves, nil, complexLeafPair{}, firstErr
+	}
+	for i := range leaves {
+		if scaledLeaves[i] == nil || outRealLeaves[i] == nil || outImagLeaves[i] == nil {
+			return leaves, nil, complexLeafPair{}, fmt.Errorf("missing leaf ScaleDown+ModUp+C2S output at leaf %d", i)
+		}
+	}
+
+	return leaves, scaledLeaves, complexLeafPair{Real: outRealLeaves, Imag: outImagLeaves}, nil
+}
+
 func leafEvalModParallel(leafEvals []*bootstrapping.Evaluator, in complexLeafPair) (complexLeafPair, error) {
 	if len(in.Real) != len(in.Imag) {
 		return complexLeafPair{}, fmt.Errorf("real/imag leaf length mismatch")
@@ -1206,9 +1464,7 @@ func printParamDryRun(logN, layers int, cfg, leafCfg ExpConfig) {
 	paramsTop := btpTop.BootstrappingParameters
 
 	leafLogN := logN - layers
-	_, leafBtpParams := makeBootstrappingParams(leafLogN, leafCfg)
-	leafTemplateParams := leafBtpParams.BootstrappingParameters
-	leafParams := makeParamsFromPrefixBasis(paramsTop, leafLogN, leafTemplateParams.QCount(), leafTemplateParams.PCount())
+	leafParams := makeParamsFromExactBasis(paramsTop, leafLogN)
 
 	fmt.Println("=== Parameter dry run ===")
 	fmt.Printf("top:  logN=%d N=%d qCount=%d pCount=%d logQ=%.1f logQP=%.1f\n",
@@ -1233,12 +1489,18 @@ func printParamDryRun(logN, layers int, cfg, leafCfg ExpConfig) {
 		leafCfg.DefaultScaleBits)
 
 	if limit, ok := securityLogQPLimit128(leafParams.LogN()); ok {
-		margin := limit - leafParams.LogQP()
-		status := "PASS"
-		if margin < 0 {
-			status = "FAIL"
+		logQMargin := limit - leafParams.LogQ()
+		logQStatus := "PASS"
+		if logQMargin < 0 {
+			logQStatus = "FAIL"
 		}
-		fmt.Printf("128-bit reference: leaf logQP <= %.0f, margin=%.1f bits [%s]\n", limit, margin, status)
+		logQPMargin := limit - leafParams.LogQP()
+		logQPStatus := "PASS"
+		if logQPMargin < 0 {
+			logQPStatus = "FAIL"
+		}
+		fmt.Printf("128-bit reference: leaf logQ  <= %.0f, margin=%.1f bits [%s]\n", limit, logQMargin, logQStatus)
+		fmt.Printf("128-bit reference: leaf logQP <= %.0f, margin=%.1f bits [%s]\n", limit, logQPMargin, logQPStatus)
 	} else {
 		fmt.Printf("128-bit reference: no local table entry for leaf logN=%d\n", leafParams.LogN())
 	}
@@ -1256,17 +1518,17 @@ func main() {
 	_ = flag.Bool("timing", true, "timing (always on)")
 	runMode := flag.String("run", "all",
 		"which experiment(s) to run: all | baseline | ours | subKey25")
-	flagH := flag.Int("H", 192,
+	flagH := flag.Int("H", 0,
 		"secret key Hamming weight; 0 = uniform ternary P=2/3 (AnyuWang-style dense)")
-	flagQ0Bits := flag.Int("q0Bits", 55,
+	flagQ0Bits := flag.Int("q0Bits", 34,
 		"bit-size of the first residual Q prime")
-	flagCircuit := flag.Int("circuitLevels", 10,
+	flagCircuit := flag.Int("circuitLevels", 1,
 		"number of circuit primes in residual LogQ")
-	flagCircuitPrimeBits := flag.Int("circuitPrimeBits", 40,
+	flagCircuitPrimeBits := flag.Int("circuitPrimeBits", 20,
 		"bit-size of each residual circuit prime in LogQ")
-	flagNumP := flag.Int("numP", 4,
+	flagNumP := flag.Int("numP", 1,
 		"number of 61-bit P primes for key switching")
-	flagDefaultScale := flag.Int("defaultScale", 40,
+	flagDefaultScale := flag.Int("defaultScale", 25,
 		"default CKKS scale bit-size")
 	flagLeafCircuit := flag.Int("leafCircuitLevels", -1,
 		"leaf number of circuit primes in LogQ; -1 = max(1, circuitLevels-layers)")
@@ -1274,6 +1536,10 @@ func main() {
 		"leaf number of 61-bit P primes for key switching; -1 = same as numP")
 	dryRunParams := flag.Bool("dryRunParams", false,
 		"print top/leaf bootstrapping parameters and exit before key generation")
+	splitFirstModUp := flag.Bool("splitFirstModUp", false,
+		"proposed path uses ScaleDown -> Split -> leaf ModUp -> leaf C2S instead of ScaleDown -> top ModUp -> Split -> leaf C2S")
+	splitFirstLeafPreprocess := flag.Bool("splitFirstLeafPreprocess", false,
+		"proposed path uses Split -> leaf ScaleDown -> leaf ModUp -> leaf C2S")
 	flag.Parse()
 
 	validModes := map[string]bool{"all": true, "baseline": true, "ours": true, "subKey25": true}
@@ -1305,11 +1571,6 @@ func main() {
 	leafCfg := cfg
 	if *flagLeafCircuit >= 0 {
 		leafCfg.CircuitLevels = *flagLeafCircuit
-	} else {
-		leafCfg.CircuitLevels = cfg.CircuitLevels - *layers
-		if leafCfg.CircuitLevels < 1 {
-			leafCfg.CircuitLevels = 1
-		}
 	}
 	if *flagLeafNumP >= 0 {
 		leafCfg.NumP = *flagLeafNumP
@@ -1322,11 +1583,11 @@ func main() {
 	}
 
 	if cfg.H <= 0 {
-		fmt.Printf("[config] Xs = uniform ternary P=2/3 (H≈%d for N=2^%d), q0Bits=%d, circuitPrimeBits=%d, defaultScale=%d, topCircuitLevels=%d, topNumP=%d, leafCircuitLevels=%d, leafNumP=%d\n",
-			int(float64(int(1)<<uint(*logN))*2.0/3.0), *logN, cfg.Q0Bits, cfg.CircuitPrimeBits, cfg.DefaultScaleBits, cfg.CircuitLevels, cfg.NumP, leafCfg.CircuitLevels, leafCfg.NumP)
+		fmt.Printf("[config] Xs = uniform ternary P=2/3 (H≈%d for N=2^%d), q0Bits=%d, circuitPrimeBits=%d, defaultScale=%d, topCircuitLevels=%d, topNumP=%d, leafCircuitLevels=%d, leafNumP=%d, splitFirstModUp=%v, splitFirstLeafPreprocess=%v\n",
+			int(float64(int(1)<<uint(*logN))*2.0/3.0), *logN, cfg.Q0Bits, cfg.CircuitPrimeBits, cfg.DefaultScaleBits, cfg.CircuitLevels, cfg.NumP, leafCfg.CircuitLevels, leafCfg.NumP, *splitFirstModUp, *splitFirstLeafPreprocess)
 	} else {
-		fmt.Printf("[config] Xs = sparse H=%d, q0Bits=%d, circuitPrimeBits=%d, defaultScale=%d, topCircuitLevels=%d, topNumP=%d, leafCircuitLevels=%d, leafNumP=%d\n",
-			cfg.H, cfg.Q0Bits, cfg.CircuitPrimeBits, cfg.DefaultScaleBits, cfg.CircuitLevels, cfg.NumP, leafCfg.CircuitLevels, leafCfg.NumP)
+		fmt.Printf("[config] Xs = sparse H=%d, q0Bits=%d, circuitPrimeBits=%d, defaultScale=%d, topCircuitLevels=%d, topNumP=%d, leafCircuitLevels=%d, leafNumP=%d, splitFirstModUp=%v, splitFirstLeafPreprocess=%v\n",
+			cfg.H, cfg.Q0Bits, cfg.CircuitPrimeBits, cfg.DefaultScaleBits, cfg.CircuitLevels, cfg.NumP, leafCfg.CircuitLevels, leafCfg.NumP, *splitFirstModUp, *splitFirstLeafPreprocess)
 	}
 
 	if *dryRunParams {
@@ -1509,13 +1770,108 @@ func main() {
 			_ = repeat
 			tStart := time.Now()
 
+			var pair complexLeafPair
+			var err error
+			if *splitFirstLeafPreprocess {
+				_, _, pair, err = leafScaleDownModUpAndC2SAfterSplitParallel(rpEval, leafEvals, ctLow.CopyNew(), *layers)
+				if err != nil {
+					panic(err)
+				}
+				t2 := time.Now()
+
+				pair, err = leafEvalModParallel(leafEvals, pair)
+				if err != nil {
+					panic(err)
+				}
+				t3 := time.Now()
+
+				_, out, err := leafS2CAndMergeParallel(rpEval, leafEvals, pair)
+				if err != nil {
+					panic(err)
+				}
+				t4 := time.Now()
+
+				preprocess := t2.Sub(tStart)
+				evalMod := t3.Sub(t2)
+				stc := t4.Sub(t3)
+				total := t4.Sub(tStart)
+
+				avgModUp += preprocess
+				avgCtS += preprocess
+				avgEvalMod += evalMod
+				avgStC += stc
+				avgTotal += total
+
+				fmt.Printf("Bootstrapping finished in %s\nStC: %s, Split+leafScaleDown+leafModUp+C2S: %s, EvalMod: %s\n",
+					total, stc, preprocess, evalMod)
+				fmt.Println("Done")
+				fmt.Printf("Output ciphertext level = %d, circuit moduli = %v\n",
+					out.Level(), paramsTop.LogQi()[1:out.Level()+1])
+
+				fmt.Println()
+				fmt.Println("Precision of ciphertext vs. Bootstrap(ciphertext)")
+				_, logL1 := printBootstrapDebug(paramsTop, out, valuesTest, decryptorTop, encoderTop, 1)
+				avgL1Err += math.Pow(2, -logL1)
+				continue
+			}
+
+			if *splitFirstModUp {
+				ctScaled, _, err := topEval.ScaleDown(ctLow.CopyNew())
+				if err != nil {
+					panic(fmt.Errorf("ScaleDown failed: %w", err))
+				}
+				t1 := time.Now()
+
+				_, pair, err = leafModUpAndC2SAfterSplitParallel(rpEval, leafEvals, ctScaled, *layers)
+				if err != nil {
+					panic(err)
+				}
+				t2 := time.Now()
+
+				pair, err = leafEvalModParallel(leafEvals, pair)
+				if err != nil {
+					panic(err)
+				}
+				t3 := time.Now()
+
+				_, out, err := leafS2CAndMergeParallel(rpEval, leafEvals, pair)
+				if err != nil {
+					panic(err)
+				}
+				t4 := time.Now()
+
+				modUp := t2.Sub(tStart)
+				cts := t2.Sub(t1)
+				evalMod := t3.Sub(t2)
+				stc := t4.Sub(t3)
+				total := t4.Sub(tStart)
+
+				avgModUp += modUp
+				avgCtS += cts
+				avgEvalMod += evalMod
+				avgStC += stc
+				avgTotal += total
+
+				fmt.Printf("Bootstrapping finished in %s\nStC: %s, ScaleDown+Split+leafModUp+C2S: %s, EvalMod: %s\n",
+					total, stc, modUp, evalMod)
+				fmt.Println("Done")
+				fmt.Printf("Output ciphertext level = %d, circuit moduli = %v\n",
+					out.Level(), paramsTop.LogQi()[1:out.Level()+1])
+
+				fmt.Println()
+				fmt.Println("Precision of ciphertext vs. Bootstrap(ciphertext)")
+				_, logL1 := printBootstrapDebug(paramsTop, out, valuesTest, decryptorTop, encoderTop, 1)
+				avgL1Err += math.Pow(2, -logL1)
+				continue
+			}
+
 			_, ctBoot, err := prepareBootstrapInput(topEval, ctLow.CopyNew())
 			if err != nil {
 				panic(err)
 			}
 			t1 := time.Now()
 
-			_, pair, err := leafC2SOnlyParallel(rpEval, leafEvals, ctBoot, *layers)
+			_, pair, err = leafC2SOnlyParallel(rpEval, leafEvals, ctBoot, *layers)
 			if err != nil {
 				panic(err)
 			}

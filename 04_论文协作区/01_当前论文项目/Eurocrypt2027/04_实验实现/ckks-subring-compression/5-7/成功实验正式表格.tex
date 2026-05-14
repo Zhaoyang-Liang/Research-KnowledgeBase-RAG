@@ -1,0 +1,410 @@
+\documentclass[UTF8,fontset=fandol]{ctexart}
+
+\usepackage[a4paper,margin=1.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{makecell}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+
+\newcommand{\NA}{--}
+\newcommand{\subkey}{subKey}
+\newcommand{\bits}{\mathrm{bits}}
+\definecolor{softgreen}{RGB}{38,112,74}
+\definecolor{softred}{RGB}{150,62,58}
+\definecolor{softgray}{RGB}{88,88,88}
+\newcommand{\good}[1]{\textcolor{softgreen}{\textbf{#1}}}
+\newcommand{\bad}[1]{\textcolor{softred}{\textbf{#1}}}
+\newcommand{\neutral}[1]{\textcolor{softgray}{#1}}
+
+\begin{document}
+
+\section*{实验正式汇总表}
+
+主表只汇总已经完整跑通、且结果可解释的实验。由于 top16 only-split 对照对于理解路线边界很重要，
+本文在 Preliminaries 中单独列出它的失败形态，但不把它混入成功实验主表。
+表中时间均为本地单次运行结果，后续正式论文实验还需要重复运行并统计方差。
+
+\section*{Preliminaries: 表格编号和指标说明}
+
+颜色含义如下：\(\good{\text{绿色加粗}}\) 表示当前主推或综合效果最好的配置；
+\(\bad{\text{红色加粗}}\) 表示失败案例、安全裕量为负、或者需要特别警惕的指标。
+这里使用低饱和颜色，避免表格过于刺眼。
+
+表格中的列名是实验编号。编号的第一部分表示大环维度，例如 L16 表示
+\(\log N_{\mathrm{top}}=16\)，L17 表示 \(\log N_{\mathrm{top}}=17\)。
+如果编号中出现 SK，表示该实验使用叶子上的 subKey Bootstrapping；如果出现 Full，
+表示叶子上使用普通 Lattigo Bootstrapping 且保留 full-Q；如果出现 B16 或 B17，
+表示 direct baseline，也就是不拆分、不使用 subKey，直接在大环上做普通 Bootstrapping。
+
+几个核心实验路线可以写成下面的公式。这里 \(\mathsf{BTS}^{\mathrm{ord}}\) 表示普通
+CKKS Bootstrapping，\(\mathsf{BTS}^{\mathrm{subKey}}\) 表示 subKey Bootstrapping。
+
+\begingroup\small
+\[
+\begin{aligned}
+\text{OS17}
+&:\quad
+\mathsf{Split}_{17\to16}
+\to
+\bigoplus_{i=0}^{1}\mathsf{BTS}^{\mathrm{ord}}_{\log N=16}
+\to
+\mathsf{Merge}_{16\to17},
+\\
+\text{\good{L17-I1}}
+&:\quad
+\mathsf{Split}_{17\to16}
+\to
+\bigoplus_{i=0}^{1}\mathsf{BTS}^{\mathrm{subKey}}_{\log N=16,\; \log N'=12}
+\to
+\mathsf{Merge}_{16\to17},
+\\
+\text{B17}
+&:\quad
+\mathsf{BTS}^{\mathrm{ord}}_{\log N=17},
+\\
+\text{only-subKey-17}
+&:\quad
+\mathsf{BTS}^{\mathrm{subKey}}_{\log N=17,\; \log N'=12}.
+\end{aligned}
+\]
+\endgroup
+
+top16 的 only-split 对照没有进入成功主表，原因是目前没有得到稳定正确的成功结果：
+
+\begingroup\small
+\[
+\begin{aligned}
+\bad{\text{OS16-split-first}}
+&:\quad
+\mathsf{Split}_{16\to15}
+\to
+\bigoplus_{i=0}^{1}\mathsf{BTS}^{\mathrm{ord}}_{\log N=15}
+\to
+\mathsf{Merge}_{15\to16}
+\quad
+\text{在 leaf ScaleDown 条件处失败},
+\\
+\bad{\text{OS16-old-route}}
+&:\quad
+\mathsf{ScaleDown}
+\to
+\mathsf{ModUp}_{\log N=16}
+\to
+\mathsf{Split}_{16\to15}
+\to
+\bigoplus_{i=0}^{1}\mathsf{BTS}^{\mathrm{ord}}_{\log N=15}
+\to
+\mathsf{Merge}_{15\to16}
+\quad
+\text{输出语义归一化不对}.
+\end{aligned}
+\]
+\endgroup
+
+\begin{center}
+\begin{tabular}{l|p{0.72\textwidth}}
+\toprule
+编号 & 含义 \\
+\midrule
+L16-Full & \(\log N_{\mathrm{top}}=16\)，拆分到 \(\log N_{\mathrm{leaf}}=15\)，叶子上使用普通 Lattigo Bootstrapping，模数保留 full-Q。\\
+L16-SK929 & \(\log N_{\mathrm{top}}=16\)，拆分到 leaf15，叶子上使用 subKey Bootstrapping，原始 lowq 配置，\(\log(PQ)\approx929\)。\\
+L16-SK927T & L16-SK929 的调参版，EvalMod=56、StC=26、CtS=50，\(\log(PQ)\approx927\)。这里 T 表示 tuned，是 top16 中工程效果最好的组合方案，但严格计入 \(PQ\) 时安全裕量为负。\\
+L16-SK864 & L16 的 reduced-Q 安全线内尝试，\(\log(PQ)\approx864\)。\\
+L16-SK824 & L16 的更激进 reduced-Q 尝试，\(\log(PQ)\approx824\)。\\
+B16 & \(\log N=16\) 的 direct ordinary baseline：不拆分、不使用 subKey，直接大环 Bootstrapping。\\
+L17-lowq & \(\log N_{\mathrm{top}}=17\)，拆分到 \(\log N_{\mathrm{leaf}}=16\)，但仍使用 lowq 风格小预算参数。\\
+OS17 & only-split 对照：\(\log N_{\mathrm{top}}=17\)，拆分到 leaf16，然后在每个叶子上使用普通 Lattigo Bootstrapping，不使用 subKey 优化。\\
+L17-I1 & \(\log N_{\mathrm{top}}=17\)，拆分到 leaf16，叶子上使用 subKey Bootstrapping 的 I1 风格参数。\good{当前主推参数}。\\
+L17-I1-CtS55 & L17-I1 的变体，把 CtS scale bits 调到 55，精度略高但安全裕量更小。\\
+B17 & \(\log N=17\) 的 direct ordinary baseline：不拆分、不使用 subKey，直接大环 Bootstrapping。\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+主要行指标含义如下。\(\log Q\) 是 ciphertext modulus 的比特长度；
+\(\log(PQ)\) 把 key-switching 特殊模数 \(P\) 也计入安全预算；
+安全裕量等于“参考安全上限减去实际 \(\log(PQ)\)”，正数表示在当前粗略安全参考线内。
+\(\log q_0\) 是最低层 prime 的比特数，\(\log\Delta\) 是默认 scale。
+CtS 表示 CoeffsToSlots，StC 表示 SlotsToCoeffs。
+EvalMod degree \(d\)、double-angle \(r\)、range \(K\) 是 subKey Bootstrapping 的 EvalMod 参数。
+Avg L1 precision 表示平均 L1 精度 bit 数，越大代表误差越小。
+
+\begin{center}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|p{0.68\textwidth}|c|c}
+\toprule
+编号 & 路线 & 状态 & 记录原因 \\
+\midrule
+\bad{OS16-split-first} & \(\mathsf{Split}_{16\to15}\to\bigoplus\mathsf{BTS}^{\mathrm{ord}}_{\log N=15}\to\mathsf{Merge}_{15\to16}\) & \bad{失败} & leaf ScaleDown 条件不满足。\\
+\bad{OS16-old-route} & \(\mathsf{ScaleDown}\to\mathsf{ModUp}_{16}\to\mathsf{Split}_{16\to15}\to\bigoplus\mathsf{BTS}^{\mathrm{ord}}_{\log N=15}\to\mathsf{Merge}_{15\to16}\) & \bad{失败} & 能输出但语义归一化明显不对，平均精度约 1.51 bits。\\
+\bottomrule
+\end{tabular}
+}
+\end{center}
+
+\begin{table*}[htbp]
+\centering
+\caption{完整 Bootstrapping 成功实验的参数汇总}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|c|c|c|c|c|c|c|c|c|c|c}
+\toprule
+ & \multicolumn{6}{c|}{\(\log N_{\mathrm{top}}=16\)}
+ & \multicolumn{5}{c}{\(\log N_{\mathrm{top}}=17\)} \\
+\cmidrule(lr){2-7}\cmidrule(lr){8-12}
+ & L16-Full & L16-SK929 & L16-SK927T & L16-SK864 & L16-SK824 & B16 & L17-lowq & OS17 & \good{L17-I1} & L17-I1-CtS55 & B17 \\
+\midrule
+\multicolumn{12}{c}{Scheme and Security Reference} \\
+\midrule
+叶子引擎 & Lattigo & \subkey & \subkey & \subkey & \subkey & Baseline & \subkey & Lattigo & \subkey & \subkey & Baseline \\
+拆分层数 \(s\) & 1 & 1 & 1 & 1 & 1 & 0 & 1 & 1 & 1 & 1 & 0 \\
+叶子数量 \(2^s\) & 2 & 2 & 2 & 2 & 2 & 1 & 2 & 2 & 2 & 2 & 1 \\
+\subkey 内部 \(\log N'\) & \NA & 12 & 12 & 12 & 12 & \NA & 12 & \NA & 12 & 12 & \NA \\
+安全参考 \(\log(PQ)\) & 868 & 868 & 868 & 868 & 868 & 1747 & 1747 & 1747 & 1747 & 1747 & 3523 \\
+实际 \(\log Q\) & 875.2 & 868 & 866 & 803 & 763 & 899 & 866 & 1391 & 1425 & 1434 & 1391 \\
+实际 \(\log(PQ)\) & 936.2 & 929 & 927 & 864 & 824 & 960 & 927 & 1696 & 1730 & 1739 & 1696 \\
+安全裕量 & \bad{-68.2} & \bad{-61} & \bad{-59} & \(+4\) & \(+44\) & \(+787\) & \(+820\) & \(+51\) & \good{+17} & \(+8\) & \(+1827\) \\
+\midrule
+\multicolumn{12}{c}{Bootstrapping Parameters} \\
+\midrule
+\(\log q_0\) & 34 & 43 & 43 & 43 & 43 & 43 & 43 & 45 & 45 & 45 & 45 \\
+\(\log \Delta\) & 25 & 35 & 35 & 35 & 35 & 35 & 35 & 35 & 35 & 35 & 35 \\
+输出计算层 \(L_{\mathrm{out}}\) & 1 & 1 & 1 & 0 & 0 & 1 & 1 & 15 & 15 & 15 & 15 \\
+\(\log P\) & 61 & 61 & 61 & 61 & 61 & 61 & 61 & 305 & 305 & 305 & 305 \\
+\(\log \Delta_{\mathrm{EvalMod}}\) & \NA & 55 & 56 & 52 & 48 & \NA & 56 & \NA & 60 & 60 & \NA \\
+\(\log \Delta_{\mathrm{CtS}}\) & \NA & 50 & 50 & 50 & 50 & \NA & 50 & \NA & 52 & 55 & \NA \\
+\(\log \Delta_{\mathrm{StC}}\) & \NA & 30 & 26 & 30 & 30 & \NA & 26 & \NA & 33 & 33 & \NA \\
+EvalMod degree \(d\) & \NA & 127 & 127 & 127 & 127 & \NA & 127 & \NA & 127 & 127 & \NA \\
+double-angle \(r\) & \NA & 3 & 3 & 3 & 3 & \NA & 3 & \NA & 3 & 3 & \NA \\
+EvalMod range \(K\) & \NA & 102 & 102 & 102 & 102 & \NA & 102 & \NA & 102 & 102 & \NA \\
+\bottomrule
+\end{tabular}}
+\label{tab:successful-parameters}
+\end{table*}
+
+\begin{table*}[htbp]
+\centering
+\caption{完整 Bootstrapping 成功实验的时间与精度}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|c|c|c|c|c|c|c|c|c|c|c}
+\toprule
+ & \multicolumn{6}{c|}{\(\log N_{\mathrm{top}}=16\)}
+ & \multicolumn{5}{c}{\(\log N_{\mathrm{top}}=17\)} \\
+\cmidrule(lr){2-7}\cmidrule(lr){8-12}
+ & L16-Full & L16-SK929 & L16-SK927T & L16-SK864 & L16-SK824 & B16 & L17-lowq & OS17 & \good{L17-I1} & L17-I1-CtS55 & B17 \\
+\midrule
+\multicolumn{12}{c}{Time (s)} \\
+\midrule
+Split & 0.0068 & 0.0075 & \NA & 0.0058 & 0.0059 & \NA & \NA & \NA & \NA & \NA & \NA \\
+leaf ScaleDown & 0.0003 & 0.0002 & \NA & 0.0001 & 0.0001 & \NA & \NA & \NA & \NA & \NA & \NA \\
+leaf ModUp & 0.1168 & 0.0392 & \NA & 0.0133 & 0.0136 & \NA & \NA & \NA & \NA & \NA & \NA \\
+leaf CtS & 2.42 & 3.11 & \NA & 2.30 & 2.31 & \NA & \NA & \NA & \NA & \NA & \NA \\
+leaf EvalMod & 1.09 & 2.82 & \NA & 2.37 & 2.27 & \NA & \NA & \NA & \NA & \NA & \NA \\
+leaf StC & 0.2412 & 0.2903 & \NA & 0.2073 & 0.1999 & \NA & \NA & \NA & \NA & \NA & \NA \\
+Merge & 0.0095 & 0.0150 & \NA & 0.0045 & 0.0050 & \NA & \NA & \NA & \NA & \NA & \NA \\
+Total & 3.88 & 6.28 & 6.59 & 4.90 & 4.80 & 60.85 & 45.66 & 63.19 & \good{52.03} & 50.51 & 143.29 \\
+\midrule
+\multicolumn{12}{c}{Precision and Output Levels} \\
+\midrule
+Avg L1 precision (bits) & 11.49 & 16.10 & 16.74 & 13.16 & 9.14 & 21.97 & 15.47 & 20.47 & \good{19.40} & 19.42 & 20.87 \\
+输出计算层 \(L_{\mathrm{out}}\) & 1 & 1 & 1 & 0 & 0 & 1 & 1 & 15 & 15 & 15 & 15 \\
+相对直接普通 baseline 加速 & \(15.68\times\) & \(9.69\times\) & \(9.23\times\) & \(12.42\times\) & \(12.68\times\) & \(1.00\times\) & \(3.14\times\) & \(2.27\times\) & \good{\(2.75\times\)} & \(2.84\times\) & \(1.00\times\) \\
+相对 only-\subkey 加速 & \NA & \NA & \(4.99\times\) & \NA & \NA & \NA & \NA & \NA & \good{\(2.60\times\)} & \(2.68\times\) & \NA \\
+相对 only-split 加速 & \NA & \NA & \NA & \NA & \NA & \NA & \NA & \(1.00\times\) & \good{\(1.21\times\)} & \(1.25\times\) & \NA \\
+\bottomrule
+\end{tabular}}
+\label{tab:successful-runtime}
+\end{table*}
+
+\begin{table*}[htbp]
+\centering
+\caption{\(\log N_{\mathrm{top}}=17\) 主参数的成功对照实验}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|c|c|c|c|c|c}
+\toprule
+ & 组合方案 & 组合方案 & only-split & only-\subkey & only-\subkey & 直接普通 \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-4}\cmidrule(lr){5-6}\cmidrule(lr){7-7}
+ & \good{I1} & I1-CtS55 & 普通叶子 BTS & I1 & I1-CtS55 & 普通大环 BTS \\
+\midrule
+\multicolumn{7}{c}{Parameter and Security} \\
+\midrule
+是否拆分 & 是 & 是 & 是 & 否 & 否 & 否 \\
+是否使用 \subkey & 是 & 是 & 否 & 是 & 是 & 否 \\
+安全参考对象 & leaf16 & leaf16 & leaf16 & top17 & top17 & top17 \\
+安全参考 \(\log(PQ)\) & 1747 & 1747 & 1747 & 3523 & 3523 & 3523 \\
+实际 \(\log Q\) & 1425 & 1434 & 1391 & 1425 & 1434 & 1391 \\
+实际 \(\log(PQ)\) & 1730 & 1739 & 1696 & 1730 & 1739 & 1696 \\
+安全裕量 & \good{+17} & \(+8\) & \(+51\) & \(+1793\) & \(+1784\) & \(+1827\) \\
+\midrule
+\multicolumn{7}{c}{Time and Precision} \\
+\midrule
+Total time (s) & \good{52.03} & 50.51 & 63.19 & 135.08 & 135.15 & 143.29 \\
+Avg L1 precision (bits) & \good{19.40} & 19.42 & 20.47 & 18.61 & 18.60 & 20.87 \\
+输出计算层 \(L_{\mathrm{out}}\) & 15 & 15 & 15 & 15 & 15 & 15 \\
+相对组合方案 I1 加速 & \(1.00\times\) & \(1.03\times\) & \(0.82\times\) & \(0.39\times\) & \(0.39\times\) & \(0.36\times\) \\
+\bottomrule
+\end{tabular}}
+\label{tab:logn17-controls}
+\end{table*}
+
+\begin{table*}[htbp]
+\centering
+\caption{Split/drop/merge 成功实验：Lattigo SplitNew 后降低叶子密文 \(Q\)}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|c|c|c|c|c|c|c}
+\toprule
+ & \multicolumn{7}{c}{Anyu lowq 相关参数，\(\log N_{\mathrm{top}}=16\), \(\log N_{\mathrm{leaf}}=15\), input \(\log Q=869\)} \\
+\cmidrule(lr){2-8}
+ & T17 & T16 & T15 & T12 & T8 & T4 & T0 \\
+\midrule
+\multicolumn{8}{c}{Target Modulus} \\
+\midrule
+target level & 17 & 16 & 15 & 12 & 8 & 4 & 0 \\
+target \(\log Q\) & 869 & 819 & 769 & 609 & 389 & 169 & 43 \\
+saved \(Q\) bits & 0 & 50 & 100 & 260 & 480 & 700 & 826 \\
+\midrule
+\multicolumn{8}{c}{Time (s)} \\
+\midrule
+Split & 0.261 & 0.240 & 0.248 & 0.255 & 0.248 & 0.247 & 0.256 \\
+Merge & 0.224 & 0.205 & 0.200 & 0.130 & 0.057 & 0.022 & 0.008 \\
+Total & 0.560 & 0.514 & 0.512 & 0.441 & 0.345 & 0.295 & 0.265 \\
+\midrule
+\multicolumn{8}{c}{Precision} \\
+\midrule
+precision vs plaintext (bits) & 21.34 & 21.34 & 21.34 & 21.34 & 21.34 & 21.35 & 21.34 \\
+precision vs input ct (bits) & 21.67 & 21.67 & 21.67 & 21.68 & 21.68 & 21.68 & 21.68 \\
+\bottomrule
+\end{tabular}}
+\label{tab:split-drop-merge-anyu}
+\end{table*}
+
+\begin{table*}[htbp]
+\centering
+\caption{Split/drop/merge 成功实验：5-7 默认风格参数}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|c|c|c|c|c}
+\toprule
+ & \multicolumn{5}{c}{\(\log N_{\mathrm{top}}=16\), \(\log N_{\mathrm{leaf}}=15\), input \(\log Q=876\)} \\
+\cmidrule(lr){2-6}
+ & T16 & T14 & T10 & T5 & T0 \\
+\midrule
+\multicolumn{6}{c}{Target Modulus} \\
+\midrule
+target level & 16 & 14 & 10 & 5 & 0 \\
+target \(\log Q\) & 876 & 764 & 532 & 232 & 35 \\
+saved \(Q\) bits & 0 & 112 & 344 & 644 & 841 \\
+\midrule
+\multicolumn{6}{c}{Time (s)} \\
+\midrule
+Split & 0.256 & 0.256 & 0.263 & 0.243 & 0.265 \\
+Merge & 0.223 & 0.169 & 0.098 & 0.028 & 0.004 \\
+Total & 0.555 & 0.486 & 0.416 & 0.303 & 0.270 \\
+\midrule
+\multicolumn{6}{c}{Precision} \\
+\midrule
+precision vs plaintext (bits) & 8.91 & 8.91 & 9.01 & 9.32 & 9.40 \\
+precision vs input ct (bits) & 8.93 & 8.93 & 9.02 & 9.34 & 9.42 \\
+\bottomrule
+\end{tabular}}
+\label{tab:split-drop-merge-default}
+\end{table*}
+
+\begin{table*}[htbp]
+\centering
+\caption{当前最推荐的三个成功参数}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|c|c|c}
+\toprule
+ & \good{第一候选} & 第二候选 & 工程验证候选 \\
+\midrule
+\multicolumn{4}{c}{Parameter} \\
+\midrule
+大环 \(\log N_{\mathrm{top}}\) & 17 & 17 & 16 \\
+叶子 \(\log N_{\mathrm{leaf}}\) & 16 & 16 & 15 \\
+方法 & split+\subkey & split+\subkey & split+\subkey \\
+主要参数 & \good{I1} & I1, CtS55 & lowq, Eval56, StC26, CtS50 \\
+叶子安全参考 \(\log(PQ)\) & 1747 & 1747 & 868 \\
+实际 \(\log Q\) & 1425 & 1434 & 866 \\
+实际 \(\log(PQ)\) & 1730 & 1739 & 927 \\
+安全裕量 & \good{+17} & \(+8\) & \bad{-59} \\
+\midrule
+\multicolumn{4}{c}{Time, Precision, and Recommendation} \\
+\midrule
+Total time (s) & \good{52.03} & 50.51 & 6.59 \\
+Avg L1 precision (bits) & \good{19.40} & 19.42 & 16.74 \\
+输出计算层 \(L_{\mathrm{out}}\) & 15 & 15 & 1 \\
+相对 only-\subkey 加速 & \good{\(2.60\times\)} & \(2.68\times\) & \(4.99\times\) \\
+相对直接普通 baseline 加速 & \good{\(2.75\times\)} & \(2.84\times\) & \(9.23\times\) \\
+建议用途 & \good{主推安全参数} & 最高精度观察点 & \bad{仅说明融合路线可行} \\
+\bottomrule
+\end{tabular}}
+\label{tab:best-three}
+\end{table*}
+
+\clearpage
+\section*{运行命令记录}
+
+\paragraph{第一候选：\(\log N_{\mathrm{top}}=17\), I1}
+\begin{verbatim}
+go run ./5-7/. \
+  -run=ours \
+  -leafEngine=anyu \
+  -anyuProfile=i1 \
+  -anyuSubringLogN=12 \
+  -logN=17 \
+  -layers=1 \
+  -splitFirstLeafPreprocess \
+  -reps=1
+\end{verbatim}
+
+\paragraph{第二候选：\(\log N_{\mathrm{top}}=17\), I1-CtS55}
+\begin{verbatim}
+go run ./5-7/. \
+  -run=ours \
+  -leafEngine=anyu \
+  -anyuProfile=i1 \
+  -anyuSubringLogN=12 \
+  -anyuCtSBits=55 \
+  -logN=17 \
+  -layers=1 \
+  -splitFirstLeafPreprocess \
+  -reps=1
+\end{verbatim}
+
+\paragraph{工程验证候选：\(\log N_{\mathrm{top}}=16\), lowq tuned}
+\begin{verbatim}
+go run ./5-7/. \
+  -run=ours \
+  -leafEngine=anyu \
+  -anyuProfile=lowq \
+  -anyuSubringLogN=12 \
+  -anyuEvalModBits=56 \
+  -anyuStCBits=26 \
+  -anyuCtSBits=50 \
+  -logN=16 \
+  -layers=1 \
+  -splitFirstLeafPreprocess \
+  -reps=1
+\end{verbatim}
+
+\paragraph{Split/drop/merge q-sweep}
+\begin{verbatim}
+go run ./5-7 -run=qsweep \
+  -leafEngine=anyu -anyuProfile=lowq -anyuSubringLogN=12 \
+  -logN=16 -layers=1 -reps=1
+\end{verbatim}
+
+\paragraph{代码路径}
+\begin{verbatim}
+/Users/mac/Desktop/Research-KB-RAG/
+  04_论文协作区/01_当前论文项目/Eurocrypt2027/
+  04_实验实现/ckks-subring-compression/5-7/main.go
+
+/Users/mac/Desktop/Research-KB-RAG/
+  04_论文协作区/01_当前论文项目/Eurocrypt2027/
+  04_实验实现/ckks-subring-compression/5-7/anyu25.go
+\end{verbatim}
+
+\end{document}
