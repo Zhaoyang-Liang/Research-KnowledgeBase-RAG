@@ -1,0 +1,3 @@
+target_lout	actual_output_level	logQP	qCount	total_sec	stc_sec	modup_sec	cts_sec	evalmod_sec	avg_l1_prec_bits	log_file
+1	1	1205.999963	17	4.010872916	0.455893125	0.187291208	2.191159500	1.176529083	21.96	logs/top16_baseline_lout1_16_20260517_115115/baseline_top16_Lout1.log
+2	2	1241.000068	18	4.246922125	0.689854542	0.190656125	2.050522625	1.315888833	21.96	logs/top16_baseline_lout1_16_20260517_115115/baseline_top16_Lout2.log

@@ -1,0 +1,1274 @@
+DaCapo: Automatic Bootstrapping Management
+  for Efficient Fully Homomorphic Encryption
+  Seonyoung Cheon, Yongwoo Lee, Dongkwan Kim, and Ju Min Lee,
+  Yonsei University; Sunchul Jung and Taekyung Kim, CryptoLab. Inc.;
+  Dongyoon Lee, Stony Brook University; Hanjun Kim, Yonsei University
+    https://www.usenix.org/conference/usenixsecurity24/presentation/cheon
+
+
+
+
+    This paper is included in the Proceedings of the
+           33rd USENIX Security Symposium.
+              August 14–16, 2024 • Philadelphia, PA, USA
+                             978-1-939133-44-1
+
+
+
+
+                                     Open access to the Proceedings of the
+                                       33rd USENIX Security Symposium
+                                           is sponsored by USENIX.
+                           DaCapo: Automatic Bootstrapping Management
+                            for Efficient Fully Homomorphic Encryption
+
+          Seonyoung Cheon                 Yongwoo Lee                    Dongkwan Kim                  Ju Min Lee
+          Yonsei University              Yonsei University              Yonsei University            Yonsei University
+          Sunchul Jung               Taekyung Kim                      Dongyoon Lee                    Hanjun Kim
+          CryptoLab. Inc             CryptoLab. Inc                Stony Brook University            Yonsei University
+
+
+                         Abstract                                      Among the FHE schemes, RNS-CKKS [11] is suitable for
+                                                                       privacy-preserving machine learning models as it offers opti-
+   By supporting computation on encrypted data, fully homo-
+                                                                       mized fixed-point arithmetic and SIMD support.
+morphic encryption (FHE) offers the potential for privacy-
+preserving computation offloading. However, its applicability             In RNS-CKKS, a ciphertext embeds a scaled integer with
+is constrained to small programs because each FHE multipli-            the maximum scale capacity, called coefficient modulus Q.
+cation increases the scale of a ciphertext with a limited scale        Each FHE multiplication increases its accumulated scale, like
+capacity. By resetting the accumulated scale, bootstrapping en-        the multiplication of two scaled numbers. When the accumu-
+ables a longer FHE multiplication chain. Nonetheless, manual           lated scale exceeds the coefficient modulus Q, scale overflow
+bootstrapping placement poses a significant programming bur-           occurs, leading to an unrecoverable result. Thus, programmers
+den to avoid scale overflow from insufficient bootstrapping or         should carefully design an RNS-CKKS program with a lim-
+the substantial computational overhead of unnecessary boot-            ited number of multiplications, or insert bootstrapping [10]
+strapping. Additionally, the bootstrapping placement affects           operations that reset the accumulated scale of a ciphertext,
+costs of FHE operations due to changes in scale management,            enabling a longer multiplication chain. Although existing
+further complicating the overall management process.                   RNS-CKKS compilers [18, 39, 41] can automatically manage
+                                                                       ciphertext scales reflecting constraints of RNS-CKKS opera-
+   This work proposes DAC APO, the first automatic bootstrap-
+                                                                       tions, their applicability remains limited to small RNS-CKKS
+ping management compiler. Aiming to reduce bootstrapping
+                                                                       programs due to lack of bootstrapping support. Only manual
+counts, DAC APO analyzes live-out ciphertexts at each pro-
+                                                                       bootstrapping placement [36, 38] has been proposed for a
+gram point and identifies candidate points for inserting boot-
+                                                                       long FHE program such as ResNet, but the manual placement
+strapping operations. DAC APO estimates the FHE operation
+                                                                       imposes a significant burden on programmers and easily leads
+latencies under different scale management scenarios for each
+                                                                       to inefficient performance.
+bootstrapping placement plan at each candidate point, and de-
+cides the bootstrapping placement plan with minimal latency.              Optimizing a long FHE program with manual bootstrap-
+This work evaluates DAC APO with deep learning models that             ping placement is challenging for three reasons. First, pro-
+existing FHE compilers cannot compile due to a lack of boot-           grammers should trace the growth of the accumulated scale
+strapping support. The evaluation achieves 1.21×speedup on             of each ciphertext, and insert the bootstrapping operation be-
+average compared to manually implemented FHE programs.                 fore scale overflow occurs. Second, a bootstrapping operation
+                                                                       has significant latency, which is the most expensive among
+                                                                       RNS-CKKS operations. While avoiding scale overflow from
+1   Introduction                                                       insufficient bootstrapping, programmers should reduce the
+                                                                       number of bootstrapping operations, not to unnecessarily in-
+Fully homomorphic encryption [22] (FHE) has emerged as                 crease bootstrapping overheads. Third, bootstrapping place-
+a promising solution for privacy-preserving computation in             ment affects scale management. Since bootstrapping resets
+untrusted environments, like financial and healthcare appli-           the accumulated scales of ciphertexts, and RNS-CKKS opera-
+cations on a third-party cloud. FHE allows computations                tions have different latencies depending on their accumulated
+on encrypted data, and its decrypted results are identical to          scale, the bootstrapping insertion points change the latencies
+those obtained from unencrypted computations. Since Gen-               of the other RNS-CKKS operations. Therefore, to optimize
+try’s pioneering work on FHE using lattice-based cryptogra-            bootstrapping placement, the number of bootstrapping opera-
+phy [22], many FHE schemes [8,11,12,14,20], and supporting             tions and their performance impact on the other RNS-CKKS
+libraries [1, 2, 17, 21, 25, 26, 46, 48, 54] have been proposed.       operations should be considered together.
+
+
+
+USENIX Association                                                                       33rd USENIX Security Symposium        6993
+                             𝑚        Level 𝑙      𝑚1        Level 𝑙                 Level 𝑙                  Level 𝑙                   Level 𝑙
+  Scale Capacity (𝑆𝑓L )
+      Scale (𝑚)              𝑚
+                                 + Level 𝑙         𝑚2   x Level 𝑙      𝑚                        𝑚                                          𝑚
+               Level 𝑙                                                       Modswitch              Rescale                      Boot
+                             𝑚                    𝑚1 𝑚2                      𝑚                   𝑚/𝑆𝑓                      𝑆𝑓
+                                      Level 𝑙                Level 𝑙              Level 𝑙−1               Level 𝑙−1                     Level 𝐿
+Accumulated   Scale
+   Scale    Factor (𝑆𝑓 )
+
+       (a) Definition        (b) Addition        (c) Multiplication        (d) Modswitch            (e) Rescale             (f) Bootstrapping
+
+Figure 1: RNS-CKKS operations. Additions and multiplications require the input operands to have the same level l. Additions
+additionally require the operands to have the same scale m. The modswitch and rescale operations reduce level l by one; the
+bootstrap operation resets the level l to the initial level L = 5.
+
+
+    This work proposes DAC APO, the first automatic bootstrap-         2     Background
+ping placement compiler that heuristically places bootstrap-
+ping operations to minimize the overall latency in an FHE              This section describes RNS-CKKS [11] and scale manage-
+program. To reduce the number of bootstrapping operations,             ment for RNS-CKKS programs. In contrast to other FHE
+DAC APO analyzes live-out ciphertexts, which are used by               schemes [8,12,14,20,22], RNS-CKKS provides better support
+later instruction at each program point, and classifies program        for fixed-point arithmetic and SIMD parallelism by leveraging
+points with a minimal number of live-outs as a candidate               approximation (i.e., encrypted computation results could be
+set of bootstrapping insertion points. DAC APO identifies a            slightly different from unencrypted ones). These properties
+subset of the live-out ciphertexts that remain unused for a            make RNS-CKKS well-suited for machine learning applica-
+certain period without requiring bootstrapping, and catego-            tions that can accommodate a certain level of approximation.
+rizes them as bypass edges. DAC APO excludes the bypass
+edges from the live-outs and thus achieves more precise re-
+quired bootstrapping counts. To reflect the latency of the other       2.1       RNS-CKKS Encoding and Encryption
+RNS-CKKS operations, such as multiplications and rotations,
+                                                                       RNS-CKKS introduces two encoding and encryption parame-
+affected by scale management and bootstrapping insertion
+                                                                       ters: polynomial modulus degree N and coefficient modulus Q.
+points, DAC APO estimates their latency under different scale
+                                                                       RNS-CKKS encodes a vector containing real numbers into a
+management scenarios for each bootstrapping point and finds
+                                                                       cyclotomic polynomial [7] whose degree is N. N affects the
+a bootstrapping placement plan with minimal latency among
+                                                                       security level (e.g., equivalent to 128-bit security) and the la-
+the candidate set.
+                                                                       tency of RNS-CKKS operations. Q determines the maximum
+    This work implements DAC APO compiler on top of MLIR               coefficients of the polynomials. RNS-CKKS encrypts the
+[33] with a GPU-accelerated RNS-CKKS library called                    plaintext µ into a ciphertext, which is a pair of polynomials
+HEaaN [25]. This work evaluates DAC APO with six deep                  (−a · s + µ + e, a) with random noises (a and e) and the secret
+learning models such as ResNet20, ResNet-44, AlexNet,                  key (s). The security of RNS-CKKS relies on the hardness of
+VGG-16, SqueezeNet, and MobileNet. This work implements                Ring Learning with Errors (RLWE) [42].
+the deep learning models with maxpooling and ReLU like the
+                                                                          An RNS-CKKS ciphertext has a scale and a level property,
+original models and also implements the same models with
+                                                                       defined as follows. RNS-CKKS deals with a polynomial with
+average pooling and SiLU that require a shorter multiplication
+                                                                       integer coefficients and encodes a real number as an integer
+chain. The evaluation results show that DAC APO achieves
+                                                                       over a scale. For example, the number x = 1.1 is encoded as an
+1.21×speedup on average for diverse deep learning models,
+                                                                       integer v = 11 with the scale m = 101 . The multiplication of
+compared to the manually implemented FHE programs.
+                                                                       two scaled numbers increases the result’s scale: i.e., the scale
+    Followings are the contributions of this work.                     of a ciphertext gradually accumulates on a multiplication. For
+• The first automatic bootstrapping management compiler,               instance, y = x · x leads to an integer v = 121 with the scale
+   DAC APO, for fully homomorphic encryption;                          m = 101 · 101 = 102 . The scale is limited by the maximum
+• A new liveness-aware bootstrapping placement analysis                scale capacity (defined by coefficient modulus Q), which is de-
+   that generates an insertion point candidate set with minimal        scribed as a product of the small fixed-size scaling factors S f :
+   live-out counts;                                                    i.e., Q ≈ S f L , where L is the initial level. The level l denotes
+• A new cost-aware bootstrapping placement that reflects               the number of scaling factors S f available in the ciphertext.
+   different FHE computation costs under different scale man-             Figure 1a illustrates an RNS-CKKS ciphertext with scale
+   agement affected by bootstrapping placement plan.                   and level. The ciphertext has the maximum scale capacity S f L
+
+
+
+6994     33rd USENIX Security Symposium                                                                                 USENIX Association
+Table 1: FHE Parameters and their descriptions. The rightmost       Table 2: Latency of FHE operations for different levels (µs)
+column represents the values used in actual evaluation.
+                                                                                                          Level
+                                                                     Operation
+ Parameter             Description            In our evaluation                     4       6       8      10      12      14      16
+       N       Polynomial modulus degree            217                PAdd        24      32      40      47      54      64      70
+       Q          Coefficient modulus              21479               CAdd        33      44      54      65      74      85      94
+                                                                       PMult      214      304     385     459     533     604     675
+       Sf           Rescaling factor                251
+                                                                       CMult      1218    1513    1795    2306    2572    2927    3151
+      Lmax     Maximum level of ciphertext          29                  Rot       890     1080    1239    1699    1864    2035    2225
+       L        Level after bootstrapping           16
+                                                                        Boot                             354762
+
+
+where the initial level L = 5 (depicted with five boxes). Start-
+                                                                       Rotation: For vectorized arithmetic operations, RNS-
+ing from the initial level L, the level l decreases on modswitch
+                                                                    CKKS additionally supports the rotate operation that per-
+and rescale operations and becomes reset to the initial level
+                                                                    forms a circular shift on a message vector by a given
+L on bootstrap operation (which will be explained later).
+                                                                    offset: e.g., rotating (a1 , a2 , ..., a10 ) by offset 2 leads to
+Two dotted gray boxes on the left represent two scale factors
+                                                                    (a3 , a4 , ..., a10 , a1 , a2 ). The rotate operation is a relatively
+consumed by modswitch or rescale operations, rendering
+                                                                    expensive operation, next to a CMul operation.
+the current level l = 3. The accumulated scale denotes the to-
+tal scale accumulated (by multiplications) so far, and it should
+be lower than the scale capacity S f L . Otherwise, the scale       2.2.2   Scale Management Operations
+overflow occurs, leading to an irrecoverable result. The scale
+                                                                    RNS-CKKS further requires programmers to use the follow-
+m excludes the consumed scale factors and it should be larger
+                                                                    ing scale management operations to meet the RNS-CKKS
+than the predefined minimum scale, called waterline Sw , to
+                                                                    constraints (which are irrelevant to application algorithms).
+control the noises introduced by RNS-CKKS operations.
+                                                                       Upscale: The upscale operation is a syntactic sugar (not
+   Table 1 shows description and values of FHE parameters
+                                                                    a separate RNS-CKKS) operation that multiplies an operand
+used in the evaluation, including a polynomial modulus degree
+                                                                    ciphertext at scale m1 with a multiplicative identity (i.e., 1) at
+(N) of 217 , and a ciphertext can contain 65536 elements. The
+                                                                    scale m2 , increasing the scale of the operand to m = m1 · m2
+evaluation uses a coefficient modulus composed of primes
+                                                                    (by an arbitrary amount). The operation can be used to match
+with the same scaling factor (R) of 51 bits, and its value is
+                                                                    the scale of an addition operand if needed.
+equal to 21479 . The bootstrapping implementation provided
+                                                                       Modswitch (Figure 1d): The modswitch operation con-
+by library consumes 13 levels. In other words, when boot-
+                                                                    sumes one scale factor S f without affecting the scale of a
+strapping is performed using parameters with a maximum
+                                                                    ciphertext, which in effect reduces the level by one. The
+level of Lmax , the resulting ciphertext will have 16 levels (L).
+                                                                    operation can be used to adjust the level of an addition or
+                                                                    multiplication operand if they do not match.
+2.2     RNS-CKKS Operations                                            Rescale (Figure 1e): Multiplications accumulate the scales
+                                                                    of ciphertexts. To avoid scale overflow (where the accumu-
+2.2.1    Arithmetic and Rotation Operations
+                                                                    lated scale exceeds the maximum scale capacity S f L ), RNS-
+RNS-CKKS supports basic arithmetic and rotation operations,         CKKS supports the rescale operation that divides coeffi-
+which can be used to implement application algorithms.              cient modulus Q by the scale factor S f . In effect, the result’s
+   Addition (Figure 1b) and Multiplication (Figure 1c):             scale decreases from m to m/S f (unlike modswitch) and its
+RNS-CKKS supports two vectorized arithmetic operations:             level decreases from l to l − 1. Note that the rescale oper-
+addition and multiplication. These operations add/multiply          ation does not change the accumulated scale. To accommo-
+two ciphertexts (CAdd and CMul, respectively) or one plaintext      date noises in RNS-CKKS operations, the rescale operation
+and one ciphertext (PAdd and PMul). The addition operation          should be used only if the scale after rescaling still remains
+requires the levels and scales of two operands to be the same,      higher than the minimum scale waterline: i.e., m/S f ≥ Sw .
+and produces a ciphertext of the same level l and scale m. On          Bootstrap (Figure 1f): Even with rescaling, for a program
+the other hand, multiplication requires only the levels of two      with a large number of multiplications, all available scale bud-
+operands to be the same. The scale of the resulting ciphertext      gets will be eventually consumed and the accumulative scale
+accumulates to the product of the scales of the operands: i.e.,     will reach the cap. Further operations become infeasible due
+m = m1 · m2 . Table 2 presents the runtime latency of (some)        to a scale overflow. As a solution, RNS-CKKS supports the
+RNS-CKKS operations at different levels measured in the             bootstrap operation that resets the scale and level of a ci-
+GPU-accelerated HEaaN library [25]. Multiplications are             phertext. After bootstrapping, the accumulated scale (and the
+slower than additions. Arithmetic operations at a high level        current scale at level L) decreases to scale factor S f . Table 2
+are more expensive than ones at a low level.                        shows the runtime latency of bootstrap from a different
+
+
+
+USENIX Association                                                                       33rd USENIX Security Symposium           6995
+level to the maximum level L(=16). The bootstrap latency           operation has a great influence on the level of the following ci-
+solely depends on the target level and does not depend on          phertexts, impacting the latencies of subsequent RNS-CKKS
+the level gap. As reported, bootstrap is the most expensive        operations. For example, what should we do if we have multi-
+operation in RNS-CKKS: e.g., 3774 times slower than CAdd,          ple solutions with the same minimum number of bootstrap
+and 112 times slower than CMul at level 16.                        operations? Reasoning about the cascading impacts of multi-
+                                                                   ple bootstrapping options is not a trivial task.
+3     Motivation
+                                                                   4   Key Observations and Insights
+This section discusses the limitations of existing RNS-CKKS
+compilers and the difficulties in manual bootstrapping, moti-      The RNS-CKKS compilers (e.g., EVA [18] and Hecate [41])
+vating this work: new compiler support for bootstrapping.          can keep track of the scale and level of ciphertexts while plac-
+                                                                   ing scale management operations. A naïve compiler-based
+                                                                   bootstrapping solution would be to extend them to place a
+3.1    Prior RNS-CKKS Compilers
+                                                                   bootstrap operation right before the RNS-CKKS operation
+Existing RNS-CKKS compilers [18, 41] aim to support au-            that exceeds the maximum scale capacity (to avoid a scale
+tomatic scale management that takes as input a program that        overflow). However, we made two novel observations that
+consists of only arithmetic and rotation operations (imple-        such a naïve extension (based on an accumulated scale analy-
+menting application computation logic), and inserts scale          sis) would lead to inefficient performance.
+management operations upscale, modswitch, and rescale                 Observation 1: A simple accumulated scale analysis
+(but not bootstrap) to produce a new program that satisfies        may introduce (unnecessarily) many bootstrap opera-
+the RNS-CKKS constraints for security and correctness.             tions, incurring significant performance overhead. Con-
+   Although EVA [18] and Hecate [41] successfully automate         sider a simple deep learning example in Figure 2a that consists
+many parts of scale management in RNS-CKKS, they both              of three convolution layers (Conv1, Conv2, and Conv3), two
+lack support for automatic bootstrapping management. As a          activation functions (Act), and one addition operation (Add).
+result, they have been applied to relatively small deep-learning   Figure 2a (right) shows ciphertexts (white box) and RNS-
+applications such as LeNet-5 [34], leaving more complex            CKKS arithmetic and rotation operations (arrows). A simple
+applications with a deep multiplicative depth out of reach.        convolution layer includes three pairs (channels) of one Rot
+                                                                   and two PMul operations, aggregated by CAdd at the end. A
+                                                                   simple activation function (Act) uses a single CMul operation.
+3.2    Manual Bootstrapping Placement
+                                                                      Suppose that the scale of the input ciphertext x is 240 , and
+Unfortunately, the state-of-the-art that supports large RNS-       its waterline, rescaling factor and the maximum scale capac-
+CKKS applications is manually adding bootstrap opera-              ity are 240 , 260 and 2300 (the initial level is 5). Figure 2b
+tions, which is error-prone and time-consuming. The manual         illustrates how the accumulated scale (left y-axis) and the
+placement is challenging for the following three reasons.          level (right y-axis) of a ciphertext change in this example
+   First, to avoid a scale overflow problem and ensure correct-    program (while scale management operations are omitted for
+ness, users should place a bootstrap operation before the          simplicity). The x-axis reports the time latency, calculated
+accumulated scale (after the last bootstrapping) exceeds the       using scaled profiled costs based on Table 2. Figure 2b shows
+maximum scale capacity S f L . Manually tracking the growth        the execution model of a naïve bootstrapping approach in
+of the accumulated scales of a large number of ciphertexts is      which a bootstrap operation is added right before the RNS-
+indeed very difficult because they depend on not only the ex-      CKKS operation that exceeds the maximum scale capacity.
+isting arithmetic and rotation operations, but also newly added    During the third Conv3, the accumulated scale would become
+upscale or rescale operations for scale management.                larger than the maximum scale capacity on each of the three
+   Second, besides correctness, conducting performance-            second PMul operations. To prevent scale overflow, the naïve
+aware bootstrap operation placement manually (leading              compiler would add three bootstrap operations to reset the
+to lower latency) is even harder. As discussed earlier with Ta-    scales/levels of three ciphertexts Ms.
+ble 2, the bootstrap operation is much more expensive than            In Table 2, the bootstrap operation is much more expen-
+any other operations. Thus, in most cases, it is a good idea to    sive than any other operation. It is thus often profitable to
+minimize the number of bootstrap operations (later we show         use fewer bootstrap operations (if possible). The next two
+that in some cases, more bootstrapping may count-intuitively       alternatives (analyzed by our compiler DAC APO) in Figure 2c
+lead to better performance).                                       and Figure 2d demonstrate that it is indeed possible to reduce
+   Third, the bootstrapping placement affects scale manage-        the latency by placing fewer bootstrap operations at better
+ment and its performance. The bootstrap operation changes          locations. They are based on the following two key insights.
+the scale and level of a ciphertext (like other scale manage-         Insight 1A: A ciphertext liveness analysis can help re-
+ment operations), implying that the location of a bootstrap        duce the number of bootstrap operations. Our first in-
+
+
+
+6996    33rd USENIX Security Symposium                                                                       USENIX Association
+      Example                                  Conv1(x)                        Conv2(a)                        Act(b)                      Conv3(c)                  Add(a,d) Act(e)
+  a = Conv1(x)                                                                            Bypass
+  b = Conv2(a)                            R   M     N                         R   M     N                                           R   M     N                       a
+  c = Act(b)                         x    R   M     N    A               a    R   M     N    A                 b           T   c    R   M     N   A                   d        A     e     T
+  d = Conv3(c)                            R   M     N                         R   M     N                                           R   M     N
+  e = Add(a,d)
+  Ret Act(e)                           Rot PMul PMul CAdd                  Rot PMul PMul CAdd                      CMul          Rot PMul PMul CAdd                    CAdd           CMul
+                           (a) Example program and its dataflow. The example consists of three convolution layers and two activation functions.
+
+         Accumulated Scale
+                                                                            M                                  M                               M                                     Level 1
+ 280
+                                                                          T R                                  R                               R                                     Level 2
+ 240
+ 200                                                  N     N     N Ab                                                                                                               Level 3
+ 160                                                 M     M     M
+                                                                                     Boot                              Boot                             Boot                       T Level 4
+ 120               N           N             N Aa   R     R     R
+                                                                                                       N                                   N                         N Ad Ae         Level 5
+  80           M           M             M
+                                                                                                   M                                   M                         M
+  40 X     R           R             R
+     0                                     634                 1132 1237                   28330                  55465                  82600 82646 82729                               Cost
+                                   (b) Naïve approach. Bootstrapping is inserted right before the accumulated scale exceeds the scale capacity.
+
+         Accumulated Scale
+                                                                                                                                                                                     Level 1
+ 280                                                                                                                N N N Ad Ae                                                      Level 2
+ 240                                                                                                               M M M
+ 200                                                                                                       T       R R R                                                             Level 3
+ 160                                                                                                                                               Boot
+                                                                           N         N        N Ab                                                                                   Level 4
+ 120               N           N             N Aa                                                                                                                T
+                                                     Boot                 M         M        M                                                                                       Level 5
+  80           M           M             M
+                                                                Aa’   R         R        R                                                                 Ae’
+  40 X     R           R             R
+      0                         634              27634                          28238 28360             28769            55770 55901                   Cost
+     (c) Liveness-aware placement. Bootstrapping is inserted at the latest minimum live-out point before the accumulated scale exceeds the scale capacity.
+
+         Accumulated Scale
+                                                                                                                                                                                     Level 1
+ 280
+                                                                                                                                                                                     Level 2
+ 240                                                                      T
+ 200                                                  N     N     N Ab                                                                                                               Level 3
+                                                                                                                                                    T
+ 160                                                 M     M     M                                                                                                                   Level 4
+ 120               N           N             N Aa   R     R     R
+                                                                                Boot                       N               N           N Ad Ae
+  80           M           M             M                                                             M               M           M                                                 Level 5
+  40 X     R           R             R                                                       T’    R               R           R
+      0                          634                  1132 1237              28237                        28841 28967                                 Cost
+(d) Bypassed-liveness-aware placement. Bootstrapping is inserted in the same manner as liveness-aware placement but excluding bypass edges from the live-outs.
+
+         Accumulated Scale
+                                                                                                                                                                                     Level 1
+ 280
+                             N N N Ab                                                         T                                              Level 2
+ 240
+                             M M M                                                                                                           Level 3
+ 200                                                                   N      N      N Ad Ae
+          N     N     N Aa R R R
+ 160
+         M     M     M                         Boot                   M      M      M                                                        Level 4
+ 120                                                             T R        R      R
+     X' R     R    R
+  80                                                                                                                                         Level 5
+                                                         Ab’
+  40 X    : Modswitch
+      0                 525             935            27935 28066                   28564 28672                                               Cost
+        (e) Cost-aware placement (DAC APO). Bootstrapping is inserted at the best performance points among bypassed-liveness-aware candidates.
+
+Figure 2: Motivating example and its execution models with different bootstrapping placement policies. The example assumes
+240 waterline, 260 scaling factor, and 2300 scale capacity (the maximum level is 5).
+
+
+sight is that the naïve approach added three bootstrap oper-                                      bootstrapped. If the optimization goal is to minimize the num-
+ations because a ciphertext dataflow diverges and three cipher-                                   ber of bootstrap operations, then it would be beneficial to
+texts Ms are later “used” so they all have to be bootstrapped                                     consider an alternative (and earlier) program point with fewer
+for correctness. More formally in a compiler term, there were                                     live-outs, or equivalently, a program point before a dataflow
+three live-out variables Ms in a dataflow graph that must be                                      diverges or after it converges.
+
+
+
+
+USENIX Association                                                                                                                 33rd USENIX Security Symposium                        6997
+   Based on this insight, DAC APO performs liveness-based          less latency. The performance improvement with lower-level
+bootstrapping management. More specifically, DAC APO               operations may be greater than the performance overhead of
+counts the live-out ciphertexts at each program point, and         additional bootstrap operations.
+regards minimum live-out points as candidate bootstrapping            Insight 2: A cost-aware bootstrapping analysis is needed
+points. For instance, Figure 2c inserts the first bootstrap        for performance. Learned from the above observation,
+operation at the earlier program point with one live-out ci-       DAC APO leverages the aforementioned liveness analysis to
+phertext Aa (after a dataflow converges from Conv1(x) and          collect different bootstrapping candidates, and compares static
+before it diverges to Conv2(a)), even though the accumulated       cost (latency) estimates among them to select the lowest. For
+scale is still much lower than the maximum capacity.               example, compare two different bootstrapping locations be-
+   Insight 1B: A long-lived unused ciphertext that bypasses        tween Figure 2d and Figure 2e for the same number (one)
+other RNS-CKKS operations is unlikely to require boot-             of bootstrap operations. Figure 2e performs bootstrapping
+strapping, so it is often profitable to exclude the ciphertext     before CMul in Act(b), allowing many arithmetic and rota-
+from the live-out counts. In a ciphertext dataflow graph (e.g.,    tion operations in the first partition (the ones in Conv1(x)
+Figure 2a), a bypass ciphertext implies the ciphertext that was    and Conv2(a)) to be performed at level 4 or less after early
+defined but not used for a while. For instance, the ciphretext     modswitch (shown in a red arrow). On the other hand, Fig-
+A is defined at the end of the Conv1(x); not used by (bypass-      ure 2d performs many of these operations at a higher level 5,
+ing) Conv2(a), Act(b), and Conv3(c); and finally used by           leading to higher end-to-end latency.
+Add(a,d). The long-lived ciphertext is represented as a long
+edge from A in Conv1(x) to a in Add(a,d). Such a long-lived        5   Overview
+unused (bypass) ciphertext is unlikely to require bootstrap.
+A strict inclusion of those ciphertexts in liveness analysis may   This work proposes DAC APO, the first FHE compiler that
+unnecessarily increase live-out counts at some program points,     automatically places bootstrap operations. Given an input
+and remove bootstrapping placement candidates, thus losing         program written in plain operations, DAC APO transforms
+further optimization opportunities. Then, DAC APO would not        the plain operations into RNS-CKKS operations with scale
+consider those program points as bootstrapping candidates.         management operations including bootstrap, and generates
+   To address them, DAC APO excludes the long-lived (unused-       LLVM IR codes that invoke GPU-accelerated HEaaN li-
+for-a-while) ciphertexts from the live-out counts, achieving       brary [25] for RNS-CKKS operations. To support cost-aware
+better bootstrapping management. For example, consider the         bootstrapping placement, DAC APO consists of two compo-
+ciphertext T in Act(b). At that program point, the actual live-    nents: candidate selector and bootstrapping planner. Figure 3
+out count is two including the short edge from A in Conv1(x)       shows DAC APO’s two-step workflow on the left along with
+to b in Act(b), and the bypass edge from A in Conv1(x)             an example on the right side, which will be explained later.
+to a in Add(a,d). The plain liveness-based DAC APO would              Candidate selector identifies candidate points in the pro-
+not consider the program as bootstrapping candidates and           gram where bootstrapping can be inserted. The candidate
+produces the bootstrapping result in Figure 2c. On the other       selection consists of three steps: liveness analysis, bypass
+hand, once the bypass edge is excluded, the new live-out count     edge analysis, and candidate filtering. The liveness analy-
+will be one. DAC APO could find a better plan in Figure 2d         sis step analyzes live-out ciphertexts at each program point,
+with only one bootstrap operation.                                 and the bypass edge analysis step analyzes long-lived unused
+   Observation 2: Different bootstrapping placements (lo-          edges like the edge from A in Conv1(x) to a in Add(a,d)
+cations and numbers) may lead to widely different end-             in Figure 2a. Combined, the candidate selector can analyze
+to-end latency because bootstrapping may allow other               the number of valid live-out ciphertexts that may need boot-
+RNS-CKKS operations to be performed at lower levels.               strapping at each program point. The candidate filtering step
+As the bootstrap operation resets the scale and level of a         finalizes the candidate points. If the candidate points are too
+ciphertext, adding one bootstrap in effect can be viewed as        few to generate a correct FHE program due to scale overflow,
+partitioning a given program into two smaller sub-programs.        the candidate filtering step increases the threshold number of
+Interestingly, if one partition has fewer multiplications (less    live-outs until the scale overflow is resolved.
+multiplicative depth), the arithmetic and rotation operations         DAC APO’s bootstrapping candidate program points selec-
+in that partition may be executed at lower levels, resulting       tion implies that it adds bootstrap operations synchronously
+in less end-to-end latency. Note that RNS-CKKS operations          to all the live-out ciphertexts except for bypass ones at those
+run faster at lower levels (See Table 2). For the same rea-        program points. If a compiler bootstraps only a subset of
+son, we also make a rather counter-intuitive observation that      live-out ciphertexts that needs to be refreshed (i.e., not all
+fewer bootstrap operations do not always lead to lower la-         at once), chances are that the refreshed accumulated scale
+tency. More bootstrap operations imply more partitioning           may be wasted because of the level match constraints of RNS-
+of a given program. Each partition would have fewer oper-          CKKS arithmetic operations. When the levels of two addition
+ations, which can be performed at lower levels, resulting in       or multiplication operands are different, a scale management
+
+
+
+6998    33rd USENIX Security Symposium                                                                      USENIX Association
+   Input Program                  Conv1(x)                            Conv2(a)                  Act(b)                Conv3(c)                 Add(a,d) Act(e)
+  a = Conv1(x)                                                                   Bypass
+  b = Conv2(a)                 R   M     N                           R   M     N                                   R   M     N                  a
+  c = Act(b)              x    R   M     N    A                 a    R   M     N    A           b      T      c    R   M     N    A             d      A    e      T
+  d = Conv3(c)                 R   M     N                           R   M     N                                   R   M     N
+  e = Add(a,d)              Rot PMul PMul CAdd                    Rot PMul PMul CAdd             CMul           Rot PMul PMul CAdd              CAdd         CMul
+  Ret Act(e)
+   Candidate Selector
+                         # of live variables
+   Liveness Analysis             3      3      3      1              4     4     4         2           2              4     4      4     2             1
+                         # of bypass edges
+                                                                     1     1     1         1           1              1     1      1     1
+      Bypass Edge
+        Analysis         # of valid live variables
+                                 3      3      3      1              3     3     3         1           1              3     3      3     1             1
+                         Bootstrapping candidates
+  Candidate Filtering                                 C1                                C2            C3                                 C4            C5
+
+     Bootstrapping                    343              343
+        Planner                                                                            935
+    Cost Estimation                   343            Boot                604               27947
+
+                                                                                                           1237
+     Bootstrapping                                        935                          Boot 131            28066
+     Insertion Point
+        Selection                     343            Boot                                      1135                                       28478
+                                                          935                          Boot                         629                   28564
+                                                                 1237                                 Boot                604             28841
+   Insertion point: C2
+     Est. Cost: 28672                 343            Boot                                              1136                                             28479
+                                                          935                          Boot                               632                           28567
+                                                                 1237                                 Boot                       608                    28845
+        LLVM IR                                      Boot                      28478                                                    Boot     5      55483
+
+     HEaaN Library                                        935                          Boot                                737                             28672
+                                                                 1237                                 Boot                        730                      28967
+                                                     Boot                      28478                                                    Boot         136   55614
+      GPU Device                                     Boot                              28479                                                          Boot 55610
+
+Figure 3: Overview design of DAC APO with the example in Figure 2a. Candidate selector analyzes live-outs and bypass edges,
+and identifies candidate points where bootstrapping can be inserted. Bootstrapping planner estimates computation costs at each
+candidate point, and determines the bootstrapping insertion points with minimum overall latency among the candidate points.
+The bold numbers at the end of each candidate indicate the minimum computation cost. Gray arrows and numbers are the best
+estimated costs at the bootstrapping insertion point computed in the previous steps. The star indicates the selected plan.
+
+
+scheme uses modswitch to match them to the smaller level.                              6       Bootstrapping Candidate Selector
+If not all live-outs are bootstrapped, this implies the just re-
+freshed (bootstrapped) accumulated scale may be increased                              This section introduces the bootstrapping candidate selector
+to the stale one to be used for following arithmetic operations.                       with an algorithm that analyzes appropriate candidates for
+DAC APO avoids such a bootstrapping waste.                                             bootstrapping placement. The candidate selector analyzes
+   Bootstrapping planner computes the costs of RNS-CKKS                                the live-out of each program point via liveness analysis, and
+operations and, determines the bootstrapping placement plan                            identifies the required number of bootstrap for each pro-
+with minimum overall latency among the candidate insertion                             gram point by excluding bypass edges (§6.1). Then, the candi-
+points from the candidate selector. The bootstrapping plan-                            date selector finalizes the candidates from the candidate sets
+ner consists of two steps: cost estimation and bootstrapping                           grouped by the number of bootstrap (§6.2).
+insertion point selection. The cost estimation step estimates
+the latency at each candidate point using profiled RNS-CKKS                            6.1      Liveness and Bypass Edge Analysis
+operation costs. Since RNS-CKKS operations have different
+costs at different levels, this step implicitly executes scale                         Liveness and bypass edge analysis find all the ciphertexts
+management from the last bootstrapping points to the cur-                              that should be bootstrapped if DAC APO decides to insert
+rent candidate points. Among the estimated costs, the boot-                            bootstrap at a program point. With the liveness analysis,
+strapping insertion point selection chooses the plan with the                          DAC APO can find all the live-out ciphertexts that will be
+minimal costs, and finalizes the bootstrapping placement plan.                         used later at a certain program point (LiveVariable in Algo-
+
+
+
+USENIX Association                                                                                                 33rd USENIX Security Symposium                  6999
+ Algorithm 1: Bootstrap Candidate Selection                        the result of the operation at target as a bypass ciphertext if
+    Input: Func: Function of an HE application                     the result is live after an operation whose accumulated scale
+    Output: Set: Set of candidates                                 exceeds the threshold Sth (line 9-11). Furthermore, the algo-
+ 1 Function CandidateSelector (Func) :                             rithm checks the accumulated scale of operations in managed
+  2    // Bypass Edge Analysis (Section 6.1)                       and identifies the operations that can be executed without
+  3    BypassEdges, CandidatesSet ←{}                              additional bootstrap (line 12-14). The remaining algorithm
+  4    foreach target ∈ Func do                                    will be explained in §6.2.
+  5         BootTarget ← LiveVariable(target) − BypassEdges           Figure 3 illustrates how the liveness and bypass edge anal-
+  6         CandidatesSet[BootTarget.size] += target               ysis analyze the example program. First, the liveness analysis
+  7         Managed ← ScaleManagement(Func, target)
+                                                                   gives the number of live variables for each program point.
+  8         foreach op ∈ Managed after target do
+                                                                   For example, there are 3 live variables (3 Rs) after Rot in
+  9             if op.AccumulatedScale > Sth and
+10                 EndOperation(target) after op then              Conv1. Note that this analysis counts the live-out variables,
+ 11                  BypassEdges += {target}                       not the uses of the variables, so there is 1 live variable after
+12              if op.AccumulatedScale > S f L then                Conv1. Then, the bypass edge analysis detects and removes a
+ 13                  target.Coverage ← op                          bypass edge from the live-out variable sets. For example, Aa
+ 14                  break                                         in Conv1 is live-out until Add, but the accumulated scale of Ad
+15          end                                                    in Conv3 before Add is 280 (see Figure 2c) that exceeds the
+16     end                                                         threshold Sth (e.g., 180). Therefore, the analysis classifies Aa
+17     // Candidate Filtering (Section 6.2)                        as a bypass edge and then removes Aa from the live variable
+18     threshold ← 1                                               set of other operations. Then, the number of live variables
+19     Candidates ← CandidatesSet[threshold]                       after Ab (Conv2) is reduced from 2 ({Aa, Ab}) to 1 ({Ab}).
+20     while not success do                                           The Sth value, which is heuristically determined by users,
+21          success ← true                                         impacts the performance of the generated code. A higher Sth
+22          Managed ← ScaleManagement(Func, Candidates)
+                                                                   makes Algorithm 1 detect fewer bypass edges, thus causing
+23          foreach op ∈ Managed do
+                                                                   DAC APO to insert unnecessary bootstrapping operations for
+24              if op.AccumulatedScale > S f L then
+ 25                  threshold += 1                                long-lived unused ciphertext. On the other hand, a lower Sth
+ 26                  Candidates += CandidatesSet[threshold]        makes Algorithm 1 mark more edges with a shorter life-span
+ 27                  success ← false                               as bypass edges, so DAC APO may exclude edges requiring
+28          end                                                    bootstrapping from the candidates. Thus, assigning an appro-
+29     end                                                         priate Sth value is crucial for optimizing the bootstrapping
+30     return Candidates                                           placement. This work uses Sth as half of the maximum scale
+31 end                                                             capacity for the evaluation.
+
+
+                                                                   6.2    Candidates Filtering
+rithm 1), and the last program point where the ciphertext is       DAC APO generates a candidate set by filtering the bootstrap-
+used (EndOperation in Algorithm 1). The bypass edge anal-          ping targets based on the number of bootstrap. If the scale
+ysis finds ciphertexts that are live but not used during a long    management cannot generate a valid program for a given can-
+computation (that the accumulated scale exceeds the thresh-        didate set, meaning that the accumulated scale of a ciphertext
+old Sth ), and excludes them from the required bootstrapping       exceeds its scale capacity, the given candidate set needs to
+counts at a certain program point.                                 be expanded. On the other hand, to minimize the number of
+   Algorithm 1 illustrates the algorithm for the bootstrapping     bootstrap, the algorithm should find the minimal threshold
+candidate set generation. First, the algorithm performs bypass     of filtering. Hence, to find the minimal filtering threshold, the
+edge analysis (line 2-16). For each program point (target)         candidate filtering gradually increases the threshold from 1 to
+in a function, the algorithm analyzes bootstrap-required           a value that can generate a valid scale management plan.
+ciphertexts by removing bypass edges from the live-outs               Line 17-29, describe the candidate filtering algorithm. The
+(line 5), and adds the target into a candidate set with the        algorithm initializes the candidate set with targets requiring
+same number of the required bootstrap operations (line 6).         only one bootstrap (line 19). The algorithm executes scale
+Then, the algorithm checks if the result ciphertext of the oper-   management for the candidate set (line 22), and checks if the
+ation at target includes bypass edges, and calculates the cov-     accumulated scale of a ciphertext exceeds the scale capacity.
+erage of bootstrap at target. Assuming that bootstrap              If so, the algorithm increases the threshold and expands the
+is inserted at the target, the algorithm executes scale man-       candidates (line 23-27). If the filtering is finished, the algo-
+agement on the given function using the proactive rescaling        rithm returns the finalized bootstrap candidate set (line 30).
+scheme of Hecate [41] (line 7). The algorithm categorizes             Figure 3 illustrates how the candidate filtering works for the
+
+
+
+7000    33rd USENIX Security Symposium                                                                       USENIX Association
+ Algorithm 2: Bootstrapping Planner Algorithm                      minimum cost by comparing the added result with the existing
+    Input: Set: Candidates                                         minimum estimated cost at to. Note that the scale manage-
+    Output: Set: Bootstrapping Targets                             ment result is memorized while not reflected in the algorithm.
+ 1 Function BootstrappingPlanner (Func, Candidates):               Since the scale management of subprograms before and after
+ 2     Candidates.push (Func.ReturnOp)                             bootstrap is decoupled, and the input scale and level of the
+ 3     foreach to ∈ Candidates do                                  succeeding subprogram only depend on bootstrap, the min-
+  4         foreach from ∈ Candidates do                           imum cost can be computed by adding the current estimated
+  5              if to before from.Coverage then                   cost and the minimum cost at from. The algorithm returns the
+  6                   Managed ← ScaleManagement (Func,             bootstrapping plan at ReturnOp as the final placement plan.
+                                   BestPlan[from] + to)
+                                                                      Figure 3 illustrates how the bootstrapping planner algo-
+  7                   cost ← EstimateCost (Managed, from, to)
+                                                                   rithm works in the example. First, the planner executes scale
+  8                   cost ← cost + MinCost[from]
+  9                   if cost < MinCost[to] then                   management and estimates the cost of the partial program. For
+ 10                        MinCost[to] ← cost                      example, the planner estimates the cost of a partial program
+ 11                        BestPlan[to] ← BestPlan[from]           until C1 as 343. Then, to find a bootstrapping placement plan
+ 12                        BestPlan[to] += to                      with the minimal estimated cost until the next candidate C2,
+13          end                                                    the planner considers two different cases. For the case that
+14     end                                                         bootstrap is not inserted at C1, the planner estimates the cost
+15     return BestPlan[ReturnOp]                                   (935) in the same way as C1. For the case that bootstrap is
+16 end                                                             inserted at C1, the planner reuses the previous estimation re-
+                                                                   sult for C1 (343), and adds the latency of bootstrap (27000)
+                                                                   and the latency of the partial program from C1 to C2 (604),
+example. First, the candidate filtering algorithm only consid-     calculating the resulting cost (27947). The planner compares
+ers the bootstrapping candidate set ({C1,C2,C3,C4,C5}) that        the estimated costs of two cases and selects the lower one (no
+has only one valid live variable {Aa, Ab, T, Ad, Ae}, respec-      bootstrap). The selected plan for C2 is reused for the other
+tively. For the candidate set, the algorithm inserts bootstrap     candidates such as C3, C4, C5, and Ret.
+for each candidate and then performs scale management. If
+there is no operation whose accumulated scale exceeds the
+                                                                   8     Evaluation
+scale capacity, the candidate set is valid. If the candidate set
+is not valid, the algorithm increases the threshold number of
+                                                                   The evaluation section first describes our experimental setup
+valid live variables to expand the candidate set.
+                                                                   in §8.1 and demonstrates the overall performance improve-
+                                                                   ment of DAC APO compared to manually implemented pro-
+7    Cost-aware Bootstrapping Planner                              grams in §8.2. We also show the effectiveness of DAC APO
+                                                                   by comparing the bootstrapping counts in §8.3, and highlight
+This section describes the bootstrapping planner that finds        its practicality by analyzing the compile time in §8.4. Fur-
+bootstrapping insertion positions with minimal latency costs,      thermore, we present the accuracy of performance estimation
+for the given bootstrapping placement candidates from boot-        in §8.5. Lastly, we perform the latency sensitivity study with
+strapping candidates selection (§6). Since bootstrap opera-        varying waterlines for each benchmark application in §8.6.
+tion resets the scale and level of a ciphertext, depending on
+the bootstrapping placement, the scale management results          8.1    Experimental Setup
+vary, and thus the latency (level) of each ciphertext varies
+also. To optimize the bootstrapping placement plan reflecting      This paper evaluates multiple complex deep learning models
+the varying latency, the bootstrapping planner estimates the       with two different activation functions, including ResNet-
+cost for each candidate and decides the placement plan with        20/44 [24], AlexNet [31], VGG16 [49], SqueezeNet [29], and
+minimum overall cost. Here, this work employs a simple cost        MobileNet [27]. ResNet-20 was initially introduced as a
+estimation that adds the profiled latency of each RNS-CKKS         HE-friendly model in [38], and we use the improved versions
+operation (e.g., Table 2).                                         of ResNet-20/44 presented in [36]. The activation functions
+   Algorithm 2 illustrates the bootstrapping placement plan        were implemented based on the algorithm proposed in [37].
+decision algorithm. For each to candidate, the algorithm an-       In detail, we use the Remez algorithm to approximate SiLU
+alyzes the minimum estimated cost from the beginning of            as a 96th-order single polynomial (multiplicative depth of 7).
+the program to the to program point. Iterating other from          On the other hand, ReLU employed a minimax composite
+candidates before to, the algorithm executes scale manage-         polynomial approximation using degrees {15, 15, 27} (multi-
+ment from from to to, estimates its latency cost, adds the         plicative depth of 13) in [37]. For linear operations such as
+estimated cost and the minimum cost at from, and finds the         convolution, we adopt the multiplexed parallel convolution
+
+
+
+USENIX Association                                                                   33rd USENIX Security Symposium         7001
+Table 3: Classification accuracy for multiple CIFAR-10 images using models on the RNS-CKKS scheme generated by DAC APO.
+
+                          ResNet-20          ResNet-44         AlexNet           VGG16            SqueezeNet          MobileNet
+             Model
+                        ReLU    SiLU       ReLU    SiLU     ReLU    SiLU     ReLU      SiLU     ReLU      SiLU     ReLU      SiLU
+            Pytorch     90.6%   92.6%      91.2%   92.7%    89.0%   86.6%    93.8%    93.0%     89.4%     88.0%    91.4%     91.4%
+            DAC APO     90.7%   92.6%      91.3%   92.7%    89.0%   86.6%    93.8%    92.9%     89.2%     87.9%    91.2%     91.4%
+
+
+          1.75
+                      Manual    Liveness       Bypass      DaCapo
+          1.50
+          1.25
+SpeedUp
+
+
+
+
+          1.00
+          0.75
+          0.50
+          0.25
+          0.00
+                             (R)    (S)    (R)    (S)    t(R
+                                                             )      t(S)     )
+                                                                          6(R G16(S
+                                                                                    )
+                                                                                               t(R
+                                                                                                   )  t(S)  t(R
+                                                                                                                )  t(S) ean
+                     N e t-20 Net-20 Net-44 Net-44 lexNe      l exNe VGG1    V G          z eNe ezeNe bileNe bileNe GM
+                                                                                        e
+                 Res        Res    Res    Res     A         A
+                                                                                 Squ
+                                                                                      e
+                                                                                              Squ
+                                                                                                  e  Mo     Mo
+
+
+Figure 4: Speedup of algorithms based on the Manual with waterline 240 . The activation functions utilized in each deep learning
+model are denoted as (R) for ReLU and (S) for SiLU.
+
+
+technique introduced in [36], which enables the compact rep-             consuming placement analysis and verification are required.
+resentation of sparse output data across multiple channels.              For this version, bootstrap operations are added between
+The evaluation includes a total of 12 benchmark results, con-            each layer. In addition, the sign function used in ReLU and
+sidering two activation functions and pooling layers: ReLU               maxpooling cannot be executed without bootstrapping, so we
+with max pooling (R), and SiLU with average pooling (S).                 incorporate additional bootstrapping at the point where the
+  We implemented the above deep learning benchmark appli-                second 15th-degree term is multiplied. The manual imple-
+cations using a GPU-accelerated RNS-CKKS library HEaaN                   mentation assumes a scale management waterline of 240 .
+[25]. To facilitate development, we implemented common
+neural network operators such as convolution (Conv) and acti-
+vation functions ReLU and SiLU on the RNS-CKKS scheme.                      We compare DAC APO’s three different variants with the
+                                                                         manual implementation (Manual). Liveness only considers
+   We validate our implementation by comparing the accu-                 the number of live-out values at program points (without by-
+racy using 1,000 CIFAR-10 images between PyTorch’s and                   pass edge or cost analysis). This method greedily utilizes the
+the DAC APO programs (with a waterline of 240 ). Table 3                 scale budget in that it inserts bootstrap synchronously while
+reports the classification accuracy results. ResNet-20(R),               maximizing the utilization of the scale capacity by inserting
+SqueezeNet(R) and (S), and MobileNet(R) exhibited a minor                bootstrap into the closest candidates when the accumulated
+difference of 0.1% in accuracy. The usage of approximate                 scale exceeds the scale capacity. Figure 2c represents this
+activation functions introduced a maximum error of 13 bits,              scheme. Bypass considers more bootstrap candidates by
+leading to negligible differences in accuracy.                           excluding the bypass edges. Like Liveness, it greedily max-
+   Given the lack of bootstrapping compilers, our evalua-                imizes the scale capacity utilization but does not perform
+tion uses manually implemented bootstrapping placement                   cost-aware bootstrapping. Figure 2d is an example of this
+(Manual) as the baseline. According to the state-of-the-art              scheme. DAC APO use all the proposed liveness, bypass, and
+ResNet-20/44 implementation with bootstrapping [36], which               cost analyses, as illustrated in Figure 2e. It regards the latency
+inserts bootstrap operations before activation functions only            of all operations and determines the placement of bootstrap
+when deemed necessary, we manually insert bootstrapping                  based on the bypass-aware candidates set.
+operations for the benchmark applications. The manual in-
+sertion, verification, and optimization take approximately 4
+hours for each benchmark for a single waterline. Since an                   This evaluation runs on Intel(R) Core(TM) i7-12700 for
+incorrect placement of bootstrapping causes FHE operation                CPU and NVIDIA GeForce RTX 3090 with 24GB memory
+errors such as ciphertext scale overflow, sophisticated time-            for GPU, utilizing unified virtual memory (UVM).
+
+
+
+7002         33rd USENIX Security Symposium                                                                         USENIX Association
+                                  Table 4: Bootstrapping counts for each benchmark in manual placement and DAC APO
+
+                                      ResNet-20             ResNet-44            AlexNet              VGG16             SqueezeNet           MobileNet
+                        Model
+                                    ReLU      SiLU      ReLU       SiLU      ReLU       SiLU        ReLU     SiLU     ReLU       SiLU      ReLU      SiLU
+                      Manual          37        19        85         43        66        12          54       20        58        18         53        27
+                      DAC APO         37        19        85         43        67        12          53       20        57        19         61        27
+
+
+                100
+                           Bootstrap time          Manual         Liveness          Bypass          DaCapo
+
+                 80
+Latency (sec)
+
+
+
+
+                 60
+
+                 40
+
+                 20
+
+                  0
+                                  (R)          (S)          (R)         (S)    (R)         (S)    16(
+                                                                                                     R)
+                                                                                                            16(
+                                                                                                               S)            (R)         (S)         (R)          (S)
+                              -20          -20          -44          -44 exNet         Net                               Net         Net         Net          Net
+                       es Net      e s Net      e s Net      e s Net     A l     A lex        VGG       VGG       u eeze      u eeze      o bile       o bile
+                      R          R            R            R                                                   Sq         Sq           M             M
+
+
+                Figure 5: Inference time for a single image. The white portion of bar represents the latency introduced by bootstrapping.
+
+
+8.2                Performance Evaluation                                                     8.3    Bootstrapping Counts
+                                                                                             In Table 4, the number of bootstrap operations is similar be-
+Figure 4 represents the speedup of inference time for a sin-                                 tween Manual and DAC APO. However, in Figure 5, DAC APO
+gle CIFAR-10 image achieved by each approach (Liveness,                                      yields apparently better latency for AlexNet, VGG16, and
+Bypass, and DAC APO) compared to Manual.                                                     SqueezeNet because DAC APO places the bootstrapping
+   In Figure 4, Liveness allows for effective reduction of #                                 where the latency of arithmetic is reduced. Interestingly, in
+bootstrap, which achieves comparable performance to Man-                                     the case of MobileNet, DAC APO involves a higher number
+ual in VGG16(R) and VGG16(S), and even improves the per-                                     of bootstrap operations, yet it still achieves a lower total
+formance in cases like AlexNet(S) and SqueezeNet(S). The                                     latency. This is strong evidence that the latency of arithmetic
+main reason Liveness improves the performance is that the                                    operations has an impact on the overall latency, although each
+compiler considers the bootstrapping points the user cannot                                  arithmetic operation has multiple orders lower latency than
+consider, such as the points within an activation function. By-                              bootstrapping. In the case of MobileNet(R), there are a large
+pass increases the number of valid liveness candidates, finding                              number of channels leading to increased rotate and multipli-
+more beneficial bootstrap candidates. In ResNet-20/44(R)                                     cation operations, which outweigh the latency of bootstrap,
+and VGG16(R), improved latencies can be observed by identi-                                  increasing the number of bootstrap operations can actually
+fying appropriate points considering liveness. However, in the                               result in a lower total latency by lowering the levels of interme-
+case of VGG16(S) and AlexNet(S), the total latency actually                                  diate operations. This demonstrates that simply minimizing
+increases as shown in Figure 5, due to increased latencies                                   the bootstrap count does not guarantee optimal results.
+in other operations. The geometric mean of speed up for
+DAC APO is 1.21×. The reason why DAC APO achieves bet-                                        8.4    Compile Time
+ter results compared to Manual is that DAC APO takes into
+consideration the aspects that users may overlook. DAC APO                                   Table 5 shows the total compile time and bootstrapping man-
+has the ability to analyze the detailed RNS-CKKS operations                                  agement time for each benchmark, along with a comparison of
+that make up deep learning model APIs. While users can an-                                   the number of operations and bootstrap candidates. Bench-
+alyze the provided library and insert bootstrap, due to the                                  marks with ReLU have more candidates because the compos-
+variability of scale management with each function call, the                                 ite polynomial approximation of ReLU has multiple points
+optimal point for bootstrap can vary each time. DAC APO,                                     with a single live-out. For all the benchmarks except AlexNet,
+on the other hand, is aware of scale management variations                                   the management time is less than 5 minutes, which is accept-
+based on the placement of bootstrap, allowing it to discover                                 able as usual. To discuss the scalability of the algorithm, we
+a lower latency plan than Manual.                                                            perform an in-depth analysis of the compile time.
+
+
+
+USENIX Association                                                                                                  33rd USENIX Security Symposium               7003
+                                  Table 5: Compile time and bootstrapping management time by DAC APO on the RNS-CKKS scheme (sec)
+
+                                              ResNet-20       ResNet-44          AlexNet          VGG16           SqueezeNet         MobileNet
+                                 Model
+                                             ReLU   SiLU    ReLU    SiLU    ReLU      SiLU    ReLU     SiLU     ReLU     SiLU      ReLU     SiLU
+                            # Ops            8784   9144    19412   20204   53533     50535   45798    44766    21404    19264     44919   45411
+                         # Candidates        138    100      306     220     662       95      166      71       251       52       191     136
+                       Compile Time (s)      33.0   31.0    116.5   109.2   1163.8    454.0   332.7    290.2    131.2     84.8     302.3   302.1
+                           Bootstrap
+                                             15.8    14.4   79.4    72.8    1042.3    336.5    230.1   188.1     89.1     44.1     222.8    218.0
+                        Mgmt. Time (s)
+
+
+                       80                                                             latency with 108 data points using 12 benchmarks across 9 dif-
+                                                      y = 1.034x
+Actual Latency (sec)
+
+
+
+
+                       70                                                             ferent waterlines in Figure 6. The equation, y = 1.034x, is a
+                                                     R 2 = 0.9986
+                       60                                                             regression model between the estimated and actual costs, and
+                       50                                                             R2 indicates predicted latency closely aligns with the actual
+                       40                                                             latency. Since the coefficient of the regression model and the
+                       30
+                                                                                      R2 value (0.9986) are close to 1, the overall precision is quite
+                       20
+                                                                                      satisfactory. The small variances in the coefficient and R2 are
+                       10
+                        0
+                                                                                      caused by the memory transfer latency in UVM. We use a
+                            0       10    20    30    40      50     60     70        GPU that has 24GB of physical RAM, whereas the memory
+                                           Estimated Cost (sec)                       requirement exceeds the capacity in some benchmarks. There-
+Figure 6: Precision of the estimation results. The x-axis rep-                        fore, UVM was used for the experiment to fulfill the memory
+resents the estimated results by DAC APO based on profiled                            usage, which might have imposed an additional latency to the
+data, and the y-axis indicates actual latency.                                        actual execution time compared to the estimated time in the
+                                                                                      memory-starving benchmark. Nonetheless, the variance in the
+                                                                                      performance estimation will not degrade the efficacy of the
+   In bootstrapping management, time-consuming parts are                              bootstrapping plan decision, because the penalty of memory
+bypass edge detection and the bootstrapping plan decision.                            starvation will affect the bootstrapping placement plans of the
+The bypass edge detection algorithm, which calculates cover-                          same benchmark consistently.
+age through scale management for each operation, has a time
+complexity of O(N 2 ), where N is the number of operations.
+On the other hand, Algorithm 2 has a time complexity of
+                                                                                      8.6     Waterline Sensitivity
+O(D × d × N), where D is the number of bootstrap candi-                               Figure 7 illustrates the latency for deep learning benchmarks
+dates and d is the maximum number of bootstrap candidates                             with respect to the waterline. The approximation of the activa-
+within the coverage of a certain bootstrap candidate.                                 tion function has a maximum 13-bit error. To align the error
+   Comparison between the ResNet-20(S) and the AlexNet(S)                             caused by RNS-CKKS operations with the approximation
+shows the impact of the number of operations on the by-                               error of activation functions, the waterline needs to be larger
+pass edge detection clearly ((50535/9144)2 = 30.54 vs                                 than 230 in our measurement. The latency of Manual is plot-
+336.5/14.4 = 23.37). The scale management unit [41] will                              ted as a point based on a waterline of 240 . A lower waterline
+greatly reduce the effective number of operations, enhancing                          gives a different scale management plan that slows down the
+its scalability. On the other hand, the comparison between                            scale accumulation, leading to different optimal positions for
+AlexNet(R) and AlexNet(S) clearly shows the impact of the                             bootstrapping placement. Greedy bootstrapping placements
+number of candidates on the plan decision algorithm. Since                            (Liveness and Bypass) can find reasonable positions as ob-
+the intermediate feature maps cannot be packed in a single                            served in ResNet-20 and SqueezeNet but result in a significant
+ciphertext in AlexNet(R), the candidate filtering threshold                           variance of latency for AlexNet and MobileNet, because the
+is larger than other benchmarks, increasing candidates a lot.                         position of bootstrap significantly changes the latency of
+We believe that further research on a fine-grained filtering                          arithmetic operation. On the other hand, DAC APO exhibits
+threshold that reflects the program context can improve the                           lower variation with respect to the waterline and shows a de-
+scalability of the plan decision algorithm.                                           creasing trend of total latency as the waterline decreases. For
+                                                                                      Figure 7k, there is a small variance depending on the water-
+8.5                         Performance Estimation                                    line. The variance comes from the scale management scheme
+                                                                                      (the proactive rescaling of Hecate) that does not optimize
+To evaluate the accuracy of the latency estimation used in Al-                        the latency of arithmetic operation consistently and produces
+gorithm 2, we compared the estimated latency with the actual                          sub-optimal scale management plans. Hecate [41] conducts
+
+
+
+7004                            33rd USENIX Security Symposium                                                                   USENIX Association
+                 120                                                120                                                120                                                120
+                             Manual     Liveness
+                 100         Bypass     DaCapo
+                                                                    100                                                100                                                100
+ Latency (sec)
+
+
+
+
+                                                    Latency (sec)
+
+
+
+
+                                                                                                       Latency (sec)
+
+
+
+
+                                                                                                                                                          Latency (sec)
+                  80                                                 80                                                 80                                                 80
+                  60                                                 60                                                 60                                                 60
+                  40                                                 40                                                 40                                                 40
+                  20                                                 20                                                 20                                                 20
+                   0                                                  0                                                  0                                                  0
+                       30 32 34 36 38 40 42 44 46                         30 32 34 36 38 40 42 44 46                         30 32 34 36 38 40 42 44 46                         30 32 34 36 38 40 42 44 46
+                                Waterline                                          Waterline                                          Waterline                                          Waterline
+
+                       (a) ResNet-20 (ReLU)                               (b) ResNet-20 (SiLU)                               (c) ResNet-44 (ReLU)                               (d) ResNet-44 (SiLU)
+
+                 120                                                120                                                120                                                120
+                 100                                                100                                                100                                                100
+ Latency (sec)
+
+
+
+
+                                                    Latency (sec)
+
+
+
+
+                                                                                                       Latency (sec)
+
+
+
+
+                                                                                                                                                          Latency (sec)
+                  80                                                 80                                                 80                                                 80
+                  60                                                 60                                                 60                                                 60
+                  40                                                 40                                                 40                                                 40
+                  20                                                 20                                                 20                                                 20
+                   0                                                  0                                                  0                                                  0
+                       30 32 34 36 38 40 42 44 46                         30 32 34 36 38 40 42 44 46                         30 32 34 36 38 40 42 44 46                         30 32 34 36 38 40 42 44 46
+                                Waterline                                          Waterline                                          Waterline                                          Waterline
+
+                        (e) AlexNet (ReLU)                                 (f) AlexNet (SiLU)                                 (g) VGG16 (ReLU)                                   (h) VGG16 (SiLU)
+
+                 120                                                120                                                120                                                120
+                 100                                                100                                                100                                                100
+ Latency (sec)
+
+
+
+
+                                                    Latency (sec)
+
+
+
+
+                                                                                                       Latency (sec)
+
+
+
+
+                                                                                                                                                          Latency (sec)
+                  80                                                 80                                                 80                                                 80
+                  60                                                 60                                                 60                                                 60
+                  40                                                 40                                                 40                                                 40
+                  20                                                 20                                                 20                                                 20
+                   0                                                  0                                                  0                                                  0
+                       30 32 34 36 38 40 42 44 46                         30 32 34 36 38 40 42 44 46                         30 32 34 36 38 40 42 44 46                         30 32 34 36 38 40 42 44 46
+                                Waterline                                          Waterline                                          Waterline                                          Waterline
+
+                       (i) SqueezeNet (ReLU)                              (j) SqueezeNet (SiLU)                              (k) MobileNet (ReLU)                               (l) MobileNet (SiLU)
+
+Figure 7: The latency of each benchmark corresponding to different waterlines (lower is better). Manual results are represented
+by one point based on waterline 240 .
+
+
+space exploration to find the optimal points but requires sig-                                              duces better latency and error results than prior works [18,41].
+nificantly longer compile time due to the larger benchmark
+size. Further improvement on the scale management scheme                                                      DAC APO and the existing compilers such as Hecate and
+could lead to improvements in this aspect.                                                                 ELASM have complementary relations. This work focuses
+                                                                                                           on how to partition DNN models using bootstrapping, while
+                                                                                                           the other compilers focus on scale management optimiza-
+9                 Related Work                                                                             tion of each partition. The bootstrapping management algo-
+                                                                                                           rithm of DAC APO can be applied in conjunction with any
+FHE compilers. The existing compiler works [4–6, 9, 13,                                                    scale management scheme. However, simply applying Hecate
+15, 18, 19, 35, 39–41, 43, 50, 51, 53], have proposed optimiza-                                            or ELASM to this work is impractical due to their high ex-
+tion techniques to improve performance, accuracy, and pro-                                                 ploration overheads. Hecate and ELASM optimize cipher-
+grammability. EVA [18] introduces the concept of waterline                                                 text scales by exploring scale management spaces, and scale
+which signifies the minimum required scale and automates in-                                               management space exploration takes huge compilation over-
+serting scale management operations. However, EVA misses                                                   heads. Since DAC APO generates multiple different bootstrap-
+the opportunity for optimization as it uses fixed-factor rescale.                                          ping insertion candidates, and optimizes ciphertext scales
+To address the limitation of EVA, HECATE [41] proposes                                                     that are reinitialized at each bootstrapping insertion point,
+downscale operation which enables proactive rescale and                                                    exploration-base scale management like Hecate and ELASM
+finds an optimal scale management plan by using space explo-                                               would severely amplify the compilation time. Thus, this work
+rations. ELASM [39] points out that using a fixed waterline in                                             adopts only a part of Hecate such as the proactive rescaling
+HE applications does not reflect errors during scale manage-                                               scheme to manage ciphertext scales, while excluding the scale
+ment. With a new error-latency-aware scheme, ELASM pro-                                                    management space exploration from Hecate.
+
+
+
+USENIX Association                                                                                                                         33rd USENIX Security Symposium                              7005
+   In addition, performance improvement is achieved through       considering bypass edges. Additionally, DAC APO finds the
+effective data layout and parallelization methods for cipher-     bootstrapping plan with the minimum cost based on these can-
+texts. CHET [19] automatically selects the encryption param-      didates. The results demonstrate that DAC APO consistently
+eters and data layout while ensuring security and accuracy of     outperforms manually implemented FHE programs on deep
+the target tensor circuit. EVA [18] and ALCHEMY [16] also         learning models, achieving an average speedup of 1.21×.
+provide data packing, but still lacks usability as programmers
+have to perform vectorization manually. Coyote [43] allows
+automatic vectorizing for arbitrary applications considering      Acknowledgements
+data movement. HECO [50] incorporates circuit optimiza-
+tions to reduce noise growth, as well as target hardware and      We appreciate the valuable feedback and shepherding from
+scheme-specific optimizations, enabling developers to achieve     anonymous reviewers and the support from CoreLab members
+performance similar to experts. However, none of the compil-      during this work. This work is partly supported by IITP-2020-
+ers support large benchmarks that require bootstrapping.          0-01847, IITP-2020-0-01361, IITP-2021-0-00853, IITP-2022-
+   Privacy Preserving Machine Learning (PPML). A Con-             0-00050, and No. RS-2023-00277060 funded by the Ministry
+volution algorithm for homomorphic encryption is proposed         of Science and ICT, South Korea. This work is also supported
+by Gazelle [30], and [3,28,32,44,47,52] perform Convolution       by Samsung Electronics and CryptoLab. This work is in part
+Neural Network (CNN) based on this algorithm. These works         supported by the grants CNS-2135157, CCF-2153747, and
+adapt multi-party computation to perform non-linear func-         CNS-2214980, funded by the National Science Foundation,
+tions on secure side, which compromised the advantages of         U.S.A. (Corresponding author: Hanjun Kim)
+homomorphic encryption and required significant communi-
+cation overhead. [38] first implements the standard ResNet-20     Availability
+with the RNS-CKKS FHE with bootstrapping, but a substan-
+tial amount of bootstrapping operations and convolutions lead     The source code of DAC APO will be accessible to the public
+to performance degradation. To improve the efficiency of the      at https://github.com/corelab-src/elasm.
+application, [36] constructs an efficient very deep standard
+CNN model on FHE, which minimized the bootstrapping
+runtime by applying multiplexed packing and multiplexed           References
+parallel convolution algorithm. All existing PPML are hand-
+optimized and do not reflect scale management. Additionally,       [1] Lattigo v4.      Online: https://github.com/
+programmers need to manually insert bootstrapping for each             tuneinsight/lattigo, August 2022. EPFL-LDS,
+change in waterline and model structure, which increases their         Tune Insight SA.
+burden and might create target programs inefficiently.
+   Automatic Bootstrap Placement. Previous work [45]               [2] Ahmad Al Badawi, Jack Bates, Flavio Bergamaschi,
+proves that finding the minimal number of bootstrap for                David Bruce Cousins, Saroja Erabelli, Nicholas Genise,
+a given FHE program and corresponding bootstrapping place-             Shai Halevi, Hamish Hunt, Andrey Kim, Yongwoo Lee,
+ment is an NP-complete problem. They propose heuristics                et al. Openfhe: Open-source fully homomorphic encryp-
+for bootstrapping placement based on a mixed-integer linear            tion library. In Proceedings of the 10th Workshop on
+programming method. Compared to DAC APO, they only con-                Encrypted Computing & Applied Homomorphic Cryp-
+sider the multiplicative depth not reflecting scale management,        tography, pages 53–63, 2022.
+and do not consider the latency of the other operations. Fur-
+                                                                   [3] Ahmad Al Badawi, Chao Jin, Jie Lin, Chan Fook Mun,
+thermore, they do not automatically generate the bootstrap-
+                                                                       Sim Jun Jie, Benjamin Hong Meng Tan, Xiao Nan, Khin
+managed code to reduce the programming burden.
+                                                                       Mi Mi Aung, and Vijay Ramaseshan Chandrasekhar.
+   This work proposes an automatic bootstrapping manage-
+                                                                       Towards the alexnet moment for homomorphic encryp-
+ment compiler to reduce the burden on developers and enable
+                                                                       tion: Hcnn, the first homomorphic cnn on encrypted data
+easy privacy-preserving use of large-size models. Also, the
+                                                                       with gpus. IEEE Transactions on Emerging Topics in
+results show improved performance to manual-implemented
+                                                                       Computing, 9(3):1330–1343, 2020.
+models and demonstrate the minimum number of bootstrap-
+ping counts does not always result in better performance.          [4] David W. Archer, José Manuel Calderón Trilla, Jason
+                                                                       Dagit, Alex Malozemoff, Yuriy Polyakov, Kurt Rohloff,
+10     Conclusion                                                      and Gerard Ryan. RAMPARTS: A Programmer-
+                                                                       Friendly System for Building Homomorphic Encryp-
+This paper introduces DAC APO, which is the first automatic            tion Applications. In Proceedings of the 7th ACM Work-
+bootstrapping management compiler. DAC APO efficiently                 shop on Encrypted Computing & Applied Homomorphic
+restricts bootstrapping candidates through liveness analysis,          Cryptography, WAHC’19, pages 57–68. ACM, 2019.
+
+
+
+7006    33rd USENIX Security Symposium                                                                   USENIX Association
+ [5] Fabian Boemer, Anamaria Costache, Rosario Cam-                   operands. Cryptology ePrint Archive, Report 2018/1013,
+     marota, and Casimir Wierzynski. ngraph-he2: A high-              2018. https://ia.cr/2018/1013.
+     throughput framework for neural network inference on
+                                                                 [14] Ilaria Chillotti, Nicolas Gama, Mariya Georgieva, and
+     encrypted data. In Proceedings of the 7th ACM Work-
+                                                                      Malika Izabachène.         Tfhe: Fast fully homomor-
+     shop on Encrypted Computing & Applied Homomorphic
+                                                                      phic encryption over the torus. Journal of Cryptol-
+     Cryptography, pages 45–56, 2019.
+                                                                      ogy, 33(1):34–91, 2020. https://doi.org/10.1007/
+ [6] Fabian Boemer, Yixing Lao, Rosario Cammarota, and                s00145-019-09319-x.
+     Casimir Wierzynski. ngraph-he: a graph compiler for
+                                                                 [15] Cingulata.       https://github.com/CEA-LIST/
+     deep learning on homomorphically encrypted data. In
+                                                                      Cingulata, 2020.
+     Proceedings of the 16th ACM International Conference
+     on Computing Frontiers, pages 3–13, 2019.                   [16] Eric Crockett, Chris Peikert, and Chad Sharp. Alchemy:
+                                                                      A language and compiler for homomorphic encryption
+ [7] Zvika Brakerski, Craig Gentry, and Shai Halevi. Packed           made easy. In Proceedings of the 2018 ACM SIGSAC
+     Ciphertexts in LWE-Based Homomorphic Encryption.                 Conference on Computer and Communications Security,
+     In Kaoru Kurosawa and Goichiro Hanaoka, editors,                 pages 1020–1037, 2018.
+     Public-Key Cryptography - PKC 2013. Springer, 2013.
+                                                                 [17] DARPA. Darpa selects researchers to accelerate use of
+ [8] Zvika Brakerski, Craig Gentry, and Vinod Vaikun-                 fully homomorphic encryption. https://www.darpa.
+     tanathan. (leveled) fully homomorphic encryption with-           mil/news-events/2021-03-08, March 2021.
+     out bootstrapping. In Proceedings of the 3rd Innovations
+     in Theoretical Computer Science Conference, ITCS ’12,       [18] Roshan Dathathri, Blagovesta Kostova, Olli Saarikivi,
+     pages 309–325, New York, NY, USA, 2012. Association              Wei Dai, Kim Laine, and Madan Musuvathi. EVA: An
+     for Computing Machinery.                                         encrypted vector arithmetic language and compiler for
+                                                                      efficient homomorphic computation. In Proceedings of
+ [9] Sergiu Carpov, Paul Dubrulle, and Renaud Sirdey. Ar-             the 41st ACM SIGPLAN Conference on Programming
+     madillo: a compilation chain for privacy preserving ap-          Language Design and Implementation. ACM, 2020.
+     plications. In Proceedings of the 3rd International Work-
+     shop on Security in Cloud Computing, pages 13–19,           [19] Roshan Dathathri, Olli Saarikivi, Hao Chen, Kim Laine,
+     2015.                                                            Kristin Lauter, Saeed Maleki, Madanlal Musuvathi, and
+                                                                      Todd Mytkowicz. CHET: An Optimizing Compiler for
+[10] Jung Hee Cheon, Kyoohyung Han, Andrey Kim, Miran                 Fully-homomorphic Neural-network Inferencing. In
+     Kim, and Yongsoo Song. Bootstrapping for approximate             Proceedings of the 40th ACM SIGPLAN Conference on
+     homomorphic encryption. In Advances in Cryptology–               Programming Language Design and Implementation.
+     EUROCRYPT 2018: 37th Annual International Confer-                ACM, 2019.
+     ence on the Theory and Applications of Cryptographic
+     Techniques, Tel Aviv, Israel, April 29-May 3, 2018 Pro-     [20] Junfeng Fan and Frederik Vercauteren. Somewhat prac-
+     ceedings, Part I 37, pages 360–384. Springer, 2018.              tical fully homomorphic encryption. Cryptology ePrint
+                                                                      Archive, Report 2012/144, 2012. https://eprint.
+[11] Jung Hee Cheon, Kyoohyung Han, Andrey Kim, Mi-                   iacr.org/2012/144.
+     ran Kim, and Yongsoo Song. A full rns variant of
+     approximate homomorphic encryption. In Carlos Cid           [21] FullRNS-HEAAN.          https://github.com/
+     and Michael J. Jacobson Jr., editors, Selected Areas in          KyoohyungHan/FullRNS-HEAAN, 2018.
+     Cryptography – SAC 2018, pages 347–368, Cham, 2018.         [22] Craig Gentry. Fully homomorphic encryption using
+     Springer International Publishing.                               ideal lattices. In Proceedings of the forty-first annual
+                                                                      ACM symposium on Theory of computing, pages 169–
+[12] Jung Hee Cheon, Andrey Kim, Miran Kim, and Yong-
+                                                                      178, 2009.
+     soo Song. Homomorphic encryption for arithmetic
+     of approximate numbers. In Advances in Cryptology–          [23] Shai Halevi and Victor Shoup. Algorithms in helib. In
+     ASIACRYPT 2017: 23rd International Conference on                 Juan A. Garay and Rosario Gennaro, editors, Advances
+     the Theory and Applications of Cryptology and Informa-           in Cryptology – CRYPTO 2014, pages 554–571, Berlin,
+     tion Security, Hong Kong, China, December 3-7, 2017,             Heidelberg, 2014. Springer Berlin Heidelberg.
+     Proceedings, Part I 23, pages 409–437. Springer, 2017.
+                                                                 [24] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian
+[13] Eduardo Chielle, Oleg Mazonka, Homer Gamil, Nektar-              Sun. Deep residual learning for image recognition. In
+     ios Georgios Tsoutsos, and Michail Maniatakos. E3: A             Proceedings of the IEEE conference on computer vision
+     framework for compiling c++ programs with encrypted              and pattern recognition, pages 770–778, 2016.
+
+
+
+USENIX Association                                                                 33rd USENIX Security Symposium       7007
+[25] HEaaN HE Library. https://heaan.it, 2022.                      PLDI 2020, pages 503–518, New York, NY, USA, 2020.
+                                                                    Association for Computing Machinery.
+[26] HElib Open-Source HE Library. https://github.
+     com/homenc/HElib, 2020.                                   [36] Eunsang Lee, Joon-Woo Lee, Junghyun Lee, Young-Sik
+                                                                    Kim, Yongjune Kim, Jong-Seon No, and Woosuk Choi.
+[27] Andrew G Howard, Menglong Zhu, Bo Chen, Dmitry
+                                                                    Low-complexity deep convolutional neural networks
+     Kalenichenko, Weijun Wang, Tobias Weyand, Marco
+                                                                    on fully homomorphic encryption using multiplexed
+     Andreetto, and Hartwig Adam. Mobilenets: Efficient
+                                                                    parallel convolutions. In International Conference on
+     convolutional neural networks for mobile vision appli-
+                                                                    Machine Learning, pages 12403–12422. PMLR, 2022.
+     cations. arXiv preprint arXiv:1704.04861, 2017.
+[28] Zhicong Huang, Wen-jie Lu, Cheng Hong, and Jian-          [37] Eunsang Lee, Joon-Woo Lee, Jong-Seon No, and Young-
+     sheng Ding. Cheetah: Lean and fast secure {Two-Party}          Sik Kim. Minimax approximation of sign function by
+     deep neural network inference. In 31st USENIX Secu-            composite polynomial for homomorphic comparison.
+     rity Symposium (USENIX Security 22), pages 809–826,            IEEE Transactions on Dependable and Secure Comput-
+     2022.                                                          ing, 19(6):3711–3727, 2021.
+
+[29] Forrest N Iandola, Song Han, Matthew W Moskewicz,         [38] Joon-Woo Lee, HyungChul Kang, Yongwoo Lee,
+     Khalid Ashraf, William J Dally, and Kurt Keutzer.              Woosuk Choi, Jieun Eom, Maxim Deryabin, Eunsang
+     Squeezenet: Alexnet-level accuracy with 50x fewer              Lee, Junghyun Lee, Donghoon Yoo, Young-Sik Kim,
+     parameters and< 0.5 mb model size. arXiv preprint              et al. Privacy-preserving machine learning with fully ho-
+     arXiv:1602.07360, 2016.                                        momorphic encryption for deep neural network. IEEE
+                                                                    Access, 10:30039–30054, 2022.
+[30] Chiraag Juvekar, Vinod Vaikuntanathan, and Anantha
+     Chandrakasan. {GAZELLE}: A low latency framework          [39] Yongwoo Lee, Seonyoung Cheon, Dongkwan Kim,
+     for secure neural network inference. In 27th {USENIX}          Dongyoon Lee, and Hanjun Kim. ELASM: Error-
+     Security Symposium ({USENIX} Security 18), pages               latency-aware scale management for fully homomor-
+     1651–1669, 2018.                                               phic encryption. In 32st USENIX Security Sympo-
+                                                                    sium (USENIX Security 23), Anaheim, CA, August 2023.
+[31] Alex Krizhevsky, Ilya Sutskever, and Geoffrey E Hinton.        USENIX Association.
+     Imagenet classification with deep convolutional neural
+     networks. Communications of the ACM, 60(6):84–90,         [40] Yongwoo Lee, Seonyoung Cheon, Dongkwan Kim,
+     2017.                                                          Dongyoon Lee, and Hanjun Kim. Performance-aware
+                                                                    scale analysis with reserve for homomorphic encryp-
+[32] Nishant Kumar, Mayank Rathee, Nishanth Chandran,
+                                                                    tion. In Proceedings of the 28th ACM International
+     Divya Gupta, Aseem Rastogi, and Rahul Sharma. Crypt-
+                                                                    Conference on Architectural Support for Programming
+     flow: Secure tensorflow inference. In 2020 IEEE Sym-
+                                                                    Languages and Operating Systems, ASPLOS 2024, La
+     posium on Security and Privacy (SP), pages 336–353.
+                                                                    Jolla, CA, USA, 2024. ACM.
+     IEEE, 2020.
+[33] Chris Lattner, Mehdi Amini, Uday Bondhugula, Albert       [41] Yongwoo Lee, Seonyeong Heo, Seonyoung Cheon, Shin-
+     Cohen, Andy Davis, Jacques Pienaar, River Riddle, Ta-          nung Jeong, Changsu Kim, Eunkyung Kim, Dongyoon
+     tiana Shpeisman, Nicolas Vasilache, and Oleksandr Zi-          Lee, and Hanjun Kim. HECATE: Performance-Aware
+     nenko. Mlir: Scaling compiler infrastructure for do-           Scale Optimization for Homomoprhic Encryption Com-
+     main specific computation. In 2021 IEEE/ACM Inter-             piler. In 2022 IEEE/ACM International Symposium on
+     national Symposium on Code Generation and Optimiza-            Code Generation and Optimization (CGO), 2022.
+     tion (CGO), pages 2–14. IEEE, 2021.
+                                                               [42] Vadim Lyubashevsky, Chris Peikert, and Oded Regev.
+[34] Yann LeCun, Léon Bottou, Yoshua Bengio, and Patrick            On ideal lattices and learning with errors over rings. In
+     Haffner. Gradient-based learning applied to document           Henri Gilbert, editor, Advances in Cryptology – EURO-
+     recognition. Proceedings of the IEEE, 86(11):2278–             CRYPT 2010, Berlin, Heidelberg, 2010. Springer.
+     2324, 1998.
+                                                               [43] Raghav Malik, Kabir Sheth, and Milind Kulkarni. Coy-
+[35] DongKwon Lee, Woosuk Lee, Hakjoo Oh, and                       ote: A compiler for vectorizing encrypted arithmetic
+     Kwangkeun Yi. Optimizing homomorphic evaluation                circuits. In Proceedings of the 28th ACM International
+     circuits by program synthesis and term rewriting. In           Conference on Architectural Support for Programming
+     Proceedings of the 41st ACM SIGPLAN Conference on              Languages and Operating Systems, Volume 3, pages 118–
+     Programming Language Design and Implementation,                133, 2023.
+
+
+
+7008   33rd USENIX Security Symposium                                                                  USENIX Association
+[44] Pratyush Mishra, Ryan Lehmkuhl, Akshayaram Srini-         Appendix A          Existing RNS-CKKS Compilers
+     vasan, Wenting Zheng, and Raluca Ada Popa. Del-
+     phi: a cryptographic inference system for neural net-
+                                                               Existing RNS-CKKS compilers propose automatic scale man-
+     works. In Proceedings of the 2020 Workshop on Privacy-
+                                                               agement schemes that insert scale management operations
+     Preserving Machine Learning in Practice, pages 27–30,
+                                                               like rescale and modswitch to the input program that does
+     2020.
+                                                               not include scale management operations with optimizing
+[45] Marie Paindavoine and Bastien Vialla. Minimizing the      performance and error.
+     number of bootstrappings in fully homomorphic encryp-        EVA [18] proposes the first scale management algorithm
+     tion. In Selected Areas in Cryptography–SAC 2015:         that attempts to minimize the accumulated scale. A smaller
+     22nd International Conference, Sackville, NB, Canada,     accumulated scale is preferred as it allows the compiler to
+     August 12–14, 2015, Revised Selected Papers 22, pages     use smaller encryption parameters coefficient modulus Q and
+     25–43. Springer, 2016.                                    polynomial modulus N at the same security level, which in
+                                                               turn is expected to result in better performance. To this end,
+[46] PALISADE Lattice Cryptography Library. https://           EVA regards the minimum scale of input ciphertexts to a
+     palisade-crypto.org/, October 2020.                       program as the minimum scale requirement, called waterline
+                                                               Sw , of all ciphertexts. Then it inserts a rescale operation
+[47] Deevashwer Rathee, Mayank Rathee, Nishant Kumar,
+                                                               if the scale after rescaling is higher than the waterline: i.e.,
+     Nishanth Chandran, Divya Gupta, Aseem Rastogi, and
+                                                               m/S f ≥ Sw . Besides, EVA uses upscale and modswitch to
+     Rahul Sharma. Cryptflow2: Practical 2-party secure
+                                                               meet the same level and scale requirements of arithmetic
+     inference. In Proceedings of the 2020 ACM SIGSAC
+                                                               operations as needed.
+     Conference on Computer and Communications Security,
+     pages 325–342, 2020.                                         Hecate [41] introduces a new scale management operation,
+                                                               called downscale, which combines upscale and rescale op-
+[48] Microsoft SEAL (release 4.1). https://github.com/         erations and supports decreasing the scale of a ciphertext by
+     Microsoft/SEAL, January 2023. Microsoft Research,         an arbitrary amount. Note that rescale can only reduce the
+     Redmond, WA.                                              scale by the fixed rescale factor S f . Hecate makes use of the
+                                                               downscale operation to proactively bring the scale of a cipher-
+[49] Karen Simonyan and Andrew Zisserman. Very deep con-       text down to the waterline Sw , and shows that it can achieve
+     volutional networks for large-scale image recognition.    a lower accumulated scale than EVA. Furthermore, Hecate
+     arXiv preprint arXiv:1409.1556, 2014.                     shows that a lower accumulated scale does not always lead to
+[50] Alexander Viand, Patrick Jattke, Miro Haller, and An-     better performance, and presents a greedy latency-aware scale
+     war Hithnawi. Heco: Automatic code optimizations for      management algorithm based on static cost estimation. Recall
+     efficient fully homomorphic encryption. arXiv preprint    that scale management operations modswitch and rescale
+     arXiv:2202.01649, 2022.                                   change the levels of ciphertexts, affecting the latencies of the
+                                                               following arithmetic and rotation operations (Table 2). Com-
+[51] Alexander Viand and Hossein Shafagh. Marble: Making       bined with downscale and a greedy search algorithm, Hecate
+     fully homomorphic encryption accessible to all. In Pro-   demonstrates a better performance (lower latency) than EVA.
+     ceedings of the 6th Workshop on Encrypted Computing          ELASM [39] improves Hecate by reflecting the noise of
+     amp; Applied Homomorphic Cryptography, WAHC ’18.          RNS-CKKS operations. Because the RNS-CKKS operations
+     Association for Computing Machinery, 2018.                add operation-specific and scale-independent noise to the re-
+                                                               sult, the scale of the result affects the error of the operation by
+[52] Alexander Wood, Kayvan Najarian, and Delaram
+                                                               dividing the noise by the scale. To incorporate error awareness
+     Kahrobaei. Homomorphic encryption for machine learn-
+                                                               into the scale management scheme, ELASM proposes a noise-
+     ing in medicine and bioinformatics. ACM Computing
+                                                               aware waterline that controls the waterline of each operation
+     Surveys (CSUR), 53(4):1–35, 2020.
+                                                               in a fine-grain manner reflecting the operation noise. To con-
+[53] Zama. Concrete: TFHE Compiler that converts python        trol the error level, ELASM controls the waterline based on
+     programs into FHE equivalent, 2022. https://github.       the user-level compilation parameter called Scale-to-Noise-
+     com/zama-ai/concrete.                                     Ratio (SNR). Furthermore, ELASM proposes an efficient
+                                                               error estimator and error-aware exploration-based optimizer
+[54] Zama. TFHE-rs: A Pure Rust Implementation of the          called Error-Latency-Aware Scale Management (ELASM)
+     TFHE Scheme for Boolean and Integer Arithmetics           based on the error estimation. Combined with a noise aware
+     Over Encrypted Data, 2022. https://github.com/            waterline and an efficient error estimation scheme, ELASM
+     zama-ai/tfhe-rs.                                          achieves 4.2-bits better error and 16.7% better performance
+                                                               compared to Hecate.
+
+
+
+USENIX Association                                                                33rd USENIX Security Symposium            7009
+Table 6: Function Parameters of AlexNet. Based on the multiplexed parallel packing method presented in [36], we implemented
+the convolution and pooling layers, using the same parameter notation.
+
+               Layer      ni    no    fh    fw    s   hi    ho    wi     wo   ci    co    ki   ko   ti   to   pi   po    q
+            ConvBN1        1    2     3     3    1    32    32    32     32    3    96    1    1     3   96   16    1    6
+            AvgPool1       2    1     3     3    2    32    16    32     16   96    96    1    2    96   24   1     2   96
+            ConvBN2        1    1     5     5    1    16    16    16     16    96   256   2    2    24   64   2     1   128
+            AvgPool2       1    1     3     3    2    16    8     16     8    256   256   2    4    64   16   1     4   256
+            ConvBN3        1    1     3     3    1     8     8     8     8    256   384   4    4    16   24   4     2    96
+            ConvBN4        1    1     3     3    1     8     8     8     8    384   384   4    4    24   24   2     2   192
+            ConvBN5        1    1     3     3    1     8     8     8     8    384   256   4    4    24   16   2     4   128
+            AvgPool3       1    1     3     3    2     8     4     8     4    256   256   4    8    16   4    4    16   64
+
+
+Appendix B           Parameters Used in Evaluation
+Table 6 shows the function parameters that are used in each
+component of the AlexNet structure. ConvBN refers to a func-
+tion that combines convolution and batch normalization, and
+AvgPool represents average pooling. The implementation of
+convolution and pooling layers is based on the paper from [36].
+ni and no denote the numbers of input and output ciphertexts.
+The tuples {wi , hi , ci }, {wo , ho , co } represent input and output
+tensors. A kernel with a size fw × fh strides by s. The remain-
+ing parameters such as ki ,ko ,ti ,to ,pi ,po , and q are related to
+the multiplexed parallel convolution method presented in [36]
+Finally, the fully connected layer is implemented using the
+diagonal method in [23].
+
+
+
+
+7010    33rd USENIX Security Symposium                                                                             USENIX Association
+
